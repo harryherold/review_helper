@@ -1,0 +1,55 @@
+import { Button, VerticalBox , HorizontalBox, LineEdit, ListView, CheckBox} from "std-widgets.slint";
+
+export struct ReviewTodoItem  {
+    text: string,
+    isFixed: bool,
+}
+
+export component AppWindow inherits Window {
+    in property <[ReviewTodoItem]> review-todo-item-model: [];
+    callback review-todo-added(string);
+    callback review-todo-text-changed(int, string);
+    callback review-todo-is-fixed-toggled(int);
+
+    width: 600px;
+    height: 600px;
+
+    VerticalBox {
+        LineEdit {
+            placeholder-text: "Add comment here...";
+            accepted => {
+                if (self.text != "") {
+                    root.review-todo-added(self.text);
+                    self.text = "";
+                }
+            }
+        }
+        ListView {
+            for data[idx] in review-todo-item-model : HorizontalBox {
+                CheckBox {
+                    checked: data.isFixed;
+                    toggled => {
+                        root.review-todo-is-fixed-toggled(idx);
+                    }
+                }
+                LineEdit {
+                    text: data.text;
+                    accepted => {
+                        root.review-todo-text-changed(idx, self.text);
+                    }
+                }
+            }
+        }
+        ListView {
+            for data in review-todo-item-model : HorizontalBox {
+                CheckBox {
+                    enabled: false;
+                    checked: data.isFixed;
+                }
+                Text {
+                    text: data.text;
+                }
+            }
+        }
+    }
+}
