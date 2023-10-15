@@ -10,11 +10,27 @@ export component AppWindow inherits Window {
     callback review-todo-added(string);
     callback review-todo-text-changed(int, string);
     callback review-todo-is-fixed-toggled(int);
+    callback review-todos-save-requested();
+    callback review-todos-open-requested();
 
     width: 600px;
     height: 600px;
 
     VerticalBox {
+        HorizontalBox {
+            Button {
+                text: "Open";
+                clicked => {
+                    root.review-todos-open-requested();
+                }
+            }
+            Button {
+                text: "Save";
+                clicked => {
+                    root.review-todos-save-requested();
+                }
+            }
+        }
         LineEdit {
             placeholder-text: "Add comment here...";
             accepted => {
@@ -37,17 +53,6 @@ export component AppWindow inherits Window {
                     accepted => {
                         root.review-todo-text-changed(idx, self.text);
                     }
-                }
-            }
-        }
-        ListView {
-            for data in review-todo-item-model : HorizontalBox {
-                CheckBox {
-                    enabled: false;
-                    checked: data.isFixed;
-                }
-                Text {
-                    text: data.text;
                 }
             }
         }
