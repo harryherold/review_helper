@@ -7,29 +7,26 @@ export struct ReviewTodoItem  {
 
 export component AppWindow inherits Window {
     in property <[ReviewTodoItem]> review-todo-item-model: [];
+    in property <string> current-file: "";
+    property <bool> file-loaed: current-file != "";
     callback review-todo-added(string);
     callback review-todo-text-changed(int, string);
     callback review-todo-is-fixed-toggled(int);
-    callback review-todos-save-requested();
-    callback review-todos-open-requested();
+    callback review-todos-save-requested <=> save-button.clicked;
+    callback review-todos-open-requested <=> open-button.clicked;
 
     width: 600px;
     height: 600px;
 
     VerticalBox {
+        LineEdit {
+            horizontal-alignment: TextHorizontalAlignment.center;
+            text: root.current-file;
+            read-only: true;
+        }
         HorizontalBox {
-            Button {
-                text: "Open";
-                clicked => {
-                    root.review-todos-open-requested();
-                }
-            }
-            Button {
-                text: "Save";
-                clicked => {
-                    root.review-todos-save-requested();
-                }
-            }
+            open-button := Button { text: "Open"; enabled: !root.file-loaed;}
+            save-button := Button { text: "Save"; }
         }
         LineEdit {
             placeholder-text: "Add comment here...";
