@@ -1,4 +1,4 @@
-import { Button, VerticalBox , HorizontalBox, LineEdit, ListView, CheckBox} from "std-widgets.slint";
+import { Button, VerticalBox , HorizontalBox, LineEdit, ListView, CheckBox, GroupBox} from "std-widgets.slint";
 
 export struct ReviewTodoItem  {
     text: string,
@@ -9,6 +9,7 @@ export component AppWindow inherits Window {
     in property <[ReviewTodoItem]> review-todo-item-model: [];
     in property <string> current-file: "";
     property <bool> file-loaed: current-file != "";
+    property <length> custom-spacing: 4px;
     callback review-todo-added(string);
     callback review-todo-text-changed(int, string);
     callback review-todo-is-fixed-toggled(int);
@@ -19,36 +20,53 @@ export component AppWindow inherits Window {
     height: 600px;
 
     VerticalBox {
-        LineEdit {
-            horizontal-alignment: TextHorizontalAlignment.center;
-            text: root.current-file;
-            read-only: true;
-        }
-        HorizontalBox {
-            open-button := Button { text: "Open"; enabled: !root.file-loaed;}
-            save-button := Button { text: "Save"; }
-        }
-        LineEdit {
-            placeholder-text: "Add comment here...";
-            accepted => {
-                if (self.text != "") {
-                    root.review-todo-added(self.text);
-                    self.text = "";
-                }
-            }
-        }
-        ListView {
-            for data[idx] in review-todo-item-model : HorizontalBox {
-                CheckBox {
-                    checked: data.isFixed;
-                    toggled => {
-                        root.review-todo-is-fixed-toggled(idx);
+        GroupBox {
+            title: "Notes: \{root.current-file}";
+            
+            VerticalLayout {
+                spacing: root.custom-spacing;
+
+                HorizontalLayout {
+                    spacing: root.custom-spacing;
+
+                    LineEdit {
+                        vertical-stretch: 0;
+                        placeholder-text: "Add comment here...";
+                        accepted => {
+                            if (self.text != "") {
+                                root.review-todo-added(self.text);
+                                self.text = "";
+                            }
+                        }
+                    }
+                    open-button := Button {      
+                        enabled: !root.file-loaed;                  
+                        icon: @image-url("../assets/icons/file_open.svg");
+                    }
+                    save-button := Button {
+                        icon: @image-url("../assets/icons/file_save.svg");
                     }
                 }
-                LineEdit {
-                    text: data.text;
-                    accepted => {
-                        root.review-todo-text-changed(idx, self.text);
+                ListView {
+                    padding-right: 0;
+                    padding-left: 0;
+                    for data[idx] in review-todo-item-model : HorizontalLayout {        
+                        spacing: 2px;
+                        padding-top: root.custom-spacing;
+
+                        CheckBox {
+                            checked: data.isFixed;
+                            toggled => {
+                                root.review-todo-is-fixed-toggled(idx);
+                            }
+                        }
+                        LineEdit {
+                            horizontal-stretch: 1;
+                            text: data.text;
+                            accepted => {
+                                root.review-todo-text-changed(idx, self.text);
+                            }
+                        }
                     }
                 }
             }
