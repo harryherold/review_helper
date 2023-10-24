@@ -39,6 +39,20 @@ fn main() -> Result<(), slint::PlatformError> {
             }
         }
     });
+    ui.on_review_open_repo_requested({
+        let review = review.clone();
+        let ui_weak = ui.as_weak();
+        move || {
+            let ui = ui_weak.unwrap();
+            if let Some(path) = review.borrow_mut().open_repo() {
+                ui.set_current_repo(path);
+            }
+        }
+    });
+    ui.on_review_diff_requested({
+        let review = review.clone();
+        move |start_commit, end_commit| review.borrow_mut().diff_repo(start_commit, end_commit)
+    });
     ui.set_review_todo_item_model(review.borrow().todo_model().into());
     ui.run()
 }

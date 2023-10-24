@@ -4,10 +4,15 @@ export struct ReviewTodoItem  {
     text: string,
     isFixed: bool,
 }
+export struct ReviewFileItem {
+    text: string,
+    isReviewed: bool,
+}
 
 export component AppWindow inherits Window {
     in property <[ReviewTodoItem]> review-todo-item-model: [];
     in property <string> current-file: "";
+    in property <string> current-repo: "";
     property <bool> file-loaed: current-file != "";
     property <length> custom-spacing: 4px;
     callback review-todo-added(string);
@@ -15,11 +20,74 @@ export component AppWindow inherits Window {
     callback review-todo-is-fixed-toggled(int);
     callback review-todos-save-requested <=> save-button.clicked;
     callback review-todos-open-requested <=> open-button.clicked;
+    callback review-open-repo-requested <=> open-repo-button.clicked;
+    callback review-diff-requested(string, string);
 
     width: 600px;
     height: 600px;
 
     VerticalBox {
+        alignment: start;
+
+        GroupBox {
+            title: "Git Repo: ";
+
+            VerticalLayout {
+                spacing: root.custom-spacing;
+
+                HorizontalLayout {
+                    spacing: root.custom-spacing;
+
+                    repo-path := LineEdit {
+                        read-only: true;
+                        text: root.current-repo;
+                    }
+                    open-repo-button := Button {
+                        icon: @image-url("../assets/icons/folder_open.svg");
+                    }
+                }
+                HorizontalLayout {
+                    spacing: root.custom-spacing;
+
+                    start-commit-edit := LineEdit {
+                        placeholder-text: "Start Commit SHA";
+                        text: "dd02a7c28bfcf33b6da97cc36daef96e6443847f";
+                    }
+                    Button {
+                        icon: @image-url("../assets/icons/compare.svg");
+                        clicked => {
+                            root.review-diff-requested(start-commit-edit.text, end-commit-edit.text);
+                        }
+                    }
+                    end-commit-edit := LineEdit {
+                        placeholder-text: "End Commit SHA";
+                        text: "70989e0fbda7919d357c0183e62294423f3d9425";
+                    }
+                }
+            }
+        }
+        GroupBox {
+            title: "Files:";
+
+            VerticalLayout {
+                spacing: root.custom-spacing;
+
+                // ListView {
+                //     padding-right: 0;
+                //     padding-left: 0;
+
+                //     for data in [{}] : HorizontalLayout {
+                //             spacing: 2px;
+                //             padding-top: root.custom-spacing;
+                            
+                //             CheckBox {
+                //                 checked: false;
+                //                 text: "";
+                //             }
+                //         }
+                // }
+            }
+        }
         GroupBox {
             title: "Notes: \{root.current-file}";
             

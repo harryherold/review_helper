@@ -1,6 +1,8 @@
 use std::fs::OpenOptions;
 use std::fs::{read_to_string, File};
 use std::io::{Error, Write};
+use std::path::Path;
+use std::process::Command;
 use std::str::FromStr;
 use std::{path::PathBuf, rc::Rc};
 
@@ -45,15 +47,25 @@ fn read_todos_from_file(todo_model: &VecModel<ReviewTodoItem>, path: &PathBuf) -
     Ok(())
 }
 
+fn diff_git_repo(repo_path: &PathBuf, start_commit: &str, end_commit: &str) {
+    let args = ["diff", "--name-only", start_commit, end_commit];
+    let output = Command::new("git").current_dir(repo_path).args(args).output().expect("git diff failed!");
+    println!("{}", String::from_utf8(output.stdout).unwrap());
+}
+
 pub struct Review {
     todo_model: Rc<VecModel<ReviewTodoItem>>,
+    file_diff_model: Rc<VecModel<ReviewFileItem>>,
     todo_file: PathBuf,
+    repo_path: PathBuf,
 }
 impl Review {
     pub fn new() -> Review {
         Review {
             todo_model: Rc::new(slint::VecModel::<ReviewTodoItem>::default()),
+            file_diff_model: Rc::new(slint::VecModel::<ReviewFileItem>::default()),
             todo_file: PathBuf::new(),
+            repo_path: PathBuf::new(),
         }
     }
 
@@ -61,12 +73,16 @@ impl Review {
         self.todo_model.clone()
     }
 
+    pub fn file_diff_model(&self) -> Rc<VecModel<ReviewFileItem>> {
+        self.file_diff_model.clone()
+    }
+
     pub fn add_todo(&self, text: SharedString) {
         self.todo_model.push(ReviewTodoItem { isFixed: false, text: text })
     }
 
     pub fn open_todos(&mut self) -> Option<SharedString> {
-        self.todo_file = PathBuf::new();
+        // self.todo_file = PathBuf::new();
         if self.todo_file.as_os_str().is_empty() {
             self.todo_file = FileDialog::new()
                 .set_location("~")
@@ -133,5 +149,18 @@ impl Review {
                 );
             }
         }
+    }
+
+    pub fn open_repo(&mut self) -> Option<SharedString> {
+        if self.repo_path.as_os_str().is_empty() {
+            self.repo_path = FileDialog::new().set_location("~/workspace/review-todo").show_open_single_dir().unwrap()?;
+        }
+        Some(SharedString::from(self.repo_path.to_str()?))
+    }
+
+    pub fn diff_repo(&mut self, start_commit: SharedString, end_commit: SharedString) {
+        let args = ["diff", "--name-only", start_commit.as_str(), end_commit.as_str()];
+        let output = Command::new("git").current_dir(&self.repo_path).args(args).output().expect("git diff failed!");
+        println!("{}", String::from_utf8(output.stdout).unwrap());
     }
 }
