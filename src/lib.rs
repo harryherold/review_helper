@@ -161,6 +161,7 @@ impl Review {
     pub fn diff_repo(&mut self, start_commit: SharedString, end_commit: SharedString) {
         let args = ["diff", "--name-only", start_commit.as_str(), end_commit.as_str()];
         let output = Command::new("git").current_dir(&self.repo_path).args(args).output().expect("git diff failed!");
-        println!("{}", String::from_utf8(output.stdout).unwrap());
+        println!("Diff!");
+        // println!("{}", String::from_utf8(output.stdout).unwrap());
     }
 }
