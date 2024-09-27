@@ -1,17 +1,19 @@
 use std::fs::OpenOptions;
 use std::fs::{read_to_string, File};
-use std::io::{Error, Write};
+use std::io::Write;
 use std::process::Command;
 use std::str::FromStr;
 use std::{path::PathBuf, rc::Rc};
 
 use native_dialog::{FileDialog, MessageDialog, MessageType};
 
+use anyhow::Result;
+
 use slint::{Model, SharedString, VecModel};
 
 slint::include_modules!();
 
-fn write_todos_to_file(vec_model: &VecModel<ReviewTodoItem>, path: &PathBuf, should_create_file: bool) -> Result<(), Error> {
+fn write_todos_to_file(vec_model: &VecModel<ReviewTodoItem>, path: &PathBuf, should_create_file: bool) -> Result<(), std::io::Error> {
     let get_file = || {
         if should_create_file {
             return File::create(path);
@@ -31,7 +33,7 @@ fn write_todos_to_file(vec_model: &VecModel<ReviewTodoItem>, path: &PathBuf, sho
     Ok(())
 }
 
-fn read_todos_from_file(todo_model: &VecModel<ReviewTodoItem>, path: &PathBuf) -> Result<(), Error> {
+fn read_todos_from_file(todo_model: &VecModel<ReviewTodoItem>, path: &PathBuf) -> Result<(), std::io::Error> {
     for line in read_to_string(path)?.lines() {
         let task_result = todo_txt::Task::from_str(line);
         if let Ok(task) = task_result {
@@ -46,13 +48,22 @@ fn read_todos_from_file(todo_model: &VecModel<ReviewTodoItem>, path: &PathBuf) -
     Ok(())
 }
 
-fn diff_git_repo(repo_path: &PathBuf, start_commit: &str, end_commit: &str) {
-    let args = ["diff", "--name-only", start_commit, end_commit];
-    let output = Command::new("git").current_dir(repo_path).args(args).output().expect("git diff failed!");
-    println!("{}", String::from_utf8(output.stdout).unwrap());
+fn diff_git_repo(repo_path: &PathBuf, start_commit: &str, end_commit: &str) -> Result<String> {
+    let mut args = vec!["diff", "--name-only"];
+
+    if false == start_commit.is_empty() {
+        args.push(start_commit);
+    }
+    if false == end_commit.is_empty() {
+        args.push(end_commit);
+    }
+
+    let output = Command::new("git").current_dir(repo_path).args(args).output()?;
+
+    String::from_utf8(output.stdout).map_err(|e| anyhow::Error::from(e))
 }
 
-fn diff_file(repo_path: &PathBuf, start_commit: &str, end_commit: &str, file: &str) {
+fn diff_file(repo_path: &PathBuf, start_commit: &str, end_commit: &str, file: &str) -> Result<()> {
     let mut args = vec!["difftool", "-U100000", "--no-prompt", "--tool=meld"];
 
     if false == start_commit.is_empty() {
@@ -64,10 +75,8 @@ fn diff_file(repo_path: &PathBuf, start_commit: &str, end_commit: &str, file: &s
 
     args.push(file);
 
-    let result = Command::new("git").current_dir(repo_path).args(args).spawn();
-    if result.is_err() {
-        eprintln!("Spawn failed!");
-    }
+    Command::new("git").current_dir(repo_path).args(args).spawn()?;
+    Ok(())
 }
 
 pub struct Review {
@@ -181,41 +190,34 @@ impl Review {
     }
 
     pub fn diff_repo(&mut self, start_commit: SharedString, end_commit: SharedString) {
-        // TODO move in own function out of Review
         self.file_diff_model.clear();
 
-        let mut args = vec!["diff", "--name-only"];
-
-        if false == start_commit.is_empty() {
-            args.push(start_commit.as_str());
-        }
-        if false == end_commit.is_empty() {
-            args.push(end_commit.as_str());
-        }
-
-        let diff_result = Command::new("git").current_dir(&self.repo_path).args(args).output();
-        if let Err(e) = diff_result {
-            eprintln!("Failed to execute git diff: {}", e.to_string());
-            return;
-        }
         self.start_commit = start_commit.to_string();
         self.end_commit = end_commit.to_string();
-        let output_text = String::from_utf8(diff_result.unwrap().stdout).expect("Convert stdout to string failed!");
-        let files: Vec<&str> = output_text.split('\n').collect();
-        for file in files {
-            if false == file.is_empty() {
-                self.file_diff_model.push(ReviewFileItem {
-                    text: file.into(),
-                    isReviewed: false,
-                });
-            }
+
+        let diff_result = diff_git_repo(&self.repo_path, &self.start_commit, &self.end_commit);
+        if let Err(e) = diff_result {
+            // TODO proper error handling
+            eprintln!("Diff of repo failed: {}", e.to_string());
+            return;
         }
+        let output_text = diff_result.unwrap();
+        output_text.split('\n').filter(|file| false == file.is_empty()).for_each(|file| {
+            self.file_diff_model.push(ReviewFileItem {
+                text: file.into(),
+                isReviewed: false,
+            })
+        });
     }
+
     pub fn diff_file(&self, index: i32) {
         match self.file_diff_model.row_data(index as usize) {
-            None => eprintln!("Could not found file!"),
+            None => eprintln!("Could not found file!"), // TODO proper error handling
             Some(file_item) => {
-                diff_file(&self.repo_path, &self.start_commit, &self.end_commit, &file_item.text);
+                if let Err(e) = diff_file(&self.repo_path, &self.start_commit, &self.end_commit, &file_item.text) {
+                    // TODO proper error handling
+                    eprintln!("File diff failed: {}", e.to_string());
+                }
             }
         }
     }
