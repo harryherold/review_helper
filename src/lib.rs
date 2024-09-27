@@ -52,7 +52,7 @@ fn diff_git_repo(repo_path: &PathBuf, start_commit: &str, end_commit: &str) {
     println!("{}", String::from_utf8(output.stdout).unwrap());
 }
 
-fn diff_file (repo_path: &PathBuf, start_commit: &str, end_commit: &str, file: &str) {
+fn diff_file(repo_path: &PathBuf, start_commit: &str, end_commit: &str, file: &str) {
     let mut args = vec!["difftool", "-U100000", "--no-prompt", "--tool=meld"];
 
     if false == start_commit.is_empty() {
@@ -201,10 +201,13 @@ impl Review {
         self.start_commit = start_commit.to_string();
         self.end_commit = end_commit.to_string();
         let output_text = String::from_utf8(diff_result.unwrap().stdout).expect("Convert stdout to string failed!");
-        let files : Vec<&str> = output_text.split('\n').collect();
+        let files: Vec<&str> = output_text.split('\n').collect();
         for file in files {
             if false == file.is_empty() {
-                self.file_diff_model.push(ReviewFileItem{ text: file.into(), isReviewed: false });
+                self.file_diff_model.push(ReviewFileItem {
+                    text: file.into(),
+                    isReviewed: false,
+                });
             }
         }
     }

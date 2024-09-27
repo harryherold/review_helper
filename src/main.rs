@@ -55,7 +55,7 @@ fn main() -> Result<(), slint::PlatformError> {
     });
     ui.on_review_open_diff_requested({
         let review = review.clone();
-        move | index | review.borrow().diff_file(index)
+        move |index| review.borrow().diff_file(index)
     });
     ui.set_review_todo_item_model(review.borrow().todo_model().into());
     ui.set_review_file_item_model(review.borrow().file_diff_model().into());
