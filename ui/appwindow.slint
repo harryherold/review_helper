@@ -11,6 +11,7 @@ export struct ReviewFileItem {
 
 export component AppWindow inherits Window {
     in property <[ReviewTodoItem]> review-todo-item-model: [];
+    in property <[ReviewFileItem]> review-file-item-model: [];
     in property <string> current-file: "";
     in property <string> current-repo: "";
     property <bool> file-loaed: current-file != "";
@@ -22,6 +23,7 @@ export component AppWindow inherits Window {
     callback review-todos-open-requested <=> open-button.clicked;
     callback review-open-repo-requested <=> open-repo-button.clicked;
     callback review-diff-requested(string, string);
+    callback review-open-diff-requested(int);
     width: 700px;
     height: 600px;
     VerticalBox {
@@ -64,24 +66,33 @@ export component AppWindow inherits Window {
             }
         }
 
-        // GroupBox {
-        //     title: "Files:";
-        //     VerticalLayout {
-        //         spacing: root.custom-spacing;
-        //         ListView {
-        //             padding-right: 0;
-        //             padding-left: 0;
-        //             for data in [{ }]: HorizontalLayout {
-        //                 spacing: 2px;
-        //                 padding-top: root.custom-spacing;
-        //                 CheckBox {
-        //                     checked: false;
-        //                     text: "foo";
-        //                 }
-        //             }
-        //         }
-        //     }
-        // }
+        GroupBox {
+            title: "Changed Files:";
+            VerticalLayout {
+                spacing: root.custom-spacing;
+                ListView {
+                    height: Math.min(200px, review-file-item-model.length * 50px);
+                    padding-right: 0;
+                    padding-left: 0;
+                    for data[idx] in review-file-item-model: HorizontalLayout {
+                        alignment: space-between;
+                        spacing: 2px;
+                        padding-top: root.custom-spacing;
+                        CheckBox {
+                            checked: data.isReviewed;
+                            text: data.text;
+                        }
+
+                        Button {
+                            text: "diff";
+                            clicked => {
+                                root.review-open-diff-requested(idx);
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         GroupBox {
             title: "Notes: \{root.current-file}";

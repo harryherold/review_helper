@@ -1,7 +1,6 @@
 use std::fs::OpenOptions;
 use std::fs::{read_to_string, File};
 use std::io::{Error, Write};
-use std::path::Path;
 use std::process::Command;
 use std::str::FromStr;
 use std::{path::PathBuf, rc::Rc};
@@ -53,19 +52,42 @@ fn diff_git_repo(repo_path: &PathBuf, start_commit: &str, end_commit: &str) {
     println!("{}", String::from_utf8(output.stdout).unwrap());
 }
 
+fn diff_file (repo_path: &PathBuf, start_commit: &str, end_commit: &str, file: &str) {
+    let mut args = vec!["difftool", "-U100000", "--no-prompt", "--tool=meld"];
+
+    if false == start_commit.is_empty() {
+        args.push(start_commit);
+    }
+    if false == end_commit.is_empty() {
+        args.push(end_commit);
+    }
+
+    args.push(file);
+
+    let result = Command::new("git").current_dir(repo_path).args(args).spawn();
+    if result.is_err() {
+        eprintln!("Spawn failed!");
+    }
+}
+
 pub struct Review {
     todo_model: Rc<VecModel<ReviewTodoItem>>,
-    file_diff_model: Rc<VecModel<ReviewFileItem>>,
     todo_file: PathBuf,
     repo_path: PathBuf,
+    // TODO refactor: move in on diff struct
+    start_commit: String,
+    end_commit: String,
+    file_diff_model: Rc<VecModel<ReviewFileItem>>,
 }
 impl Review {
     pub fn new() -> Review {
         Review {
             todo_model: Rc::new(slint::VecModel::<ReviewTodoItem>::default()),
-            file_diff_model: Rc::new(slint::VecModel::<ReviewFileItem>::default()),
             todo_file: PathBuf::new(),
             repo_path: PathBuf::new(),
+            start_commit: String::new(),
+            end_commit: String::new(),
+            file_diff_model: Rc::new(slint::VecModel::<ReviewFileItem>::default()),
         }
     }
 
@@ -159,9 +181,39 @@ impl Review {
     }
 
     pub fn diff_repo(&mut self, start_commit: SharedString, end_commit: SharedString) {
-        let args = ["diff", "--name-only", start_commit.as_str(), end_commit.as_str()];
-        let output = Command::new("git").current_dir(&self.repo_path).args(args).output().expect("git diff failed!");
-        println!("Diff!");
-        // println!("{}", String::from_utf8(output.stdout).unwrap());
+        // TODO move in own function out of Review
+        self.file_diff_model.clear();
+
+        let mut args = vec!["diff", "--name-only"];
+
+        if false == start_commit.is_empty() {
+            args.push(start_commit.as_str());
+        }
+        if false == end_commit.is_empty() {
+            args.push(end_commit.as_str());
+        }
+
+        let diff_result = Command::new("git").current_dir(&self.repo_path).args(args).output();
+        if let Err(e) = diff_result {
+            eprintln!("Failed to execute git diff: {}", e.to_string());
+            return;
+        }
+        self.start_commit = start_commit.to_string();
+        self.end_commit = end_commit.to_string();
+        let output_text = String::from_utf8(diff_result.unwrap().stdout).expect("Convert stdout to string failed!");
+        let files : Vec<&str> = output_text.split('\n').collect();
+        for file in files {
+            if false == file.is_empty() {
+                self.file_diff_model.push(ReviewFileItem{ text: file.into(), isReviewed: false });
+            }
+        }
+    }
+    pub fn diff_file(&self, index: i32) {
+        match self.file_diff_model.row_data(index as usize) {
+            None => eprintln!("Could not found file!"),
+            Some(file_item) => {
+                diff_file(&self.repo_path, &self.start_commit, &self.end_commit, &file_item.text);
+            }
+        }
     }
 }
