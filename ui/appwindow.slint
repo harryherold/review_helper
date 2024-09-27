@@ -22,7 +22,7 @@ export component AppWindow inherits Window {
     callback review-todos-open-requested <=> open-button.clicked;
     callback review-open-repo-requested <=> open-repo-button.clicked;
     callback review-diff-requested(string, string);
-    width: 600px;
+    width: 700px;
     height: 600px;
     VerticalBox {
         alignment: start;
@@ -86,6 +86,7 @@ export component AppWindow inherits Window {
         GroupBox {
             title: "Notes: \{root.current-file}";
             VerticalLayout {
+                alignment: start;
                 spacing: root.custom-spacing;
                 HorizontalLayout {
                     spacing: root.custom-spacing;
@@ -111,6 +112,7 @@ export component AppWindow inherits Window {
                 }
 
                 ListView {
+                    height: Math.min(200px, review-todo-item-model.length * 50px);
                     padding-right: 0;
                     padding-left: 0;
                     for data[idx] in review-todo-item-model: HorizontalLayout {
