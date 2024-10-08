@@ -1,0 +1,44 @@
+
+import { GroupBox, ListView, CheckBox, Button } from "std-widgets.slint";
+import { Style } from "style.slint";
+
+export struct DiffFileItem {
+    text: string,
+    isReviewed: bool,
+}
+
+export global Diff {
+    in property <string> start_commit;
+    in property <string> end_commit;
+    in property <[DiffFileItem]> diff_model;
+    callback diff-start-end(string, string);
+    callback open-file-diff(int);
+}
+
+export component FileDiffView inherits GroupBox {
+    title: "Changed Files:";
+
+    VerticalLayout {
+        spacing: Style.spacing;
+
+        ListView {
+            height: Math.min(200px, Diff.diff_model.length * 50px);
+            padding-right: 0;
+            padding-left: 0;
+            for data[idx] in Diff.diff_model: HorizontalLayout {
+                alignment: space-between;
+                spacing: 2px;
+                padding-top: Style.spacing;
+
+                CheckBox {
+                    checked: data.isReviewed;
+                    text: data.text;
+                }
+                Button {
+                    text: "diff";
+                    clicked => { Diff.open-file-diff(idx); }
+                }
+            }
+        }
+    }
+}

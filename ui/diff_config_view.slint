@@ -1,0 +1,49 @@
+
+import { GroupBox, LineEdit, Button } from "std-widgets.slint";
+import { Diff } from "file_diff_view.slint";
+import { Style } from "style.slint";
+
+export global Repository {
+    in property <string> path;
+    callback open;
+}
+
+export component DiffConfigView inherits GroupBox {
+    title: "Git Repo: ";
+
+    VerticalLayout {
+        spacing: Style.spacing;
+
+        HorizontalLayout {
+            spacing: Style.spacing;
+            repo-path := LineEdit {
+                read-only: true;
+                text: Repository.path;
+            }
+            open-repo-button := Button {
+                icon: @image-url("../assets/icons/folder_open.svg");
+                clicked => { Repository.open(); }
+            }
+        }
+        HorizontalLayout {
+            visible: Repository.path != "";
+            spacing: Style.spacing;
+            start-commit-edit := LineEdit {
+                placeholder-text: "Start Commit SHA";
+                text: "dd02a7c28bfcf33b6da97cc36daef96e6443847f";
+            }
+
+            Button {
+                icon: @image-url("../assets/icons/compare.svg");
+                clicked => {
+                    Diff.diff-start-end(start-commit-edit.text, end-commit-edit.text);
+                }
+            }
+
+            end-commit-edit := LineEdit {
+                placeholder-text: "End Commit SHA";
+                text: "70989e0fbda7919d357c0183e62294423f3d9425";
+            }
+        }
+    }
+}

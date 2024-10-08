@@ -1,0 +1,72 @@
+import { GroupBox, LineEdit, Button, ListView, CheckBox } from "std-widgets.slint";
+import { Style } from "style.slint";
+
+export struct NoteItem  {
+    text: string,
+    isFixed: bool,
+}
+
+export global Notes {
+    in property <string> path;
+    in property <[NoteItem]> notes_model;
+    callback add-note(string);
+    callback change-text(int, string);
+    callback toggle-fixed(int);
+    callback open();
+    callback save();
+}
+
+export component NotesView inherits GroupBox {
+    title: "Notes: \{Notes.path}";
+
+    VerticalLayout {
+        alignment: start;
+        spacing: Style.spacing;
+        HorizontalLayout {
+            spacing: Style.spacing;
+
+            LineEdit {
+                vertical-stretch: 0;
+                placeholder-text: "Add comment here...";
+                accepted => {
+                    if (self.text != "") {
+                        Notes.add-note(self.text);
+                        self.text = "";
+                    }
+                }
+            }
+            Button {
+                icon: @image-url("../assets/icons/file_open.svg");
+                clicked => { Notes.open(); }
+            }
+            Button {
+                icon: @image-url("../assets/icons/file_save.svg");
+                clicked => { Notes.save(); }
+            }
+        }
+
+        ListView {
+            height: Math.min(200px, Notes.notes_model.length * 50px);
+            padding-right: 0;
+            padding-left: 0;
+            for data[idx] in Notes.notes_model: HorizontalLayout {
+                spacing: 2px;
+                padding-top: Style.spacing;
+
+                CheckBox {
+                    checked: data.isFixed;
+                    toggled => {
+                        Notes.toggle-fixed(idx);
+                    }
+                }
+                LineEdit {
+                    horizontal-stretch: 1;
+                    text: data.text;
+                    accepted => {
+                        Notes.change-text(idx, self.text);
+                    }
+                }
+            }
+        }
+    }
+}

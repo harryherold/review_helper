@@ -1,151 +1,20 @@
 import { Button, VerticalBox , HorizontalBox, LineEdit, ListView, CheckBox, GroupBox} from "std-widgets.slint";
+import { Style } from "style.slint";
+import { NotesView, Notes, NoteItem } from "notes_view.slint";
+import { FileDiffView, Diff, DiffFileItem } from "file_diff_view.slint";
+import { DiffConfigView, Repository} from "diff_config_view.slint";
 
-export struct ReviewTodoItem  {
-    text: string,
-    isFixed: bool,
-}
-export struct ReviewFileItem {
-    text: string,
-    isReviewed: bool,
-}
+export { Notes, NoteItem, Diff, DiffFileItem, Repository }
 
 export component AppWindow inherits Window {
-    in property <[ReviewTodoItem]> review-todo-item-model: [];
-    in property <[ReviewFileItem]> review-file-item-model: [];
-    in property <string> current-file: "";
-    in property <string> current-repo: "";
-    property <bool> file-loaed: current-file != "";
-    property <length> custom-spacing: 4px;
-    callback review-todo-added(string);
-    callback review-todo-text-changed(int, string);
-    callback review-todo-is-fixed-toggled(int);
-    callback review-todos-save-requested <=> save-button.clicked;
-    callback review-todos-open-requested <=> open-button.clicked;
-    callback review-open-repo-requested <=> open-repo-button.clicked;
-    callback review-diff-requested(string, string);
-    callback review-open-diff-requested(int);
     width: 700px;
     height: 600px;
+
     VerticalBox {
         alignment: start;
-        GroupBox {
-            title: "Git Repo: ";
-            VerticalLayout {
-                spacing: root.custom-spacing;
-                HorizontalLayout {
-                    spacing: root.custom-spacing;
-                    repo-path := LineEdit {
-                        read-only: true;
-                        text: root.current-repo;
-                    }
 
-                    open-repo-button := Button {
-                        icon: @image-url("../assets/icons/folder_open.svg");
-                    }
-                }
-
-                HorizontalLayout {
-                    spacing: root.custom-spacing;
-                    start-commit-edit := LineEdit {
-                        placeholder-text: "Start Commit SHA";
-                        text: "dd02a7c28bfcf33b6da97cc36daef96e6443847f";
-                    }
-
-                    Button {
-                        icon: @image-url("../assets/icons/compare.svg");
-                        clicked => {
-                            root.review-diff-requested(start-commit-edit.text, end-commit-edit.text);
-                        }
-                    }
-
-                    end-commit-edit := LineEdit {
-                        placeholder-text: "End Commit SHA";
-                        text: "70989e0fbda7919d357c0183e62294423f3d9425";
-                    }
-                }
-            }
-        }
-
-        GroupBox {
-            title: "Changed Files:";
-            VerticalLayout {
-                spacing: root.custom-spacing;
-                ListView {
-                    height: Math.min(200px, review-file-item-model.length * 50px);
-                    padding-right: 0;
-                    padding-left: 0;
-                    for data[idx] in review-file-item-model: HorizontalLayout {
-                        alignment: space-between;
-                        spacing: 2px;
-                        padding-top: root.custom-spacing;
-                        CheckBox {
-                            checked: data.isReviewed;
-                            text: data.text;
-                        }
-
-                        Button {
-                            text: "diff";
-                            clicked => {
-                                root.review-open-diff-requested(idx);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        GroupBox {
-            title: "Notes: \{root.current-file}";
-            VerticalLayout {
-                alignment: start;
-                spacing: root.custom-spacing;
-                HorizontalLayout {
-                    spacing: root.custom-spacing;
-                    LineEdit {
-                        vertical-stretch: 0;
-                        placeholder-text: "Add comment here...";
-                        accepted => {
-                            if (self.text != "") {
-                                root.review-todo-added(self.text);
-                                self.text = "";
-                            }
-                        }
-                    }
-
-                    open-button := Button {
-                        enabled: !root.file-loaed;
-                        icon: @image-url("../assets/icons/file_open.svg");
-                    }
-
-                    save-button := Button {
-                        icon: @image-url("../assets/icons/file_save.svg");
-                    }
-                }
-
-                ListView {
-                    height: Math.min(200px, review-todo-item-model.length * 50px);
-                    padding-right: 0;
-                    padding-left: 0;
-                    for data[idx] in review-todo-item-model: HorizontalLayout {
-                        spacing: 2px;
-                        padding-top: root.custom-spacing;
-                        CheckBox {
-                            checked: data.isFixed;
-                            toggled => {
-                                root.review-todo-is-fixed-toggled(idx);
-                            }
-                        }
-
-                        LineEdit {
-                            horizontal-stretch: 1;
-                            text: data.text;
-                            accepted => {
-                                root.review-todo-text-changed(idx, self.text);
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        DiffConfigView {}
+        FileDiffView {}
+        NotesView {}
     }
 }
