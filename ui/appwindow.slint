@@ -6,15 +6,43 @@ import { DiffConfigView, Repository} from "diff_config_view.slint";
 
 export { Notes, NoteItem, Diff, DiffFileItem, Repository }
 
+export global Project {
+    in property <string> path;
+    out property <bool> isLoaded: path != "";
+    callback open;
+    callback new;
+    callback save;
+}
+
 export component AppWindow inherits Window {
     width: 700px;
     height: 600px;
+    title: Project.path;
 
-    VerticalBox {
+    VerticalLayout {
         alignment: start;
 
-        DiffConfigView {}
-        FileDiffView {}
-        NotesView {}
+        HorizontalLayout {
+            alignment: start;
+            spacing: 1px;
+
+            Button {
+                text: "New";
+            }
+            Button {
+                text: "Open";
+                clicked => { Project.open() }
+            }
+            if Project.isLoaded: Button {
+                text: "Save";
+            }
+        }
+        VerticalBox {
+            alignment: start;
+
+            if Project.isLoaded: DiffConfigView {}
+            if Repository.isLoaded: FileDiffView {}
+            if Repository.isLoaded: NotesView {}
+        }
     }
 }

@@ -8,6 +8,7 @@ build = "build.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+rust-ini = "0.21"
 slint = "1.8.0"
 native-dialog = "0.7.0"
 todo-txt = "3.1.0"

@@ -5,6 +5,7 @@ import { Style } from "style.slint";
 
 export global Repository {
     in property <string> path;
+    out property <bool> isLoaded: path != "";
     callback open;
 }
 
@@ -16,13 +17,13 @@ export component DiffConfigView inherits GroupBox {
 
         HorizontalLayout {
             spacing: Style.spacing;
-            repo-path := LineEdit {
+            LineEdit {
                 read-only: true;
                 text: Repository.path;
             }
-            open-repo-button := Button {
+            Button {
                 icon: @image-url("../assets/icons/folder_open.svg");
-                clicked => { Repository.open(); }
+                clicked => { Repository.open() }
             }
         }
         HorizontalLayout {
