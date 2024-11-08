@@ -1,4 +1,4 @@
-import { Button, VerticalBox , HorizontalBox, LineEdit, ListView, CheckBox, GroupBox} from "std-widgets.slint";
+import { Button, VerticalBox , HorizontalBox, LineEdit, ListView, CheckBox, GroupBox, Palette } from "std-widgets.slint";
 import { Style } from "style.slint";
 import { NotesView, Notes, NoteItem } from "notes_view.slint";
 import { FileDiffView, Diff, DiffFileItem } from "file_diff_view.slint";
@@ -14,6 +14,29 @@ export global Project {
     callback save;
 }
 
+component MenuButton inherits Rectangle {
+    callback clicked;
+
+    in property <string> text <=> button-text.text;
+    in-out property <bool> enabled: true;
+    in-out property <length> text-padding-left: 10px;
+    in-out property <color> background-color: #333232;
+
+    background: click-area.has-hover ? Colors.black : background-color;
+
+    button-text := Text {
+        x: parent.x + parent.text-padding-left;
+        vertical-alignment: TextVerticalAlignment.center;
+        horizontal-alignment: TextHorizontalAlignment.left;
+        font-size: 16px;
+        color: parent.enabled ? Palette.control-foreground : Colors.grey;
+    }
+    click-area := TouchArea {
+        enabled: parent.enabled;
+        clicked => { parent.clicked() }
+    }
+}
+
 export component AppWindow inherits Window {
     callback close;
 
@@ -21,26 +44,55 @@ export component AppWindow inherits Window {
     height: 800px;
     title: Project.path;
 
+    popup := PopupWindow {
+        x: file-button.x;
+        y: menu-rect.height;
+        width: 160px;
+        height: 160px;
+        opacity: 0;
+
+        Rectangle {
+            background: #262525;
+            border-color: Colors.black;
+            border-width: 1px;
+
+            VerticalLayout {
+                MenuButton {
+                    text: "New";
+                    clicked => { Project.new() }
+                }
+                MenuButton {
+                    text: "Open";
+                    clicked => { Project.open() }
+                }
+                MenuButton {
+                    text: "Save";
+                    enabled: Project.isLoaded;
+                    clicked => { Project.save() }
+                }
+                MenuButton {
+                    text: "Close";
+                    clicked => { root.close() }
+                }
+            }
+        }
+    }
+
     VerticalLayout {
         alignment: start;
 
-        HorizontalLayout {
-            alignment: start;
-            spacing: 1px;
+        menu-rect := Rectangle {
+            background: #262525;
+            height: 40px;
 
-            Button {
-                text: "New";
-            }
-            Button {
-                text: "Open";
-                clicked => { Project.open() }
-            }
-            if Project.isLoaded: Button {
-                text: "Save";
-            }
-            Button {
-                text: "Close";
-                clicked => { root.close() }
+            HorizontalLayout {
+                file-button := MenuButton {
+                    background-color: #262525;
+                    padding-left: 4px;
+                    text: "File";
+                    width: 50px;
+                    clicked => { popup.show() }
+                }
             }
         }
         VerticalBox {
