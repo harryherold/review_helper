@@ -31,19 +31,17 @@ export component DiffConfigView inherits GroupBox {
             spacing: Style.spacing;
             start-commit-edit := LineEdit {
                 placeholder-text: "Start Commit SHA";
-                text: "dd02a7c28bfcf33b6da97cc36daef96e6443847f";
+                text: Diff.start_commit;
             }
-
             Button {
                 icon: @image-url("../assets/icons/compare.svg");
                 clicked => {
                     Diff.diff-start-end(start-commit-edit.text, end-commit-edit.text);
                 }
             }
-
             end-commit-edit := LineEdit {
                 placeholder-text: "End Commit SHA";
-                text: "70989e0fbda7919d357c0183e62294423f3d9425";
+                text: Diff.end_commit;
             }
         }
     }

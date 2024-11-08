@@ -1,12 +1,14 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, process, rc::Rc};
 
 use anyhow::Result;
 
+use config::Config;
 use project::Project;
 use slint::{ComponentHandle, SharedString};
 
 use native_dialog::FileDialog;
 
+mod config;
 mod notes;
 mod project;
 mod repository;
@@ -16,6 +18,7 @@ pub mod ui;
 pub fn main() -> Result<(), slint::PlatformError> {
     let app_window = ui::AppWindow::new().unwrap();
 
+    app_window.on_close(move || process::exit(0));
     let project = setup_project(&app_window);
     setup_repository(&app_window, &project);
     setup_notes(&app_window, &project);
@@ -26,23 +29,9 @@ pub fn main() -> Result<(), slint::PlatformError> {
 fn setup_project(app_window_handle: &ui::AppWindow) -> Rc<RefCell<Project>> {
     let project = Rc::new(RefCell::new(Project::new()));
 
-    // app_window_handle.global::<ui::Project>().on_open({
-    //     let ui_weak = app_window_handle.as_weak();
-    //     let p = project.clone();
-    //     move || {
-    //         let ui = ui_weak.unwrap();
-    //         let mut proj = p.borrow_mut();
-    //         if let Ok(path) = proj.open() {
-    //             ui.global::<ui::Project>().set_path(SharedString::from(path));
-    //         } else {
-    //             println!("Error occured while loading config!");
-    //         }
-    //     }
-    // });
-
     app_window_handle.global::<ui::Project>().on_open({
         let ui_weak = app_window_handle.as_weak();
-        let p = project.clone();
+        let project_ref = project.clone();
         move || {
             let ui = ui_weak.unwrap();
 
@@ -51,15 +40,25 @@ fn setup_project(app_window_handle: &ui::AppWindow) -> Rc<RefCell<Project>> {
                 return;
             }
             let path = path_option.unwrap();
-
-            if let Ok(new_p) = Project::open2(path.clone()) {
-                *p.borrow_mut() = new_p;
+            let config_result = Config::read_from(&path);
+            if let Err(error) = config_result {
+                eprintln!("Could not read config: {}", error.to_string());
+                return;
+            }
+            let config = config_result.unwrap();
+            if let Ok(new_project) = Project::open(&config) {
+                *project_ref.borrow_mut() = new_project;
                 ui.global::<ui::Project>().set_path(SharedString::from(path.to_str().unwrap()));
+                ui.global::<ui::Repository>()
+                    .set_path(SharedString::from(project_ref.borrow().repository.repository_path()));
+                ui.global::<ui::Notes>().set_notes_model(project_ref.borrow().notes.notes_model().into());
+
+                ui.global::<ui::Diff>().set_start_commit(SharedString::from(config.start_diff));
+                ui.global::<ui::Diff>().set_end_commit(SharedString::from(config.end_diff));
+                ui.global::<ui::Diff>().set_diff_model(project_ref.borrow().repository.file_diff_model().into());
             } else {
                 println!("Error occured while loading config!");
             }
-
-            // let mut proj = p.borrow_mut();
         }
     });
 
@@ -69,20 +68,19 @@ fn setup_project(app_window_handle: &ui::AppWindow) -> Rc<RefCell<Project>> {
 fn setup_repository(app_window_handle: &ui::AppWindow, project: &Rc<RefCell<Project>>) {
     app_window_handle.global::<ui::Repository>().on_open({
         let ui_weak = app_window_handle.as_weak();
-        let p = project.clone();
+        let project_ref = project.clone();
         move || {
             let ui = ui_weak.unwrap();
-            let mut proj = p.borrow_mut();
-            let path = proj.repository.open();
+            let mut project_ref = project_ref.borrow_mut();
+            let path = project_ref.repository.open();
             ui.global::<ui::Repository>().set_path(SharedString::from(path));
         }
     });
     app_window_handle.global::<ui::Diff>().on_diff_start_end({
         let ui_weak = app_window_handle.as_weak();
-        let p = project.clone();
+        let project_ref = project.clone();
         move |start_commit, end_commit| {
-            let mut proj = p.borrow_mut();
-            proj.repository.diff_repository(&start_commit, &end_commit);
+            project_ref.borrow_mut().repository.diff_repository(&start_commit, &end_commit);
 
             let ui = ui_weak.unwrap();
             ui.global::<ui::Diff>().set_start_commit(start_commit);
@@ -90,8 +88,8 @@ fn setup_repository(app_window_handle: &ui::AppWindow, project: &Rc<RefCell<Proj
         }
     });
     app_window_handle.global::<ui::Diff>().on_open_file_diff({
-        let p = project.clone();
-        move |index| p.borrow().repository.diff_file(index)
+        let project_ref = project.clone();
+        move |index| project_ref.borrow().repository.diff_file(index)
     });
 
     app_window_handle
@@ -100,37 +98,17 @@ fn setup_repository(app_window_handle: &ui::AppWindow, project: &Rc<RefCell<Proj
 }
 
 fn setup_notes(app_window_handle: &ui::AppWindow, project: &Rc<RefCell<Project>>) {
-    // app_window_handle.global::<ui::Notes>().on_open({
-    //     let n = notes.clone();
-    //     let ui_weak = app_window_handle.as_weak();
-    //     move || {
-    //         if let Some(path) = n.borrow_mut().open() {
-    //             let ui = ui_weak.unwrap();
-    //             ui.global::<ui::Notes>().set_path(path);
-    //         }
-    //     }
-    // });
-    // app_window_handle.global::<ui::Notes>().on_save({
-    //     let n = notes.clone();
-    //     let ui_weak = app_window_handle.as_weak();
-    //     move || {
-    //         if let Some(path) = n.borrow_mut().save() {
-    //             let ui = ui_weak.unwrap();
-    //             ui.global::<ui::Notes>().set_path(path);
-    //         }
-    //     }
-    // });
     app_window_handle.global::<ui::Notes>().on_add_note({
-        let p = project.clone();
-        move |text| p.borrow_mut().notes.add_note(text)
+        let project_ref = project.clone();
+        move |text| project_ref.borrow_mut().notes.add_note(text)
     });
     app_window_handle.global::<ui::Notes>().on_change_text({
-        let p = project.clone();
-        move |todo_index, text| p.borrow_mut().notes.set_note_text(todo_index as usize, text)
+        let project_ref = project.clone();
+        move |todo_index, text| project_ref.borrow_mut().notes.set_note_text(todo_index as usize, text)
     });
     app_window_handle.global::<ui::Notes>().on_toggle_fixed({
-        let p = project.clone();
-        move |todo_index| p.borrow_mut().notes.toogle_is_fixed(todo_index as usize)
+        let project_ref = project.clone();
+        move |todo_index| project_ref.borrow_mut().notes.toogle_is_fixed(todo_index as usize)
     });
     app_window_handle
         .global::<ui::Notes>()

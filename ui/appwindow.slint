@@ -15,8 +15,10 @@ export global Project {
 }
 
 export component AppWindow inherits Window {
+    callback close;
+
     width: 700px;
-    height: 600px;
+    height: 800px;
     title: Project.path;
 
     VerticalLayout {
@@ -35,6 +37,10 @@ export component AppWindow inherits Window {
             }
             if Project.isLoaded: Button {
                 text: "Save";
+            }
+            Button {
+                text: "Close";
+                clicked => { root.close() }
             }
         }
         VerticalBox {

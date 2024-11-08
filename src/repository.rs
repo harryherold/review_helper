@@ -5,7 +5,7 @@ use slint::{Model, VecModel};
 
 use anyhow::{Ok, Result};
 
-use crate::ui;
+use crate::{config::Config, ui};
 
 pub struct Repository {
     path: PathBuf,
@@ -29,11 +29,13 @@ impl Diff {
 }
 
 impl Repository {
-    pub fn new() -> Repository {
-        Repository {
-            path: PathBuf::new(),
+    pub fn new(config: &Config) -> Repository {
+        let mut repo = Repository {
+            path: PathBuf::from(config.repo_path.to_string()),
             current_diff: Diff::new(),
-        }
+        };
+        repo.diff_repository(&config.start_diff, &config.end_diff);
+        repo
     }
 
     pub fn is_repo_valid(path: &PathBuf, opt_first_commit: Option<&str>) -> Result<bool, anyhow::Error> {
@@ -46,8 +48,8 @@ impl Repository {
         }
     }
 
-    pub fn set_path(&mut self, path: PathBuf) {
-        self.path = path
+    pub fn repository_path(&self) -> &str {
+        self.path.to_str().expect("Repo path not set")
     }
 
     pub fn open(&mut self) -> &str {
