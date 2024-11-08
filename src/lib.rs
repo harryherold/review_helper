@@ -9,6 +9,7 @@ use slint::{ComponentHandle, SharedString};
 use native_dialog::FileDialog;
 
 mod config;
+mod git_utils;
 mod notes;
 mod project;
 mod repository;
@@ -27,7 +28,7 @@ pub fn main() -> Result<(), slint::PlatformError> {
 }
 
 fn setup_project(app_window_handle: &ui::AppWindow) -> Rc<RefCell<Project>> {
-    let project = Rc::new(RefCell::new(Project::new()));
+    let project = Rc::new(RefCell::new(Project::default()));
 
     app_window_handle.global::<ui::Project>().on_open({
         let ui_weak = app_window_handle.as_weak();
@@ -46,16 +47,20 @@ fn setup_project(app_window_handle: &ui::AppWindow) -> Rc<RefCell<Project>> {
                 return;
             }
             let config = config_result.unwrap();
-            if let Ok(new_project) = Project::open(&config) {
+            if let Ok(new_project) = Project::from_config(config) {
                 *project_ref.borrow_mut() = new_project;
-                ui.global::<ui::Project>().set_path(SharedString::from(path.to_str().unwrap()));
-                ui.global::<ui::Repository>()
-                    .set_path(SharedString::from(project_ref.borrow().repository.repository_path()));
-                ui.global::<ui::Notes>().set_notes_model(project_ref.borrow().notes.notes_model().into());
+                let project = project_ref.borrow();
 
-                ui.global::<ui::Diff>().set_start_commit(SharedString::from(config.start_diff));
-                ui.global::<ui::Diff>().set_end_commit(SharedString::from(config.end_diff));
-                ui.global::<ui::Diff>().set_diff_model(project_ref.borrow().repository.file_diff_model().into());
+                ui.global::<ui::Project>().set_path(SharedString::from(path.to_str().unwrap()));
+                if let Some(repo_path) = project.repository.repository_path() {
+                    ui.global::<ui::Repository>().set_path(SharedString::from(repo_path));
+                }
+                ui.global::<ui::Notes>().set_notes_model(project.notes.notes_model().into());
+
+                let (start_diff, end_diff) = project.repository.diff_range();
+                ui.global::<ui::Diff>().set_start_commit(SharedString::from(start_diff));
+                ui.global::<ui::Diff>().set_end_commit(SharedString::from(end_diff));
+                ui.global::<ui::Diff>().set_diff_model(project.repository.file_diff_model().into());
             } else {
                 println!("Error occured while loading config!");
             }
@@ -72,27 +77,27 @@ fn setup_project(app_window_handle: &ui::AppWindow) -> Rc<RefCell<Project>> {
             }
             let path = path_option.unwrap();
 
-            let config_result = Config::create_config_file(&path);
-
-            if let Err(error) = config_result {
-                eprintln!("Could not read config: {}", error.to_string());
-                return;
-            }
-
-            let config = config_result.unwrap();
-
-            if let Ok(new_project) = Project::open(&config) {
+            if let Ok(new_project) = Project::new(&path) {
                 *project_ref.borrow_mut() = new_project;
-                ui.global::<ui::Project>().set_path(SharedString::from(path.to_str().unwrap()));
-                ui.global::<ui::Repository>()
-                    .set_path(SharedString::from(project_ref.borrow().repository.repository_path()));
-                ui.global::<ui::Notes>().set_notes_model(project_ref.borrow().notes.notes_model().into());
+                let project = project_ref.borrow();
 
-                ui.global::<ui::Diff>().set_start_commit(SharedString::from(config.start_diff));
-                ui.global::<ui::Diff>().set_end_commit(SharedString::from(config.end_diff));
-                ui.global::<ui::Diff>().set_diff_model(project_ref.borrow().repository.file_diff_model().into());
+                ui.global::<ui::Project>().set_path(SharedString::from(path.to_str().unwrap()));
+                ui.global::<ui::Repository>().set_path("".into());
+                ui.global::<ui::Notes>().set_notes_model(project.notes.notes_model().into());
+
+                ui.global::<ui::Diff>().set_start_commit("".into());
+                ui.global::<ui::Diff>().set_end_commit("".into());
+                ui.global::<ui::Diff>().set_diff_model(project.repository.file_diff_model().into());
             } else {
                 println!("Error occured while loading config!");
+            }
+        }
+    });
+    app_window_handle.global::<ui::Project>().on_save({
+        let project_ref = project.clone();
+        move || {
+            if let Err(error) = project_ref.borrow().save() {
+                eprintln!("Error occured while saving: {}", error.to_string())
             }
         }
     });

@@ -1,11 +1,9 @@
+use std::fs::read_to_string;
 use std::fs::OpenOptions;
-use std::fs::{read_to_string, File};
 use std::io::Write;
 use std::path::Path;
 use std::str::FromStr;
 use std::{path::PathBuf, rc::Rc};
-
-use native_dialog::{FileDialog, MessageDialog, MessageType};
 
 use slint::{Model, SharedString, VecModel};
 
@@ -13,15 +11,8 @@ use crate::ui;
 
 const NOTE_FILE_NAME: &str = "notes.txt";
 
-fn write_notes_to_file(vec_model: &VecModel<ui::NoteItem>, path: &PathBuf, should_create_file: bool) -> Result<(), std::io::Error> {
-    let get_file = || {
-        if should_create_file {
-            return File::create(path);
-        } else {
-            return OpenOptions::new().write(true).open(path);
-        }
-    };
-    let mut file = get_file()?;
+fn write_notes_to_file(vec_model: &VecModel<ui::NoteItem>, path: &PathBuf) -> anyhow::Result<()> {
+    let mut file = OpenOptions::new().create(true).truncate(true).write(true).open(path)?;
     for item in vec_model.iter() {
         let task = todo_txt::Task {
             subject: item.text.to_string(),
@@ -57,24 +48,34 @@ pub struct Notes {
     note_file: PathBuf,
 }
 impl Notes {
-    pub fn new(path_option: Option<&Path>) -> Notes {
-        let note_file = match path_option {
-            None => PathBuf::new(),
-            Some(p) => {
-                let file_path = p.join(NOTE_FILE_NAME);
-                if file_path.exists() {
-                    file_path
-                } else {
-                    PathBuf::new()
-                }
-            }
-        };
+    fn notes_file_exists(path: &Path) -> bool {
+        path.join(NOTE_FILE_NAME).exists()
+    }
 
-        let model = read_notes_from_file(&note_file).expect("Wrong notes format!");
-        Notes {
-            notes_model: Rc::new(model),
-            note_file: note_file,
+    pub fn new(path: &Path) -> anyhow::Result<Notes> {
+        if Notes::notes_file_exists(path) {
+            Notes::from_file(path)
+        } else {
+            Ok(Notes {
+                notes_model: Rc::new(slint::VecModel::<ui::NoteItem>::default()),
+                note_file: path.join(NOTE_FILE_NAME),
+            })
         }
+    }
+
+    pub fn default() -> Notes {
+        Notes {
+            notes_model: Rc::new(slint::VecModel::<ui::NoteItem>::default()),
+            note_file: "".into(),
+        }
+    }
+
+    fn from_file(path: &Path) -> anyhow::Result<Notes> {
+        let file_path = path.join(NOTE_FILE_NAME);
+        Ok(Notes {
+            notes_model: Rc::new(read_notes_from_file(&file_path)?),
+            note_file: file_path,
+        })
     }
 
     pub fn notes_model(&self) -> Rc<VecModel<ui::NoteItem>> {
@@ -85,25 +86,12 @@ impl Notes {
         self.notes_model.push(ui::NoteItem { isFixed: false, text: text })
     }
 
-    pub fn save(&mut self) -> Option<SharedString> {
-        let should_create_file = self.note_file.as_os_str().is_empty();
-        if should_create_file {
-            let path = FileDialog::new()
-                .set_location("~")
-                .add_filter("Text File (*.txt)", &["txt"])
-                .show_save_single_file()
-                .unwrap()?;
-            self.note_file = path;
+    pub fn save(&self) -> anyhow::Result<()> {
+        if self.notes_model.row_count() > 0 {
+            write_notes_to_file(&self.notes_model, &self.note_file)
+        } else {
+            Ok(())
         }
-        let result = write_notes_to_file(&self.notes_model, &self.note_file, should_create_file);
-        if let Err(_) = result {
-            let _r = MessageDialog::new()
-                .set_type(MessageType::Error)
-                .set_title("Abort")
-                .set_text("Could save comments!")
-                .show_alert();
-        }
-        Some(SharedString::from(self.note_file.to_str()?))
     }
 
     pub fn toogle_is_fixed(&self, note_index: usize) {

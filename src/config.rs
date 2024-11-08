@@ -26,6 +26,17 @@ impl Config {
             project_file: "".into(),
         }
     }
+    pub fn save(&self) -> anyhow::Result<()> {
+        let mut config = Ini::new();
+        config.with_section(None::<String>).set("rt-version", self.version.to_string());
+        config.with_section(None::<String>).set("repo-path", self.repo_path.clone());
+        config.with_section(None::<String>).set("first-commit", self.first_commit.clone());
+        config.with_section(None::<String>).set("start-diff", self.start_diff.clone());
+        config.with_section(None::<String>).set("end-diff", self.end_diff.clone());
+
+        config.write_to_file(self.project_file.clone())?;
+        Ok(())
+    }
     pub fn read_from(path: &PathBuf) -> Result<Config, anyhow::Error> {
         let config = Ini::load_from_file(path)?;
         let section = config.section(None::<String>).unwrap();
