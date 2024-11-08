@@ -61,6 +61,41 @@ fn setup_project(app_window_handle: &ui::AppWindow) -> Rc<RefCell<Project>> {
             }
         }
     });
+    app_window_handle.global::<ui::Project>().on_new({
+        let ui_weak = app_window_handle.as_weak();
+        let project_ref = project.clone();
+        move || {
+            let ui = ui_weak.unwrap();
+            let path_option = FileDialog::new().add_filter("Ini project file", &["ini"]).show_save_single_file().unwrap();
+            if path_option.is_none() {
+                return;
+            }
+            let path = path_option.unwrap();
+
+            let config_result = Config::create_config_file(&path);
+
+            if let Err(error) = config_result {
+                eprintln!("Could not read config: {}", error.to_string());
+                return;
+            }
+
+            let config = config_result.unwrap();
+
+            if let Ok(new_project) = Project::open(&config) {
+                *project_ref.borrow_mut() = new_project;
+                ui.global::<ui::Project>().set_path(SharedString::from(path.to_str().unwrap()));
+                ui.global::<ui::Repository>()
+                    .set_path(SharedString::from(project_ref.borrow().repository.repository_path()));
+                ui.global::<ui::Notes>().set_notes_model(project_ref.borrow().notes.notes_model().into());
+
+                ui.global::<ui::Diff>().set_start_commit(SharedString::from(config.start_diff));
+                ui.global::<ui::Diff>().set_end_commit(SharedString::from(config.end_diff));
+                ui.global::<ui::Diff>().set_diff_model(project_ref.borrow().repository.file_diff_model().into());
+            } else {
+                println!("Error occured while loading config!");
+            }
+        }
+    });
 
     project
 }
@@ -91,10 +126,6 @@ fn setup_repository(app_window_handle: &ui::AppWindow, project: &Rc<RefCell<Proj
         let project_ref = project.clone();
         move |index| project_ref.borrow().repository.diff_file(index)
     });
-
-    app_window_handle
-        .global::<ui::Diff>()
-        .set_diff_model(project.borrow().repository.file_diff_model().into());
 }
 
 fn setup_notes(app_window_handle: &ui::AppWindow, project: &Rc<RefCell<Project>>) {
@@ -110,7 +141,4 @@ fn setup_notes(app_window_handle: &ui::AppWindow, project: &Rc<RefCell<Project>>
         let project_ref = project.clone();
         move |todo_index| project_ref.borrow_mut().notes.toogle_is_fixed(todo_index as usize)
     });
-    app_window_handle
-        .global::<ui::Notes>()
-        .set_notes_model(project.borrow().notes.notes_model().into());
 }
