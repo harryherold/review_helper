@@ -26,15 +26,15 @@ impl Project {
             notes: Notes::default(),
         }
     }
-    pub fn from_config(config: Config) -> Result<Project, anyhow::Error> {
+    pub fn from_config(config: Config) -> anyhow::Result<Project> {
         let project_folder = config.project_file.parent().expect("Cannot determine parent!");
         Ok(Project {
             path: config.project_file.clone(),
-            repository: Repository::from_config(&config),
+            repository: Repository::from_config(&config)?,
             notes: Notes::new(project_folder)?,
         })
     }
-    pub fn save(&self) -> Result<(), anyhow::Error> {
+    pub fn save(&self) -> anyhow::Result<()> {
         let mut config = Config::new();
         config.project_file = self.path.clone();
         if let Some(repo_path) = self.repository.repository_path() {

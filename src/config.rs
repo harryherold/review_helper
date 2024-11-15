@@ -37,7 +37,7 @@ impl Config {
         config.write_to_file(self.project_file.clone())?;
         Ok(())
     }
-    pub fn read_from(path: &PathBuf) -> Result<Config, anyhow::Error> {
+    pub fn read_from(path: &PathBuf) -> anyhow::Result<Config> {
         let config = Ini::load_from_file(path)?;
         let section = config.section(None::<String>).unwrap();
 

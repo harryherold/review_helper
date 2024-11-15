@@ -3,8 +3,6 @@ use std::{path::PathBuf, rc::Rc};
 use native_dialog::FileDialog;
 use slint::{Model, VecModel};
 
-use anyhow::Result;
-
 use crate::{config::Config, git_utils, ui};
 
 pub struct Repository {
@@ -36,16 +34,18 @@ impl Repository {
         }
     }
 
-    pub fn from_config(config: &Config) -> Repository {
+    pub fn from_config(config: &Config) -> anyhow::Result<Repository> {
         let mut repo = Repository {
             path: PathBuf::from(config.repo_path.to_string()),
             current_diff: Diff::new(),
         };
-        repo.diff_repository(&config.start_diff, &config.end_diff);
-        repo
+        if repo.repository_path().is_some() {
+            repo.diff_repository(&config.start_diff, &config.end_diff)?;
+        }
+        Ok(repo)
     }
 
-    pub fn is_repo_valid(path: &PathBuf, opt_first_commit: Option<&str>) -> Result<bool, anyhow::Error> {
+    pub fn is_repo_valid(path: &PathBuf, opt_first_commit: Option<&str>) -> anyhow::Result<bool> {
         if !git_utils::is_git_repo(path) {
             return Ok(false);
         }
@@ -75,25 +75,20 @@ impl Repository {
         }
     }
 
-    pub fn diff_repository(&mut self, start_commit: &str, end_commit: &str) {
+    pub fn diff_repository(&mut self, start_commit: &str, end_commit: &str) -> anyhow::Result<()> {
         self.current_diff.start_commit = start_commit.to_string();
         self.current_diff.end_commit = end_commit.to_string();
 
         self.current_diff.file_diff_model.clear();
 
-        let diff_result = git_utils::diff_git_repo(&self.path, &start_commit, &end_commit);
-        if let Err(e) = diff_result {
-            // TODO proper error handling
-            eprintln!("Diff of repo failed: {}", e.to_string());
-            return;
-        }
-        let output_text = diff_result.unwrap();
+        let output_text = git_utils::diff_git_repo(&self.path, &start_commit, &end_commit)?;
         output_text.split('\n').filter(|file| false == file.is_empty()).for_each(|file| {
             self.current_diff.file_diff_model.push(ui::DiffFileItem {
                 text: file.into(),
                 is_reviewed: false,
             })
         });
+        Ok(())
     }
 
     pub fn toggle_file_is_reviewed(&mut self, item_index: usize) {
@@ -103,15 +98,10 @@ impl Repository {
         }
     }
 
-    pub fn diff_file(&self, index: i32) {
+    pub fn diff_file(&self, index: i32) -> anyhow::Result<()> {
         match self.current_diff.file_diff_model.row_data(index as usize) {
-            None => eprintln!("Could not found file!"), // TODO proper error handling
-            Some(file_item) => {
-                if let Err(e) = git_utils::diff_file(&self.path, &self.current_diff.start_commit, &self.current_diff.end_commit, &file_item.text) {
-                    // TODO proper error handling
-                    eprintln!("File diff failed: {}", e.to_string());
-                }
-            }
+            None => Err(anyhow::format_err!("Could not found file in model!")), //eprintln!("Could not found file!"), // TODO proper error handling
+            Some(file_item) => git_utils::diff_file(&self.path, &self.current_diff.start_commit, &self.current_diff.end_commit, &file_item.text),
         }
     }
 

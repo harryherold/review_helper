@@ -120,8 +120,11 @@ fn setup_repository(app_window_handle: &ui::AppWindow, project: &Rc<RefCell<Proj
         let ui_weak = app_window_handle.as_weak();
         let project_ref = project.clone();
         move |start_commit, end_commit| {
-            project_ref.borrow_mut().repository.diff_repository(&start_commit, &end_commit);
-
+            let result = project_ref.borrow_mut().repository.diff_repository(&start_commit, &end_commit);
+            if let Err(error) = result {
+                eprintln!("Error on diffing repo: {}", error.to_string());
+                return;
+            }
             let ui = ui_weak.unwrap();
             ui.global::<ui::Diff>().set_start_commit(start_commit);
             ui.global::<ui::Diff>().set_end_commit(end_commit);
@@ -129,7 +132,11 @@ fn setup_repository(app_window_handle: &ui::AppWindow, project: &Rc<RefCell<Proj
     });
     app_window_handle.global::<ui::Diff>().on_open_file_diff({
         let project_ref = project.clone();
-        move |index| project_ref.borrow().repository.diff_file(index)
+        move |index| {
+            if let Err(error) = project_ref.borrow().repository.diff_file(index) {
+                eprintln!("Error occured while file diff: {}", error.to_string())
+            }
+        }
     });
     app_window_handle.global::<ui::Diff>().on_toggle_is_reviewed({
         let project_ref = project.clone();
