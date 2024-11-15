@@ -5,7 +5,7 @@ import { Style } from "style.slint";
 
 export global Repository {
     in property <string> path;
-    out property <bool> isLoaded: path != "";
+    out property <bool> is_loaded: path != "";
     callback open;
 }
 

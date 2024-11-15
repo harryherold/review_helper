@@ -91,9 +91,16 @@ impl Repository {
         output_text.split('\n').filter(|file| false == file.is_empty()).for_each(|file| {
             self.current_diff.file_diff_model.push(ui::DiffFileItem {
                 text: file.into(),
-                isReviewed: false,
+                is_reviewed: false,
             })
         });
+    }
+
+    pub fn toggle_file_is_reviewed(&mut self, item_index: usize) {
+        if let Some(mut item) = self.current_diff.file_diff_model.row_data(item_index) {
+            item.is_reviewed = !item.is_reviewed;
+            self.current_diff.file_diff_model.set_row_data(item_index, item);
+        }
     }
 
     pub fn diff_file(&self, index: i32) {

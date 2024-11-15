@@ -8,7 +8,7 @@ export { Notes, NoteItem, Diff, DiffFileItem, Repository }
 
 export global Project {
     in property <string> path;
-    out property <bool> isLoaded: path != "";
+    out property <bool> is_loaded: path != "";
     callback open;
     callback new;
     callback save;
@@ -67,7 +67,7 @@ export component AppWindow inherits Window {
                 }
                 MenuButton {
                     text: "Save";
-                    enabled: Project.isLoaded;
+                    enabled: Project.is_loaded;
                     clicked => { Project.save() }
                 }
                 MenuButton {
@@ -98,9 +98,9 @@ export component AppWindow inherits Window {
         VerticalBox {
             alignment: start;
 
-            if Project.isLoaded: DiffConfigView {}
-            if Repository.isLoaded: FileDiffView {}
-            if Repository.isLoaded: NotesView {}
+            if Project.is_loaded: DiffConfigView {}
+            if Repository.is_loaded: FileDiffView {}
+            if Repository.is_loaded: NotesView {}
         }
     }
 }

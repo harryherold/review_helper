@@ -16,7 +16,7 @@ fn write_notes_to_file(vec_model: &VecModel<ui::NoteItem>, path: &PathBuf) -> an
     for item in vec_model.iter() {
         let task = todo_txt::Task {
             subject: item.text.to_string(),
-            finished: item.isFixed,
+            finished: item.is_fixed,
             ..Default::default()
         };
         write!(file, "{}\n", task.to_string())?;
@@ -35,7 +35,7 @@ fn read_notes_from_file(path: &PathBuf) -> Result<VecModel<ui::NoteItem>, std::i
         let task_result = todo_txt::Task::from_str(line);
         if let Ok(task) = task_result {
             todo_model.push(ui::NoteItem {
-                isFixed: task.finished,
+                is_fixed: task.finished,
                 text: task.subject.into(),
             });
         }
@@ -83,7 +83,7 @@ impl Notes {
     }
 
     pub fn add_note(&self, text: SharedString) {
-        self.notes_model.push(ui::NoteItem { isFixed: false, text: text })
+        self.notes_model.push(ui::NoteItem { is_fixed: false, text: text })
     }
 
     pub fn save(&self) -> anyhow::Result<()> {
@@ -95,30 +95,19 @@ impl Notes {
     }
 
     pub fn toogle_is_fixed(&self, note_index: usize) {
-        let data = self.notes_model.row_data(note_index);
-        if let Some(item) = data {
-            self.notes_model.set_row_data(
-                note_index as usize,
-                ui::NoteItem {
-                    isFixed: !item.isFixed,
-                    text: item.text,
-                },
-            );
+        if let Some(mut item) = self.notes_model.row_data(note_index) {
+            item.is_fixed = !item.is_fixed;
+            self.notes_model.set_row_data(note_index, item);
         }
     }
 
     pub fn set_note_text(&self, note_index: usize, text: SharedString) {
-        let data = self.notes_model.row_data(note_index);
-        if let Some(item) = data {
-            if item.text != text {
-                self.notes_model.set_row_data(
-                    note_index,
-                    ui::NoteItem {
-                        isFixed: item.isFixed,
-                        text: text,
-                    },
-                );
+        if let Some(mut item) = self.notes_model.row_data(note_index) {
+            if item.text == text {
+                return;
             }
+            item.text = text;
+            self.notes_model.set_row_data(note_index, item);
         }
     }
 }

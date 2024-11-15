@@ -4,7 +4,7 @@ import { Style } from "style.slint";
 
 export struct DiffFileItem {
     text: string,
-    isReviewed: bool,
+    is_reviewed: bool,
 }
 
 export global Diff {
@@ -13,6 +13,7 @@ export global Diff {
     in property <[DiffFileItem]> diff_model;
     callback diff-start-end(string, string);
     callback open-file-diff(int);
+    callback toggle-is-reviewed(int);
 }
 
 export component FileDiffView inherits GroupBox {
@@ -31,12 +32,13 @@ export component FileDiffView inherits GroupBox {
                 padding-top: Style.spacing;
 
                 CheckBox {
-                    checked: data.isReviewed;
+                    checked: data.is_reviewed;
                     text: data.text;
+                    toggled => { Diff.toggle-is-reviewed(idx) }
                 }
                 Button {
                     text: "diff";
-                    clicked => { Diff.open-file-diff(idx); }
+                    clicked => { Diff.open-file-diff(idx) }
                 }
             }
         }

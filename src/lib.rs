@@ -131,6 +131,10 @@ fn setup_repository(app_window_handle: &ui::AppWindow, project: &Rc<RefCell<Proj
         let project_ref = project.clone();
         move |index| project_ref.borrow().repository.diff_file(index)
     });
+    app_window_handle.global::<ui::Diff>().on_toggle_is_reviewed({
+        let project_ref = project.clone();
+        move |index| project_ref.borrow_mut().repository.toggle_file_is_reviewed(index as usize)
+    });
 }
 
 fn setup_notes(app_window_handle: &ui::AppWindow, project: &Rc<RefCell<Project>>) {

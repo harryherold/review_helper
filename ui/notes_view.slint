@@ -3,17 +3,14 @@ import { Style } from "style.slint";
 
 export struct NoteItem  {
     text: string,
-    isFixed: bool,
+    is_fixed: bool,
 }
 
 export global Notes {
-    // in property <string> path;
     in property <[NoteItem]> notes_model;
     callback add-note(string);
     callback change-text(int, string);
     callback toggle-fixed(int);
-    // callback open();
-    // callback save();
 }
 
 export component NotesView inherits GroupBox {
@@ -22,28 +19,7 @@ export component NotesView inherits GroupBox {
     VerticalLayout {
         alignment: start;
         spacing: Style.spacing;
-        // HorizontalLayout {
-        //     spacing: Style.spacing;
 
-        //     LineEdit {
-        //         vertical-stretch: 0;
-        //         placeholder-text: "Add comment here...";
-        //         accepted => {
-        //             if (self.text != "") {
-        //                 Notes.add-note(self.text);
-        //                 self.text = "";
-        //             }
-        //         }
-        //     }
-        //     Button {
-        //         icon: @image-url("../assets/icons/file_open.svg");
-        //         clicked => { Notes.open(); }
-        //     }
-        //     Button {
-        //         icon: @image-url("../assets/icons/file_save.svg");
-        //         clicked => { Notes.save(); }
-        //     }
-        // }
         LineEdit {
             vertical-stretch: 0;
             placeholder-text: "Add comment here...";
@@ -63,7 +39,7 @@ export component NotesView inherits GroupBox {
                 padding-top: Style.spacing;
 
                 CheckBox {
-                    checked: data.isFixed;
+                    checked: data.is_fixed;
                     toggled => {
                         Notes.toggle-fixed(idx);
                     }
