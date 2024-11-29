@@ -1,6 +1,5 @@
 import { GroupBox, LineEdit, Button, ListView, CheckBox, ComboBox } from "std-widgets.slint";
 import { Style } from "style.slint";
-import { Diff, DiffFileItem } from "file_diff_view.slint";
 
 export struct NoteItem  {
     id: int,
@@ -14,77 +13,77 @@ export global Notes {
     callback add-note(string, string);
     callback change-text(int, string);
     callback toggle-fixed(int);
-    callback file-notes-model(string) -> [NoteItem];
+    pure callback file-notes-model(string) -> [NoteItem];
 }
 
-export component NotesView inherits GroupBox {
-    title: "Notes:";
+// export component NotesView inherits GroupBox {
+//     title: "Notes:";
 
-    VerticalLayout {
-        spacing: Style.spacing;
+//     VerticalLayout {
+//         spacing: Style.spacing;
 
-        HorizontalLayout {
-            spacing: Style.spacing;
+//         HorizontalLayout {
+//             spacing: Style.spacing;
 
-            LineEdit {
-                placeholder-text: "Add comment here...";
-                accepted => {
-                    if self.text != "" {
-                        Notes.add-note(self.text, context);
-                        self.text = "";
-                    }
-                }
-            }
-            private property <string> context: Diff.file_model.length > 0 ? Diff.file_model[0] : "";
+//             LineEdit {
+//                 placeholder-text: "Add comment here...";
+//                 accepted => {
+//                     if self.text != "" {
+//                         Notes.add-note(self.text, context);
+//                         self.text = "";
+//                     }
+//                 }
+//             }
+//             private property <string> context: Diff.file_model.length > 0 ? Diff.file_model[0] : "";
 
-            context-type := ComboBox {
-                model: ["File", "Text", "Empty"];
-                width: 15%;
-                selected (type) => {
-                    if type == "File" {
-                        context = Diff.file_model.length > 0 ? Diff.file_model[0] : "";
-                    }
-                    else {
-                        context = "";
-                    }
-                }
-            }
-            if context-type.current-value == "File" : ComboBox {
-                width: 20%;
-                model: Diff.file_model;
-                selected (file) => { context = file }
+//             context-type := ComboBox {
+//                 model: ["File", "Text", "Empty"];
+//                 width: 15%;
+//                 selected (type) => {
+//                     if type == "File" {
+//                         context = Diff.file_model.length > 0 ? Diff.file_model[0] : "";
+//                     }
+//                     else {
+//                         context = "";
+//                     }
+//                 }
+//             }
+//             if context-type.current-value == "File" : ComboBox {
+//                 width: 20%;
+//                 model: Diff.file_model;
+//                 selected (file) => { context = file }
 
-            }
-            if context-type.current-value == "Text" : LineEdit {
-                width: 20%;
-                edited (edited-text) => { context = edited-text }
-            }
-        }
-        ListView {
-            padding-right: 0;
-            padding-left: 0;
-            for data[idx] in Notes.notes_model: HorizontalLayout {
-                spacing: 2px;
-                padding-top: Style.spacing;
+//             }
+//             if context-type.current-value == "Text" : LineEdit {
+//                 width: 20%;
+//                 edited (edited-text) => { context = edited-text }
+//             }
+//         }
+//         ListView {
+//             padding-right: 0;
+//             padding-left: 0;
+//             for data[idx] in Notes.notes_model: HorizontalLayout {
+//                 spacing: 2px;
+//                 padding-top: Style.spacing;
 
-                CheckBox {
-                    checked: data.is_fixed;
-                    toggled => {
-                        Notes.toggle-fixed(idx);
-                    }
-                }
-                LineEdit {
-                    text: data.text;
-                    accepted => {
-                        Notes.change-text(idx, self.text);
-                    }
-                }
-                LineEdit {
-                    read-only: true;
-                    width: 20%;
-                    text: data.context;
-                }
-            }
-        }
-    }
-}
+//                 CheckBox {
+//                     checked: data.is_fixed;
+//                     toggled => {
+//                         Notes.toggle-fixed(idx);
+//                     }
+//                 }
+//                 LineEdit {
+//                     text: data.text;
+//                     accepted => {
+//                         Notes.change-text(idx, self.text);
+//                     }
+//                 }
+//                 LineEdit {
+//                     read-only: true;
+//                     width: 20%;
+//                     text: data.context;
+//                 }
+//             }
+//         }
+//     }
+// }

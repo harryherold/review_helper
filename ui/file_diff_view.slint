@@ -1,6 +1,7 @@
 
 import { GroupBox, ListView, CheckBox, Button, Palette, LineEdit } from "std-widgets.slint";
 import { Style } from "style.slint";
+import { Notes, NoteItem } from "notes_view.slint";
 
 export struct DiffFileItem {
     text: string,
@@ -18,8 +19,9 @@ export global Diff {
 }
 
 export component FileDiffView inherits GroupBox {
-    private property <int> checked_index: -1;
     callback open-file-notes-popup(string);
+
+    private property <int> checked_index: -1;
 
     title: "Changed Files:";
 
@@ -30,7 +32,10 @@ export component FileDiffView inherits GroupBox {
             padding-right: 0;
             padding-left: 0;
             for data[idx] in Diff.diff_model: Rectangle {
+                property <[NoteItem]> notes: Notes.file-notes-model(data.text);
+
                 background: checked_index == idx ? #333232 : Palette.background;
+
                 HorizontalLayout {
                     alignment: space-between;
                     spacing: 2px;
@@ -48,7 +53,8 @@ export component FileDiffView inherits GroupBox {
                             toggled => { Diff.toggle-is-reviewed(idx) }
                         }
                         Button {
-                            text: "+";
+                            icon: notes.length > 0 ? @image-url("../assets/icons/note-add-active.svg") : @image-url("../assets/icons/note-add.svg");
+                            width: 40px;
                             enabled: checked_index == idx;
                             clicked => { root.open-file-notes-popup(data.text) }
                         }
