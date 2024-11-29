@@ -1,0 +1,42 @@
+import { Popup } from "popup.slint";
+import { Style } from "style.slint";
+
+import { Notes, NoteItem } from "notes_view.slint";
+import { VerticalBox, LineEdit, ListView, CheckBox } from "std-widgets.slint";
+
+export component FileNotesPopup inherits Popup {
+    private property <string> file: "<empty>";
+    private property <[NoteItem]> model;
+
+    public function open-notes(file: string) {
+        self.file = file;
+        self.model = Notes.file-notes-model(file);
+        self.open();
+    }
+
+    title: "Notes: \{self.file}";
+
+    VerticalBox {
+        LineEdit {
+            height: Style.control_height;
+            placeholder-text: "Add comment here...";
+            accepted => {
+                Notes.add-note(self.text, root.file);
+                self.text = "";
+            }
+        }
+        ListView {
+            for data[idx] in root.model: HorizontalLayout {
+                CheckBox {
+                    checked: data.is_fixed;
+                    toggled => { Notes.toggle-fixed(data.id) }
+                }
+                LineEdit {
+                    height: Style.control_height;
+                    text: data.text;
+                    accepted => { Notes.change-text(data.id, self.text) }
+                }
+            }
+        }
+    }
+}

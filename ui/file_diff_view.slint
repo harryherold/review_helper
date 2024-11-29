@@ -1,5 +1,5 @@
 
-import { GroupBox, ListView, CheckBox, Button } from "std-widgets.slint";
+import { GroupBox, ListView, CheckBox, Button, Palette, LineEdit } from "std-widgets.slint";
 import { Style } from "style.slint";
 
 export struct DiffFileItem {
@@ -11,34 +11,53 @@ export global Diff {
     in property <string> start_commit;
     in property <string> end_commit;
     in property <[DiffFileItem]> diff_model;
+    in property <[string]> file_model;
     callback diff-start-end(string, string);
     callback open-file-diff(int);
     callback toggle-is-reviewed(int);
 }
 
 export component FileDiffView inherits GroupBox {
+    private property <int> checked_index: -1;
+    callback open-file-notes-popup(string);
+
     title: "Changed Files:";
 
     VerticalLayout {
         spacing: Style.spacing;
 
         ListView {
-            height: Math.min(200px, Diff.diff_model.length * 50px);
             padding-right: 0;
             padding-left: 0;
-            for data[idx] in Diff.diff_model: HorizontalLayout {
-                alignment: space-between;
-                spacing: 2px;
-                padding-top: Style.spacing;
+            for data[idx] in Diff.diff_model: Rectangle {
+                background: checked_index == idx ? #333232 : Palette.background;
+                HorizontalLayout {
+                    alignment: space-between;
+                    spacing: 2px;
+                    padding-top: Style.spacing;
 
-                CheckBox {
-                    checked: data.is_reviewed;
-                    text: data.text;
-                    toggled => { Diff.toggle-is-reviewed(idx) }
+                    Text {
+                        font-size: 14px;
+                        text: data.text;
+                        vertical-alignment: center;
+                    }
+                    HorizontalLayout {
+                        reviewed_checkbox := CheckBox {
+                            enabled: checked_index == idx;
+                            checked: data.is_reviewed;
+                            toggled => { Diff.toggle-is-reviewed(idx) }
+                        }
+                        Button {
+                            text: "+";
+                            enabled: checked_index == idx;
+                            clicked => { root.open-file-notes-popup(data.text) }
+                        }
+                    }
                 }
-                Button {
-                    text: "diff";
-                    clicked => { Diff.open-file-diff(idx) }
+                ta:=TouchArea {
+                    width: checked_index == idx ? reviewed_checkbox.x : parent.width;
+                    double-clicked => { Diff.open-file-diff(idx) }
+                    clicked => { checked_index = idx; }
                 }
             }
         }

@@ -4,7 +4,7 @@ use anyhow::Result;
 
 use config::Config;
 use project::Project;
-use slint::{ComponentHandle, SharedString};
+use slint::{ComponentHandle, ModelExt, SharedString};
 
 use native_dialog::FileDialog;
 
@@ -61,6 +61,8 @@ fn setup_project(app_window_handle: &ui::AppWindow) -> Rc<RefCell<Project>> {
                 ui.global::<ui::Diff>().set_start_commit(SharedString::from(start_diff));
                 ui.global::<ui::Diff>().set_end_commit(SharedString::from(end_diff));
                 ui.global::<ui::Diff>().set_diff_model(project.repository.file_diff_model().into());
+                let file_model = project.repository.file_diff_model().clone().map(|f| slint::format!("{}", f.text));
+                ui.global::<ui::Diff>().set_file_model(Rc::new(file_model).into());
             } else {
                 println!("Error occured while loading config!");
             }
@@ -88,6 +90,8 @@ fn setup_project(app_window_handle: &ui::AppWindow) -> Rc<RefCell<Project>> {
                 ui.global::<ui::Diff>().set_start_commit("".into());
                 ui.global::<ui::Diff>().set_end_commit("".into());
                 ui.global::<ui::Diff>().set_diff_model(project.repository.file_diff_model().into());
+                let file_model = project.repository.file_diff_model().clone().map(|f| slint::format!("{}", f.text));
+                ui.global::<ui::Diff>().set_file_model(Rc::new(file_model).into());
             } else {
                 println!("Error occured while loading config!");
             }
@@ -147,14 +151,22 @@ fn setup_repository(app_window_handle: &ui::AppWindow, project: &Rc<RefCell<Proj
 fn setup_notes(app_window_handle: &ui::AppWindow, project: &Rc<RefCell<Project>>) {
     app_window_handle.global::<ui::Notes>().on_add_note({
         let project_ref = project.clone();
-        move |text| project_ref.borrow_mut().notes.add_note(text)
+        move |text, context| project_ref.borrow_mut().notes.add_note(text, context)
     });
     app_window_handle.global::<ui::Notes>().on_change_text({
         let project_ref = project.clone();
-        move |todo_index, text| project_ref.borrow_mut().notes.set_note_text(todo_index as usize, text)
+        move |todo_index, text| project_ref.borrow_mut().notes.set_note_text(todo_index, text)
     });
     app_window_handle.global::<ui::Notes>().on_toggle_fixed({
         let project_ref = project.clone();
-        move |todo_index| project_ref.borrow_mut().notes.toogle_is_fixed(todo_index as usize)
+        move |todo_index| project_ref.borrow_mut().notes.toogle_is_fixed(todo_index)
+    });
+    app_window_handle.global::<ui::Notes>().on_file_notes_model({
+        let project_ref = project.clone();
+        move |file| {
+            let notes = project_ref.borrow_mut().notes.notes_model();
+            let file_notes = notes.clone().filter(move |item| item.context.contains(file.as_str()));
+            Rc::new(file_notes).into()
+        }
     });
 }

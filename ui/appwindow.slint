@@ -3,6 +3,8 @@ import { Style } from "style.slint";
 import { NotesView, Notes, NoteItem } from "notes_view.slint";
 import { FileDiffView, Diff, DiffFileItem } from "file_diff_view.slint";
 import { DiffConfigView, Repository} from "diff_config_view.slint";
+import { Popup } from "popup.slint";
+import { FileNotesPopup } from "file_notes_popup.slint";
 
 export { Notes, NoteItem, Diff, DiffFileItem, Repository }
 
@@ -40,9 +42,14 @@ component MenuButton inherits Rectangle {
 export component AppWindow inherits Window {
     callback close;
 
-    width: 700px;
-    height: 800px;
+    width: 1000px;
+    height: 1000px;
     title: Project.path;
+
+    notes-popup := FileNotesPopup {
+        initial_x: (root.width / 2) - (self.width / 2);
+        initial_y: (root.height / 2) - (self.height / 2);
+    }
 
     popup := PopupWindow {
         x: file-button.x;
@@ -79,8 +86,6 @@ export component AppWindow inherits Window {
     }
 
     VerticalLayout {
-        alignment: start;
-
         menu-rect := Rectangle {
             background: #262525;
             height: 40px;
@@ -96,11 +101,12 @@ export component AppWindow inherits Window {
             }
         }
         VerticalBox {
-            alignment: start;
-
-            if Project.is_loaded: DiffConfigView {}
-            if Repository.is_loaded: FileDiffView {}
-            if Repository.is_loaded: NotesView {}
+            if Project.is_loaded: DiffConfigView {
+                height: 100px;
+            }
+            if Repository.is_loaded: FileDiffView {
+                open-file-notes-popup(file) => { notes-popup.open-notes(file) }
+            }
         }
     }
 }
