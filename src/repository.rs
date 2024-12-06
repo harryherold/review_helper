@@ -133,7 +133,7 @@ impl Repository {
 
     pub fn diff_file(&self, index: i32) -> anyhow::Result<()> {
         match self.current_diff.file_diff_model.row_data(index as usize) {
-            None => Err(anyhow::format_err!("Could not found file in model!")), //eprintln!("Could not found file!"), // TODO proper error handling
+            None => Err(anyhow::format_err!("Could not found file in model!")),
             Some(file_item) => git_utils::diff_file(&self.path, &self.current_diff.start_commit, &self.current_diff.end_commit, &file_item.text),
         }
     }

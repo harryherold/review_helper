@@ -41,13 +41,13 @@ export component FileDiffView inherits GroupBox {
                     spacing: 2px;
                     padding-top: Style.spacing;
 
-                    Text {
+                    file-text := Text {
                         font-size: 14px;
                         text: data.text;
                         vertical-alignment: center;
                     }
-                    HorizontalLayout {
-                        reviewed_checkbox := CheckBox {
+                    buttons-layout := HorizontalLayout {
+                        CheckBox {
                             enabled: checked_index == idx;
                             checked: data.is_reviewed;
                             toggled => { Diff.toggle-is-reviewed(idx) }
@@ -61,9 +61,11 @@ export component FileDiffView inherits GroupBox {
                     }
                 }
                 ta:=TouchArea {
-                    width: checked_index == idx ? reviewed_checkbox.x : parent.width;
+                    x: 0;
+                    y: 0;
+                    width: parent.width - buttons-layout.width;
                     double-clicked => { Diff.open-file-diff(idx) }
-                    clicked => { checked_index = idx; }
+                    clicked => { checked_index = idx }
                 }
             }
         }
