@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::{path::PathBuf, rc::Rc};
 
 use native_dialog::FileDialog;
@@ -22,6 +23,7 @@ impl Diff {
             start_commit: String::new(),
             end_commit: String::new(),
             file_diff_model: Rc::new(slint::VecModel::<ui::DiffFileItem>::default()),
+            // files: HashMap::new(),
         }
     }
 }
@@ -51,7 +53,6 @@ impl Repository {
                 })
             }
         }
-
         Ok(repo)
     }
 
@@ -89,15 +90,37 @@ impl Repository {
         self.current_diff.start_commit = start_commit.to_string();
         self.current_diff.end_commit = end_commit.to_string();
 
-        self.current_diff.file_diff_model.clear();
-
         let output_text = git_utils::diff_git_repo(&self.path, &start_commit, &end_commit)?;
-        output_text.split('\n').filter(|file| false == file.is_empty()).for_each(|file| {
-            self.current_diff.file_diff_model.push(ui::DiffFileItem {
-                text: file.into(),
-                is_reviewed: false,
-            })
-        });
+
+        let old_files: HashSet<String> = self.current_diff.file_diff_model.iter().map(|item| item.text.to_string()).collect();
+        let diff_files: HashSet<String> = output_text.split('\n').filter(|file| false == file.is_empty()).map(|f| f.to_string()).collect();
+
+        if diff_files == old_files {
+            return Ok(());
+        } else if diff_files.is_disjoint(&old_files) {
+            self.current_diff.file_diff_model.clear();
+            diff_files.into_iter().for_each(|file| {
+                self.current_diff.file_diff_model.push(ui::DiffFileItem {
+                    text: file.into(),
+                    is_reviewed: false,
+                })
+            });
+        } else {
+            let deleted_files: HashSet<&String> = old_files.difference(&diff_files).collect();
+            for deleted_file in deleted_files {
+                let delete_item = self.current_diff.file_diff_model.iter().enumerate().find(|(_, item)| item.text == deleted_file);
+                if let Some((row, _)) = delete_item {
+                    self.current_diff.file_diff_model.remove(row);
+                }
+            }
+            let new_files: HashSet<&String> = diff_files.difference(&old_files).collect();
+            for new_file in new_files {
+                self.current_diff.file_diff_model.push(ui::DiffFileItem {
+                    text: new_file.into(),
+                    is_reviewed: false,
+                })
+            }
+        }
         Ok(())
     }
 
