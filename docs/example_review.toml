@@ -1,0 +1,69 @@
+version = 1
+start_diff = "c13426875795b97d79c03c1dbf56dc2c87164b34"
+end_diff = "98bad3587d5810b300959bdb6c79b811c8b1c2cd"
+first_commit = "9f89049b7f99682c48474d421ac126316adaed15"
+repo_path = "C:/Users/cvw/Workspace/review-todo"
+
+[[diff_files]]
+is_reviewed = true
+file_name = ".gitignore"
+
+[[diff_files]]
+is_reviewed = false
+file_name = "Cargo.lock"
+
+[[diff_files]]
+is_reviewed = false
+file_name = "Cargo.toml"
+
+[[diff_files]]
+is_reviewed = true
+file_name = "build.rs"
+
+[[diff_files]]
+is_reviewed = false
+file_name = "docs/restructure_notes.txt"
+
+[[diff_files]]
+is_reviewed = false
+file_name = "src/lib.rs"
+
+[[diff_files]]
+is_reviewed = false
+file_name = "src/main.rs"
+
+[[diff_files]]
+is_reviewed = false
+file_name = "src/notes.rs"
+
+[[diff_files]]
+is_reviewed = false
+file_name = "src/repository.rs"
+
+[[diff_files]]
+is_reviewed = false
+file_name = "src/ui.rs"
+
+[[diff_files]]
+is_reviewed = true
+file_name = "ui/appwindow.slint"
+
+[[diff_files]]
+is_reviewed = false
+file_name = "ui/diff_config_view.slint"
+
+[[diff_files]]
+is_reviewed = false
+file_name = "ui/file_diff_view.slint"
+
+[[diff_files]]
+is_reviewed = false
+file_name = "ui/notes_view.slint"
+
+[[diff_files]]
+is_reviewed = false
+file_name = "ui/review_types.slint"
+
+[[diff_files]]
+is_reviewed = true
+file_name = "ui/style.slint"

@@ -40,8 +40,18 @@ impl Repository {
             current_diff: Diff::new(),
         };
         if repo.repository_path().is_some() {
-            repo.diff_repository(&config.start_diff, &config.end_diff)?;
+            repo.current_diff.start_commit = config.start_diff.clone();
+            repo.current_diff.end_commit = config.end_diff.clone();
+
+            repo.current_diff.file_diff_model.clear();
+            for diff_file in &config.diff_files {
+                repo.current_diff.file_diff_model.push(ui::DiffFileItem {
+                    text: diff_file.file_name.to_owned().into(),
+                    is_reviewed: diff_file.is_reviewed,
+                })
+            }
         }
+
         Ok(repo)
     }
 

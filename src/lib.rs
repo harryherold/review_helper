@@ -36,7 +36,7 @@ fn setup_project(app_window_handle: &ui::AppWindow) -> Rc<RefCell<Project>> {
         move || {
             let ui = ui_weak.unwrap();
 
-            let path_option = FileDialog::new().add_filter("Ini project file", &["ini"]).show_open_single_file().unwrap();
+            let path_option = FileDialog::new().add_filter("toml project file", &["toml"]).show_open_single_file().unwrap();
             if path_option.is_none() {
                 return;
             }
@@ -47,7 +47,7 @@ fn setup_project(app_window_handle: &ui::AppWindow) -> Rc<RefCell<Project>> {
                 return;
             }
             let config = config_result.unwrap();
-            if let Ok(new_project) = Project::from_config(config) {
+            if let Ok(new_project) = Project::from_config(&path, config) {
                 *project_ref.borrow_mut() = new_project;
                 let project = project_ref.borrow();
 
