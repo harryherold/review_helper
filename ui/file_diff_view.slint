@@ -4,6 +4,8 @@ import { Style } from "style.slint";
 import { Notes, NoteItem } from "notes_view.slint";
 
 export struct DiffFileItem {
+    added_lines: int,
+    removed_lines: int,
     text: string,
     is_reviewed: bool,
 }
@@ -47,6 +49,29 @@ export component FileDiffView inherits GroupBox {
                         vertical-alignment: center;
                     }
                     buttons-layout := HorizontalLayout {
+                        spacing: Style.spacing;
+                        if data.added-lines != 0 : Rectangle {
+                            background: #5e8262;
+                            border-radius: 5px;
+                            width: 50px;
+
+                            Text {
+                                font-size: 14px;
+                                vertical-alignment: center;
+                                text: "\{data.added-lines != -1 ? data.added-lines : "??"}";
+                            }
+                        }
+                        if data.removed-lines != 0 : Rectangle {
+                            background: #B06161;
+                            border-radius: 5px;
+                            width: 50px;
+
+                            Text {
+                                font-size: 14px;
+                                vertical-alignment: center;
+                                text: "\{data.removed-lines != -1 ? data.removed-lines : "??"}";
+                            }
+                        }
                         CheckBox {
                             enabled: checked_index == idx;
                             checked: data.is_reviewed;
