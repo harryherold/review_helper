@@ -64,7 +64,7 @@ fn setup_project(app_window_handle: &ui::AppWindow) -> Rc<RefCell<Project>> {
                 let file_model = project.repository.file_diff_model().clone().map(|f| slint::format!("{}", f.text));
                 ui.global::<ui::Diff>().set_file_model(Rc::new(file_model).into());
             } else {
-                println!("Error occured while loading config!");
+                eprintln!("Error occured while loading config!");
             }
         }
     });
@@ -93,7 +93,7 @@ fn setup_project(app_window_handle: &ui::AppWindow) -> Rc<RefCell<Project>> {
                 let file_model = project.repository.file_diff_model().clone().map(|f| slint::format!("{}", f.text));
                 ui.global::<ui::Diff>().set_file_model(Rc::new(file_model).into());
             } else {
-                println!("Error occured while loading config!");
+                eprintln!("Error occured while loading config!");
             }
         }
     });

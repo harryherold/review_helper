@@ -5,3 +5,4 @@
 * [] File Diff View - Stash and Apply checked infos
 * [] File Diff View - Show Stats per file
 * [] Show open diff state at file list
+* [] Try to implement own model (HashMap model)

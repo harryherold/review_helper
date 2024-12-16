@@ -4,6 +4,7 @@ use std::{path::PathBuf, rc::Rc};
 use native_dialog::FileDialog;
 use slint::{Model, VecModel};
 
+use crate::git_utils::ChangeType;
 use crate::{config::Config, git_utils, ui};
 
 pub struct Repository {
@@ -51,6 +52,7 @@ impl Repository {
                     is_reviewed: diff_file.is_reviewed,
                     added_lines: -1,
                     removed_lines: -1,
+                    change_type: ui::ChangeType::Invalid,
                 })
             }
         }
@@ -108,12 +110,26 @@ impl Repository {
 
         let diff_files: HashSet<String> = files_stats.keys().cloned().collect();
 
+        let change_type_to_ui = |change_type: &ChangeType| match change_type {
+            git_utils::ChangeType::Added => ui::ChangeType::Added,
+            git_utils::ChangeType::Broken => ui::ChangeType::Broken,
+            git_utils::ChangeType::Copied => ui::ChangeType::Copied,
+            git_utils::ChangeType::Deleted => ui::ChangeType::Deleted,
+            git_utils::ChangeType::Modified => ui::ChangeType::Modified,
+            git_utils::ChangeType::Renamed => ui::ChangeType::Renamed,
+            git_utils::ChangeType::TypChanged => ui::ChangeType::TypChanged,
+            git_utils::ChangeType::Unmerged => ui::ChangeType::Unmerged,
+            git_utils::ChangeType::Unknown => ui::ChangeType::Unknown,
+            git_utils::ChangeType::Invalid => ui::ChangeType::Invalid,
+        };
+
         let update_item = |mut item: ui::DiffFileItem, row: usize| {
             let file_stat = files_stats.get(item.text.as_str()).unwrap();
 
             if item.added_lines != file_stat.added_lines as i32 || item.removed_lines != file_stat.removed_lines as i32 {
                 item.added_lines = file_stat.added_lines as i32;
                 item.removed_lines = file_stat.removed_lines as i32;
+                item.change_type = change_type_to_ui(&file_stat.change_type);
                 self.current_diff.file_diff_model.set_row_data(row, item);
             }
         };
@@ -124,6 +140,7 @@ impl Repository {
                 is_reviewed: false,
                 added_lines: file_stat.added_lines as i32,
                 removed_lines: file_stat.removed_lines as i32,
+                change_type: change_type_to_ui(&file_stat.change_type),
             });
         };
 

@@ -3,11 +3,25 @@ import { GroupBox, ListView, CheckBox, Button, Palette, LineEdit } from "std-wid
 import { Style } from "style.slint";
 import { Notes, NoteItem } from "notes_view.slint";
 
+export enum ChangeType {
+    Invalid,
+    Added,
+    Copied,
+    Deleted,
+    Modified,
+    Renamed,
+    TypChanged,
+    Unmerged,
+    Unknown,
+    Broken,
+}
+
 export struct DiffFileItem {
     added_lines: int,
     removed_lines: int,
     text: string,
     is_reviewed: bool,
+    change_type: ChangeType,
 }
 
 export global Diff {
@@ -50,6 +64,47 @@ export component FileDiffView inherits GroupBox {
                     }
                     buttons-layout := HorizontalLayout {
                         spacing: Style.spacing;
+                        Rectangle {
+                            background: #789DBC;
+                            border-radius: 5px;
+                            width: 50px;
+
+                            Text {
+                                font-size: 14px;
+                                vertical-alignment: center;
+                                text: {
+                                    debug(data.change_type);
+                                    if (data.change_type == ChangeType.Added) {
+                                        return "A";
+                                    }
+                                    else if (data.change_type == ChangeType.Broken) {
+                                        return "B";
+                                    }
+                                    else if (data.change_type == ChangeType.Copied) {
+                                        return "C";
+                                    }
+                                    else if (data.change_type == ChangeType.Deleted) {
+                                        return "D";
+                                    }
+                                    else if (data.change_type == ChangeType.Modified) {
+                                        return "M";
+                                    }
+                                    else if (data.change_type == ChangeType.Renamed) {
+                                        return "R";
+                                    }
+                                    else if (data.change_type == ChangeType.TypChanged) {
+                                        return "TC";
+                                    }
+                                    else if (data.change_type == ChangeType.Unknown) {
+                                        return "U";
+                                    }
+                                    else if (data.change_type == ChangeType.Unmerged) {
+                                        return "UM";
+                                    }
+                                    return "??";
+                                };
+                            }
+                        }
                         if data.added-lines != 0 : Rectangle {
                             background: #5e8262;
                             border-radius: 5px;
