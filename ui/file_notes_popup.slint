@@ -1,5 +1,6 @@
 import { Popup } from "popup.slint";
 import { Style } from "style.slint";
+import { StringUtils } from "string_utils.slint";
 
 import { Notes, NoteItem } from "notes_view.slint";
 import { VerticalBox, LineEdit, ListView, CheckBox } from "std-widgets.slint";
@@ -14,7 +15,7 @@ export component FileNotesPopup inherits Popup {
         self.open();
     }
 
-    title: "Notes: \{self.file}";
+    title: StringUtils.filename(self.file);
 
     VerticalBox {
         LineEdit {

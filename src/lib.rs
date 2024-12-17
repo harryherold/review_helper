@@ -1,4 +1,4 @@
-use std::{cell::RefCell, process, rc::Rc};
+use std::{cell::RefCell, path::PathBuf, process, rc::Rc};
 
 use anyhow::Result;
 
@@ -23,6 +23,16 @@ pub fn main() -> Result<(), slint::PlatformError> {
     let project = setup_project(&app_window);
     setup_repository(&app_window, &project);
     setup_notes(&app_window, &project);
+
+    app_window.global::<ui::StringUtils>().on_filename({
+        |path| {
+            if let Some(file_name) = PathBuf::from(path.to_string()).file_name() {
+                file_name.to_str().expect("Could not parse os string!").to_string().into()
+            } else {
+                "".into()
+            }
+        }
+    });
 
     app_window.run()
 }

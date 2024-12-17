@@ -5,8 +5,9 @@ import { FileDiffView, Diff, DiffFileItem } from "file_diff_view.slint";
 import { DiffConfigView, Repository} from "diff_config_view.slint";
 import { Popup } from "popup.slint";
 import { FileNotesPopup } from "file_notes_popup.slint";
+import { StringUtils } from "string_utils.slint";
 
-export { Notes, NoteItem, Diff, DiffFileItem, Repository }
+export { Notes, NoteItem, Diff, DiffFileItem, Repository, StringUtils }
 
 export global Project {
     in property <string> path;
