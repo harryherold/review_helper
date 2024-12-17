@@ -1,5 +1,6 @@
 * [] New adds old ini
 * [] Title of NotesView is too long consider using just file name + parent folder
+* [] Cancel file dialog deletes model data
 * [] Sort diff list by file name
 * [] Suppress terminal window on start
 
