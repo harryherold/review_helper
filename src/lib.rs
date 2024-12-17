@@ -83,7 +83,7 @@ fn setup_project(app_window_handle: &ui::AppWindow) -> Rc<RefCell<Project>> {
         let project_ref = project.clone();
         move || {
             let ui = ui_weak.unwrap();
-            let path_option = FileDialog::new().add_filter("Ini project file", &["ini"]).show_save_single_file().unwrap();
+            let path_option = FileDialog::new().add_filter("toml project file", &["toml"]).show_save_single_file().unwrap();
             if path_option.is_none() {
                 return;
             }

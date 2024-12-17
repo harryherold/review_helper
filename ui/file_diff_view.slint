@@ -73,7 +73,6 @@ export component FileDiffView inherits GroupBox {
                                 font-size: 14px;
                                 vertical-alignment: center;
                                 text: {
-                                    debug(data.change_type);
                                     if (data.change_type == ChangeType.Added) {
                                         return "A";
                                     }
