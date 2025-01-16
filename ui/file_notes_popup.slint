@@ -28,6 +28,8 @@ export component FileNotesPopup inherits Popup {
         }
         ListView {
             for data[idx] in root.model: HorizontalLayout {
+                spacing: Style.big_spacing;
+
                 CheckBox {
                     checked: data.is_fixed;
                     toggled => { Notes.toggle-fixed(data.id) }
