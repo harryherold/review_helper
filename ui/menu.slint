@@ -1,0 +1,59 @@
+import { Palette } from "std-widgets.slint";
+
+export component Menu inherits Rectangle {
+    in property <string> text <=> button-text.text;
+    in-out property <bool> enabled: true;
+
+    popup := PopupWindow {
+        y: root.height;
+        opacity: 0;
+
+        Rectangle {
+            background: #333232;
+
+            layout := VerticalLayout {
+                @children
+            }
+        }
+    }
+
+    background: click-area.has-hover ? Colors.black : #262525;
+    min-width: button-text.width + 15px;
+
+    button-text := Text {
+        vertical-alignment: center;
+        horizontal-alignment: left;
+        font-size: 16px;
+        color: root.enabled ? Palette.control-foreground : Colors.grey;
+    }
+    click-area := TouchArea {
+        enabled: root.enabled;
+        clicked => { popup.show() }
+    }
+}
+
+export component MenuItem inherits Rectangle {
+    callback clicked;
+
+    in property <string> text <=> button-text.text;
+    in-out property <bool> enabled: true;
+    in-out property <color> background-color: #333232;
+
+    background: click-area.has-hover ? Colors.black : background-color;
+    min-height: 40px;
+
+    HorizontalLayout {
+        padding: 10px;
+        alignment: start;
+        button-text := Text {
+            vertical-alignment: center;
+            horizontal-alignment: left;
+            font-size: 16px;
+            color: root.enabled ? Palette.control-foreground : Colors.grey;
+        }
+    }
+    click-area := TouchArea {
+        enabled: root.enabled;
+        clicked => { root.clicked() }
+    }
+}

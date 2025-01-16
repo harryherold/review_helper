@@ -28,7 +28,6 @@ export global Diff {
     in property <string> start_commit;
     in property <string> end_commit;
     in property <[DiffFileItem]> diff_model;
-    in property <[string]> file_model;
     callback diff-start-end(string, string);
     callback open-file-diff(int);
     callback toggle-is-reviewed(int);

@@ -6,6 +6,7 @@ import { DiffConfigView, Repository} from "diff_config_view.slint";
 import { Popup } from "popup.slint";
 import { FileNotesPopup } from "file_notes_popup.slint";
 import { StringUtils } from "string_utils.slint";
+import { Menu, MenuItem } from "menu.slint";
 
 export { Notes, NoteItem, Diff, DiffFileItem, Repository, StringUtils }
 
@@ -15,29 +16,6 @@ export global Project {
     callback open;
     callback new;
     callback save;
-}
-
-component MenuButton inherits Rectangle {
-    callback clicked;
-
-    in property <string> text <=> button-text.text;
-    in-out property <bool> enabled: true;
-    in-out property <length> text-padding-left: 10px;
-    in-out property <color> background-color: #333232;
-
-    background: click-area.has-hover ? Colors.black : background-color;
-
-    button-text := Text {
-        x: parent.x + parent.text-padding-left;
-        vertical-alignment: TextVerticalAlignment.center;
-        horizontal-alignment: TextHorizontalAlignment.left;
-        font-size: 16px;
-        color: parent.enabled ? Palette.control-foreground : Colors.grey;
-    }
-    click-area := TouchArea {
-        enabled: parent.enabled;
-        clicked => { parent.clicked() }
-    }
 }
 
 export component AppWindow inherits Window {
@@ -52,52 +30,35 @@ export component AppWindow inherits Window {
         initial_y: (root.height / 2) - (self.height / 2);
     }
 
-    popup := PopupWindow {
-        x: file-button.x;
-        y: menu-rect.height;
-        width: 160px;
-        height: 160px;
-        opacity: 0;
-
-        Rectangle {
-            background: #262525;
-            border-color: Colors.black;
-            border-width: 1px;
-
-            VerticalLayout {
-                MenuButton {
-                    text: "New";
-                    clicked => { Project.new() }
-                }
-                MenuButton {
-                    text: "Open";
-                    clicked => { Project.open() }
-                }
-                MenuButton {
-                    text: "Save";
-                    enabled: Project.is_loaded;
-                    clicked => { Project.save() }
-                }
-                MenuButton {
-                    text: "Close";
-                    clicked => { root.close() }
-                }
-            }
-        }
-    }
-
     VerticalLayout {
         menu-rect := Rectangle {
             background: #262525;
             height: 40px;
 
             HorizontalLayout {
-                file-button := MenuButton {
-                    background-color: #262525;
-                    padding-left: 4px;
+                alignment: start;
+                spacing: Style.spacing;
+
+                Menu {
                     text: "File";
-                    width: 50px;
-                    clicked => { popup.show() }
+
+                    MenuItem {
+                        text: "New";
+                        clicked => { Project.new() }
+                    }
+                    MenuItem {
+                        text: "Open";
+                        clicked => { Project.open() }
+                    }
+                    MenuItem {
+                        text: "Save";
+                        enabled: Project.is_loaded;
+                        clicked => { Project.save() }
+                    }
+                    MenuItem {
+                        text: "Close";
+                        clicked => { root.close() }
+                    }
                 }
             }
         }
