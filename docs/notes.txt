@@ -2,3 +2,5 @@ write code
 refactor code
 write more code
 refactor more code
+x fix bug #build.rs
+more notes #src/notes.rs
