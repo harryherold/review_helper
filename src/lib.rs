@@ -1,4 +1,11 @@
-use std::{cell::RefCell, path::PathBuf, process, rc::Rc};
+use std::{
+    cell::RefCell,
+    cmp::Ordering,
+    ffi::OsStr,
+    path::{Path, PathBuf},
+    process,
+    rc::Rc,
+};
 
 use anyhow::Result;
 
@@ -37,13 +44,42 @@ pub fn main() -> Result<(), slint::PlatformError> {
     app_window.run()
 }
 
+fn extension_from_filename(filename: &str) -> Option<&str> {
+    Path::new(filename).extension().and_then(OsStr::to_str)
+}
+
+fn diff_file_proxy_model(app: ui::AppWindow, model: Rc<VecModel<ui::DiffFileItem>>, sort_criteria: ui::SortCriteria) {
+    let sort_by_name = |lhs: &ui::DiffFileItem, rhs: &ui::DiffFileItem| -> Ordering { lhs.text.to_lowercase().cmp(&rhs.text.to_lowercase()) };
+    let sort_by_exentsion = |lhs: &ui::DiffFileItem, rhs: &ui::DiffFileItem| -> Ordering {
+        let lhs_opt = extension_from_filename(&lhs.text);
+        let rhs_opt = extension_from_filename(&rhs.text);
+        if lhs_opt.is_some() && rhs_opt.is_some() {
+            let result = lhs_opt.unwrap().cmp(rhs_opt.unwrap());
+            if result == Ordering::Equal {
+                lhs.text.to_lowercase().cmp(&rhs.text.to_lowercase())
+            } else {
+                result
+            }
+        } else if lhs_opt.is_some() && rhs_opt.is_none() {
+            Ordering::Greater
+        } else if lhs_opt.is_none() && rhs_opt.is_some() {
+            Ordering::Less
+        } else {
+            lhs.text.to_lowercase().cmp(&rhs.text.to_lowercase())
+        }
+    };
+
+    if sort_criteria == ui::SortCriteria::Name {
+        let proxy = Rc::new(model.sort_by(sort_by_name));
+        app.global::<ui::Diff>().set_diff_model(proxy.into())
+    } else {
+        let proxy = Rc::new(model.sort_by(sort_by_exentsion));
+        app.global::<ui::Diff>().set_diff_model(proxy.into())
+    }
+}
+
 fn setup_project(app_window_handle: &ui::AppWindow) -> Rc<RefCell<Project>> {
     let project = Rc::new(RefCell::new(Project::default()));
-
-    let diff_file_proxy_model = |model: Rc<VecModel<ui::DiffFileItem>>| {
-        let sort_by_name = |lhs: &ui::DiffFileItem, rhs: &ui::DiffFileItem| lhs.text.to_lowercase().cmp(&rhs.text.to_lowercase());
-        Rc::new(model.sort_by(sort_by_name))
-    };
 
     app_window_handle.global::<ui::Project>().on_open({
         let ui_weak = app_window_handle.as_weak();
@@ -76,8 +112,9 @@ fn setup_project(app_window_handle: &ui::AppWindow) -> Rc<RefCell<Project>> {
                 let (start_diff, end_diff) = project.repository.diff_range();
                 ui.global::<ui::Diff>().set_start_commit(SharedString::from(start_diff));
                 ui.global::<ui::Diff>().set_end_commit(SharedString::from(end_diff));
-                let proxy_model = diff_file_proxy_model(project.repository.file_diff_model());
-                ui.global::<ui::Diff>().set_diff_model(proxy_model.into());
+
+                let sort_criteria = ui.global::<ui::Diff>().get_current_sort_criteria();
+                diff_file_proxy_model(ui, project.repository.file_diff_model(), sort_criteria);
             } else {
                 eprintln!("Error occured while loading config!");
             }
@@ -104,8 +141,9 @@ fn setup_project(app_window_handle: &ui::AppWindow) -> Rc<RefCell<Project>> {
 
                 ui.global::<ui::Diff>().set_start_commit("".into());
                 ui.global::<ui::Diff>().set_end_commit("".into());
-                let proxy_model = diff_file_proxy_model(project.repository.file_diff_model());
-                ui.global::<ui::Diff>().set_diff_model(proxy_model.into());
+
+                let sort_criteria = ui.global::<ui::Diff>().get_current_sort_criteria();
+                diff_file_proxy_model(ui, project.repository.file_diff_model(), sort_criteria);
             } else {
                 eprintln!("Error occured while loading config!");
             }
@@ -166,6 +204,15 @@ fn setup_repository(app_window_handle: &ui::AppWindow, project: &Rc<RefCell<Proj
     app_window_handle.global::<ui::Diff>().on_toggle_is_reviewed({
         let project_ref = project.clone();
         move |index| project_ref.borrow_mut().repository.toggle_file_is_reviewed(index as usize)
+    });
+    app_window_handle.global::<ui::Diff>().on_set_sort_criteria({
+        let project_ref = project.clone();
+        let ui_weak = app_window_handle.as_weak();
+        move |sort_criteria| {
+            let ui = ui_weak.unwrap();
+            ui.global::<ui::Diff>().set_current_sort_criteria(sort_criteria);
+            diff_file_proxy_model(ui, project_ref.borrow_mut().repository.file_diff_model(), sort_criteria);
+        }
     });
 }
 

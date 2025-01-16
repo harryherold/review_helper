@@ -1,5 +1,5 @@
 
-import { GroupBox, ListView, CheckBox, Button, Palette, LineEdit } from "std-widgets.slint";
+import { GroupBox, ListView, CheckBox, Button, Palette, LineEdit, VerticalBox, HorizontalBox, ComboBox } from "std-widgets.slint";
 import { Style } from "style.slint";
 import { Notes, NoteItem } from "notes_view.slint";
 
@@ -16,6 +16,11 @@ export enum ChangeType {
     Broken,
 }
 
+export enum SortCriteria {
+    Name,
+    Extension
+}
+
 export struct DiffFileItem {
     added_lines: int,
     removed_lines: int,
@@ -28,123 +33,148 @@ export global Diff {
     in property <string> start_commit;
     in property <string> end_commit;
     in property <[DiffFileItem]> diff_model;
+    in property <SortCriteria> current_sort_criteria: SortCriteria.Name;
     callback diff-start-end(string, string);
     callback open-file-diff(int);
     callback toggle-is-reviewed(int);
+    callback set-sort-criteria(SortCriteria);
 }
 
-export component FileDiffView inherits GroupBox {
+export component FileDiffView inherits VerticalBox {
     callback open-file-notes-popup(string);
 
     private property <int> checked_index: -1;
 
-    title: "Changed Files:";
+    spacing: Style.spacing;
 
-    VerticalLayout {
-        spacing: Style.spacing;
+    HorizontalLayout {
+        alignment: space-between;
 
-        ListView {
-            padding-right: 0;
-            padding-left: 0;
-            for data[idx] in Diff.diff_model: Rectangle {
-                property <[NoteItem]> notes: Notes.file-notes-model(data.text);
+        Text {
+            text: "Changed Files:";
+            font-weight: 800;
+            font-size: 16px;
+        }
 
-                background: checked_index == idx ? #333232 : Palette.background;
+        ComboBox {
+            model: ["Name", "Extension"];
+            current-value: {
+                if Diff.current_sort_criteria == SortCriteria.Name {
+                    return "Name";
+                }
+                return "Extension";
+            }
+            selected(current-criteria) => {
+                if current-criteria == "Name" {
+                    Diff.set-sort-criteria(SortCriteria.Name);
+                }
+                else {   
+                    Diff.set-sort-criteria(SortCriteria.Extension);
+                }
+            }
+        }
+    }
+    ListView {
+        padding-right: 0;
+        padding-left: 0;
+        for data[idx] in Diff.diff_model: Rectangle {
+            property <[NoteItem]> notes: Notes.file-notes-model(data.text);
 
-                HorizontalLayout {
-                    alignment: space-between;
-                    spacing: 2px;
-                    padding-top: Style.spacing;
+            background: checked_index == idx ? #333232 : Palette.background;
 
-                    file-text := Text {
-                        font-size: 14px;
-                        text: data.text;
-                        vertical-alignment: center;
-                    }
-                    buttons-layout := HorizontalLayout {
-                        spacing: Style.spacing;
-                        Rectangle {
-                            background: #789DBC;
-                            border-radius: 5px;
-                            width: 50px;
+            HorizontalLayout {
+                alignment: space-between;
+                spacing: 2px;
+                padding-top: Style.spacing;
 
-                            Text {
-                                font-size: 14px;
-                                vertical-alignment: center;
-                                text: {
-                                    if (data.change_type == ChangeType.Added) {
-                                        return "A";
-                                    }
-                                    else if (data.change_type == ChangeType.Broken) {
-                                        return "B";
-                                    }
-                                    else if (data.change_type == ChangeType.Copied) {
-                                        return "C";
-                                    }
-                                    else if (data.change_type == ChangeType.Deleted) {
-                                        return "D";
-                                    }
-                                    else if (data.change_type == ChangeType.Modified) {
-                                        return "M";
-                                    }
-                                    else if (data.change_type == ChangeType.Renamed) {
-                                        return "R";
-                                    }
-                                    else if (data.change_type == ChangeType.TypChanged) {
-                                        return "TC";
-                                    }
-                                    else if (data.change_type == ChangeType.Unknown) {
-                                        return "U";
-                                    }
-                                    else if (data.change_type == ChangeType.Unmerged) {
-                                        return "UM";
-                                    }
-                                    return "??";
-                                };
-                            }
-                        }
-                        if data.added-lines != 0 : Rectangle {
-                            background: #5e8262;
-                            border-radius: 5px;
-                            width: 50px;
+                file-text := Text {
+                    font-size: 14px;
+                    text: data.text;
+                    vertical-alignment: center;
+                }
+                buttons-layout := HorizontalLayout {
+                    spacing: Style.spacing;
+                    Rectangle {
+                        background: #789DBC;
+                        border-radius: 5px;
+                        width: 50px;
 
-                            Text {
-                                font-size: 14px;
-                                vertical-alignment: center;
-                                text: "\{data.added-lines != -1 ? data.added-lines : "??"}";
-                            }
-                        }
-                        if data.removed-lines != 0 : Rectangle {
-                            background: #B06161;
-                            border-radius: 5px;
-                            width: 50px;
-
-                            Text {
-                                font-size: 14px;
-                                vertical-alignment: center;
-                                text: "\{data.removed-lines != -1 ? data.removed-lines : "??"}";
-                            }
-                        }
-                        CheckBox {
-                            enabled: checked_index == idx;
-                            checked: data.is_reviewed;
-                            toggled => { Diff.toggle-is-reviewed(idx) }
-                        }
-                        Button {
-                            icon: notes.length > 0 ? @image-url("../assets/icons/note-add-active.svg") : @image-url("../assets/icons/note-add.svg");
-                            width: 40px;
-                            enabled: checked_index == idx;
-                            clicked => { root.open-file-notes-popup(data.text) }
+                        Text {
+                            font-size: 14px;
+                            vertical-alignment: center;
+                            text: {
+                                if (data.change_type == ChangeType.Added) {
+                                    return "A";
+                                }
+                                else if (data.change_type == ChangeType.Broken) {
+                                    return "B";
+                                }
+                                else if (data.change_type == ChangeType.Copied) {
+                                    return "C";
+                                }
+                                else if (data.change_type == ChangeType.Deleted) {
+                                    return "D";
+                                }
+                                else if (data.change_type == ChangeType.Modified) {
+                                    return "M";
+                                }
+                                else if (data.change_type == ChangeType.Renamed) {
+                                    return "R";
+                                }
+                                else if (data.change_type == ChangeType.TypChanged) {
+                                    return "TC";
+                                }
+                                else if (data.change_type == ChangeType.Unknown) {
+                                    return "U";
+                                }
+                                else if (data.change_type == ChangeType.Unmerged) {
+                                    return "UM";
+                                }
+                                return "??";
+                            };
                         }
                     }
+                    if data.added-lines != 0 : Rectangle {
+                        background: #5e8262;
+                        border-radius: 5px;
+                        width: 50px;
+
+                        Text {
+                            font-size: 14px;
+                            vertical-alignment: center;
+                            text: "\{data.added-lines != -1 ? data.added-lines : "??"}";
+                        }
+                    }
+                    if data.removed-lines != 0 : Rectangle {
+                        background: #B06161;
+                        border-radius: 5px;
+                        width: 50px;
+
+                        Text {
+                            font-size: 14px;
+                            vertical-alignment: center;
+                            text: "\{data.removed-lines != -1 ? data.removed-lines : "??"}";
+                        }
+                    }
+                    CheckBox {
+                        enabled: checked_index == idx;
+                        checked: data.is_reviewed;
+                        toggled => { Diff.toggle-is-reviewed(idx) }
+                    }
+                    Button {
+                        icon: notes.length > 0 ? @image-url("../assets/icons/note-add-active.svg") : @image-url("../assets/icons/note-add.svg");
+                        width: 40px;
+                        enabled: checked_index == idx;
+                        clicked => { root.open-file-notes-popup(data.text) }
+                    }
                 }
-                ta:=TouchArea {
-                    x: 0;
-                    y: 0;
-                    width: parent.width - buttons-layout.width;
-                    double-clicked => { Diff.open-file-diff(idx) }
-                    clicked => { checked_index = idx }
-                }
+            }
+            ta := TouchArea {
+                x: 0;
+                y: 0;
+                width: parent.width - buttons-layout.width;
+                double-clicked => { Diff.open-file-diff(idx) }
+                clicked => { checked_index = idx }
             }
         }
     }
