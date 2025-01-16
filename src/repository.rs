@@ -1,7 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::{path::PathBuf, rc::Rc};
 
-use native_dialog::FileDialog;
 use slint::{Model, VecModel};
 
 use crate::git_utils::ChangeType;
@@ -41,20 +40,18 @@ impl Repository {
             path: PathBuf::from(config.repo_path.to_string()),
             current_diff: Diff::new(),
         };
-        if repo.repository_path().is_some() {
-            repo.current_diff.start_commit = config.start_diff.clone();
-            repo.current_diff.end_commit = config.end_diff.clone();
+        repo.current_diff.start_commit = config.start_diff.clone();
+        repo.current_diff.end_commit = config.end_diff.clone();
 
-            repo.current_diff.file_diff_model.clear();
-            for diff_file in &config.diff_files {
-                repo.current_diff.file_diff_model.push(ui::DiffFileItem {
-                    text: diff_file.file_name.to_owned().into(),
-                    is_reviewed: diff_file.is_reviewed,
-                    added_lines: -1,
-                    removed_lines: -1,
-                    change_type: ui::ChangeType::Invalid,
-                })
-            }
+        repo.current_diff.file_diff_model.clear();
+        for diff_file in &config.diff_files {
+            repo.current_diff.file_diff_model.push(ui::DiffFileItem {
+                text: diff_file.file_name.to_owned().into(),
+                is_reviewed: diff_file.is_reviewed,
+                added_lines: -1,
+                removed_lines: -1,
+                change_type: ui::ChangeType::Invalid,
+            })
         }
         Ok(repo)
     }
@@ -77,16 +74,8 @@ impl Repository {
         }
     }
 
-    pub fn open(&mut self) -> &str {
-        let repo_path = FileDialog::new().set_location("~/workspace/review-todo").show_open_single_dir().unwrap();
-
-        match repo_path {
-            None => "",
-            Some(path) => {
-                self.path = path;
-                self.path.to_str().unwrap()
-            }
-        }
+    pub fn set_path(&mut self, path: PathBuf) {
+        self.path = path;
     }
 
     pub fn diff_repository(&mut self, start_commit: &str, end_commit: &str) -> anyhow::Result<()> {

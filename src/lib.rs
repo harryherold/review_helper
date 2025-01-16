@@ -47,6 +47,7 @@ fn setup_project(app_window_handle: &ui::AppWindow) -> Rc<RefCell<Project>> {
             let ui = ui_weak.unwrap();
 
             let path_option = FileDialog::new().add_filter("toml project file", &["toml"]).show_open_single_file().unwrap();
+
             if path_option.is_none() {
                 return;
             }
@@ -126,8 +127,15 @@ fn setup_repository(app_window_handle: &ui::AppWindow, project: &Rc<RefCell<Proj
         move || {
             let ui = ui_weak.unwrap();
             let mut project_ref = project_ref.borrow_mut();
-            let path = project_ref.repository.open();
-            ui.global::<ui::Repository>().set_path(SharedString::from(path));
+            match FileDialog::new().set_location("~").show_open_single_dir().unwrap() {
+                Some(repo_path) => {
+                    if let Some(path) = repo_path.to_str() {
+                        ui.global::<ui::Repository>().set_path(SharedString::from(path));
+                    }
+                    project_ref.repository.set_path(repo_path);
+                }
+                None => {}
+            }
         }
     });
     app_window_handle.global::<ui::Diff>().on_diff_start_end({

@@ -1,6 +1,6 @@
-* [] New adds old ini
-* [] Title of NotesView is too long consider using just file name + parent folder
-* [] Cancel file dialog deletes model data
+* [x] New adds old ini
+* [x] Title of NotesView is too long consider using just file name + parent folder
+* [x] Cancel file dialog deletes model data
 * [] Sort diff list by file name
 * [] Suppress terminal window on start
 
@@ -14,6 +14,6 @@
 * [] Try to implement own model (HashMap model)
 
 * [] Show overall stats of diff
-* [] Auto fill file with branch name
+* [] new project: Auto fill file with branch name in file dialog
 * [] Track if there is unsaved changes
 * [] Make config for diff tool and editor(for added files)
