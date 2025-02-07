@@ -11,12 +11,13 @@ use anyhow::Result;
 
 use config::Config;
 use project::Project;
-use slint::{ComponentHandle, ModelExt, SharedString, VecModel};
+use slint::{ComponentHandle, ModelExt, ModelRc, SharedString};
 
 use native_dialog::FileDialog;
 
 mod config;
 mod git_utils;
+mod id_model;
 mod notes;
 mod project;
 mod repository;
@@ -48,7 +49,7 @@ fn extension_from_filename(filename: &str) -> Option<&str> {
     Path::new(filename).extension().and_then(OsStr::to_str)
 }
 
-fn diff_file_proxy_model(app: ui::AppWindow, model: Rc<VecModel<ui::DiffFileItem>>, sort_criteria: ui::SortCriteria) {
+fn diff_file_proxy_model(app: ui::AppWindow, model: ModelRc<ui::DiffFileItem>, sort_criteria: ui::SortCriteria) {
     let sort_by_name = |lhs: &ui::DiffFileItem, rhs: &ui::DiffFileItem| -> Ordering { lhs.text.to_lowercase().cmp(&rhs.text.to_lowercase()) };
     let sort_by_exentsion = |lhs: &ui::DiffFileItem, rhs: &ui::DiffFileItem| -> Ordering {
         let lhs_opt = extension_from_filename(&lhs.text);
@@ -195,15 +196,15 @@ fn setup_repository(app_window_handle: &ui::AppWindow, project: &Rc<RefCell<Proj
     });
     app_window_handle.global::<ui::Diff>().on_open_file_diff({
         let project_ref = project.clone();
-        move |index| {
-            if let Err(error) = project_ref.borrow().repository.diff_file(index) {
+        move |id| {
+            if let Err(error) = project_ref.borrow().repository.diff_file(id) {
                 eprintln!("Error occured while file diff: {}", error.to_string())
             }
         }
     });
     app_window_handle.global::<ui::Diff>().on_toggle_is_reviewed({
         let project_ref = project.clone();
-        move |index| project_ref.borrow_mut().repository.toggle_file_is_reviewed(index as usize)
+        move |id| project_ref.borrow_mut().repository.toggle_file_is_reviewed(id)
     });
     app_window_handle.global::<ui::Diff>().on_set_sort_criteria({
         let project_ref = project.clone();
@@ -212,6 +213,7 @@ fn setup_repository(app_window_handle: &ui::AppWindow, project: &Rc<RefCell<Proj
             let ui = ui_weak.unwrap();
             ui.global::<ui::Diff>().set_current_sort_criteria(sort_criteria);
             diff_file_proxy_model(ui, project_ref.borrow_mut().repository.file_diff_model(), sort_criteria);
+            // ui.global::<ui::Diff>().set_diff_model(project_ref.borrow_mut().repository.file_diff_model())
         }
     });
 }

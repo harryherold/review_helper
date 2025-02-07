@@ -1,7 +1,9 @@
+use std::cmp::{self, Ordering};
 use std::collections::{HashMap, HashSet};
+use std::sync::atomic::AtomicUsize;
 use std::{path::PathBuf, rc::Rc};
 
-use slint::{Model, VecModel};
+use slint::{Model, ModelRc, SortModel, VecModel};
 
 use crate::git_utils::ChangeType;
 use crate::{config::Config, git_utils, ui};
@@ -11,19 +13,39 @@ pub struct Repository {
     current_diff: Diff,
 }
 
+fn diff_file_id() -> i32 {
+    static COUNTER: AtomicUsize = AtomicUsize::new(1);
+    COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed) as i32
+}
+
+type DiffModelRc = Rc<VecModel<ui::DiffFileItem>>;
+type SortDiffModelRc = Rc<SortModel<DiffModelRc, fn(&ui::DiffFileItem, &ui::DiffFileItem) -> Ordering>>;
 struct Diff {
     start_commit: String,
     end_commit: String,
-    file_diff_model: Rc<VecModel<ui::DiffFileItem>>,
+    file_diff_model: DiffModelRc,
+    // file_diff_sort_model: SortDiffModelRc,
 }
 
 impl Diff {
     pub fn new() -> Diff {
+        let file_diff_model = Rc::new(slint::VecModel::<ui::DiffFileItem>::default());
+        // let sort_callback = |lhs: &ui::DiffFileItem, rhs: &ui::DiffFileItem| -> Ordering { lhs.text.cmp(&rhs.text) };
+
         Diff {
             start_commit: String::new(),
             end_commit: String::new(),
-            file_diff_model: Rc::new(slint::VecModel::<ui::DiffFileItem>::default()),
+            file_diff_model: file_diff_model.clone(),
+            // file_diff_sort_model: Rc::new(SortModel::new(file_diff_model, sort_callback)),
         }
+    }
+    fn id_to_index(&self, id: i32) -> Option<usize> {
+        for (idx, item) in self.file_diff_model.iter().enumerate() {
+            if item.id == id {
+                return Some(idx);
+            }
+        }
+        None
     }
 }
 
@@ -46,6 +68,7 @@ impl Repository {
         repo.current_diff.file_diff_model.clear();
         for diff_file in &config.diff_files {
             repo.current_diff.file_diff_model.push(ui::DiffFileItem {
+                id: diff_file_id(),
                 text: diff_file.file_name.to_owned().into(),
                 is_reviewed: diff_file.is_reviewed,
                 added_lines: -1,
@@ -125,6 +148,7 @@ impl Repository {
         let add_item = |file: &String| {
             let file_stat = files_stats.get(file).unwrap();
             self.current_diff.file_diff_model.push(ui::DiffFileItem {
+                id: diff_file_id(),
                 text: file.into(),
                 is_reviewed: false,
                 added_lines: file_stat.added_lines as i32,
@@ -160,25 +184,28 @@ impl Repository {
             let new_files: HashSet<&String> = diff_files.difference(&old_files).collect();
             new_files.into_iter().for_each(add_item);
         }
+
         Ok(())
     }
 
-    pub fn toggle_file_is_reviewed(&mut self, item_index: usize) {
-        if let Some(mut item) = self.current_diff.file_diff_model.row_data(item_index) {
+    pub fn toggle_file_is_reviewed(&mut self, id: i32) {
+        let index = self.current_diff.id_to_index(id).expect("id-index-mapping is broken!");
+        if let Some(mut item) = self.current_diff.file_diff_model.row_data(index) {
             item.is_reviewed = !item.is_reviewed;
-            self.current_diff.file_diff_model.set_row_data(item_index, item);
+            self.current_diff.file_diff_model.set_row_data(index, item);
         }
     }
 
-    pub fn diff_file(&self, index: i32) -> anyhow::Result<()> {
+    pub fn diff_file(&self, id: i32) -> anyhow::Result<()> {
+        let index = self.current_diff.id_to_index(id).expect("id-index-mapping is broken!");
         match self.current_diff.file_diff_model.row_data(index as usize) {
             None => Err(anyhow::format_err!("Could not found file in model!")),
             Some(file_item) => git_utils::diff_file(&self.path, &self.current_diff.start_commit, &self.current_diff.end_commit, &file_item.text),
         }
     }
 
-    pub fn file_diff_model(&self) -> Rc<VecModel<ui::DiffFileItem>> {
-        self.current_diff.file_diff_model.clone()
+    pub fn file_diff_model(&self) -> ModelRc<ui::DiffFileItem> {
+        self.current_diff.file_diff_model.clone().into()
     }
 
     pub fn diff_range(&self) -> (&str, &str) {
