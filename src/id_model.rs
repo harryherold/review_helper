@@ -1,192 +1,114 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, collections::BTreeMap, sync::atomic::AtomicUsize};
 
-use slint::{FilterModel, Model, ModelExt, ModelNotify, ModelPeer, VecModel};
+use slint::{Model, ModelNotify};
 
-use crate::ui::DiffFileItem;
+fn map_id() -> usize {
+    static COUNTER: AtomicUsize = AtomicUsize::new(1);
+    COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed) as usize
+}
 
 struct IdModelItem {
     value: String,
     id: u32,
 }
 
-struct IdModel {
-    data: std::cell::RefCell<Vec<String>>,
+struct IdModel<T> {
+    entity_map: std::cell::RefCell<BTreeMap<usize, T>>,
     notify: ModelNotify,
 }
 
-impl Model for IdModel {
-    type Data = String;
+impl<T: Clone + 'static> Model for IdModel<T> {
+    type Data = T;
 
     fn row_count(&self) -> usize {
-        self.data.borrow().len()
+        self.entity_map.borrow().len()
     }
     fn model_tracker(&self) -> &dyn slint::ModelTracker {
         &self.notify
     }
     fn row_data(&self, row: usize) -> Option<Self::Data> {
-        self.data.borrow().get(row).cloned()
+        match self.entity_map.borrow().keys().nth(row) {
+            None => None,
+            Some(key) => self.entity_map.borrow().get(key).map_or(None, |s| Some(s.to_owned())),
+        }
     }
     fn set_row_data(&self, row: usize, data: Self::Data) {
-        self.data.borrow_mut()[row] = data;
-        self.notify.row_changed(row);
+        if let Some(key) = self.entity_map.borrow().keys().nth(row) {
+            if let Some(entry) = self.entity_map.borrow_mut().get_mut(key) {
+                *entry = data;
+                self.notify.row_changed(row);
+            }
+        }
     }
     fn as_any(&self) -> &dyn core::any::Any {
         self
     }
 }
 
-impl IdModel {
-    fn new() -> IdModel {
-        let m = IdModel {
-            data: RefCell::new(Vec::new()),
+impl<T: Clone> IdModel<T> {
+    fn new() -> IdModel<T> {
+        IdModel {
+            entity_map: RefCell::new(BTreeMap::new()),
             notify: ModelNotify::default(),
-        };
-        // m.model_tracker().attach_peer(peer);
-        m
-    }
-    fn push(&mut self, value: String) {
-        self.data.borrow_mut().push(value);
-        self.notify.row_added(self.data.borrow().len() - 1, 1);
-    }
-}
-
-struct Names {
-    data: FilterModel<VecModel<String>, fn(&String) -> bool>,
-}
-
-fn filter_names(name: &String) -> bool {
-    name.starts_with("a")
-}
-
-impl Names {
-    fn filter_callback(name: &String) -> bool {
-        name.contains("42")
-    }
-    fn new() -> Names {
-        Names {
-            data: VecModel::default().filter(Names::filter_callback),
         }
     }
-    // fn data(&self) -> &VecModel<String> {
-    //     &self.data
-    // }
-}
+    fn add(&mut self, id: usize, value: T) {
+        self.entity_map.borrow_mut().insert(id, value);
 
-struct FooCallback<F> {
-    handler: F,
-}
-
-impl<F> FooCallback<F>
-where
-    F: Fn(&str) -> bool + 'static,
-{
-    fn new(func: F) -> Self {
-        FooCallback { handler: func }
-    }
-    fn call(&self) -> bool {
-        (self.handler)("foo")
-    }
-}
-
-struct Bar {
-    callback: FooCallback<fn(&str) -> bool>,
-}
-
-impl Bar {
-    fn new() -> Self {
-        Bar {
-            callback: FooCallback::new(Bar::my_call),
+        if let Some(index) = self.entity_map.borrow().keys().position(|&k| k == id) {
+            self.notify.row_added(index, 1);
         }
     }
-    fn exec(&self) -> bool {
-        self.callback.call()
+    fn remove(&mut self, id: usize) {
+        let opt_index = self.entity_map.borrow().keys().position(|&k| k == id);
+        if let Some(index) = opt_index {
+            self.entity_map.borrow_mut().remove(&id);
+            self.notify.row_removed(index, 1);
+        }
     }
-    fn my_call(name: &str) -> bool {
-        name.contains("a")
+    fn get(&self, id: usize) -> Option<T> {
+        self.entity_map.borrow().get(&id).cloned()
     }
 }
-
-// impl PartialOrd for DiffFileItem {
-//     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-//         self.text.partial_cmp(&other.text)
-//     }
-// }
-
-// impl PartialEq for DiffFileItem {
-//     fn eq(&self, other: &Self) -> bool {
-//         self.text == other.text
-//     }
-// }
-
-// impl Eq for DiffFileItem {}
-
-// impl Ord for DiffFileItem {
-//     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-//         self.text.cmp(&other.text)
-//     }
-// }
 
 #[cfg(test)]
 mod test {
-    use core::borrow;
-    use std::{cell::RefCell, default, rc::Rc};
+    use std::collections::BTreeMap;
 
-    use slint::{FilterModel, Model, ModelExt, SortModel, VecModel};
+    use slint::Model;
 
-    use super::{Bar, FooCallback, Names};
+    use super::{map_id, IdModel};
 
-    fn callback(name: &str) -> bool {
-        name.contains("a")
+    #[test]
+    fn create_query_remove() {
+        let mut model = IdModel::<String>::new();
+        let foo_id = map_id();
+        let bar_id = map_id();
+        model.add(foo_id, "foo".to_string());
+        model.add(bar_id, "bar".to_string());
+        model.remove(foo_id);
+        assert_eq!(model.row_count(), 1);
+        assert_eq!(model.row_data(0), Some("bar".to_string()));
+        let baz_id = map_id();
+        model.add(baz_id, "baz".to_string());
+        assert_eq!(model.get(baz_id), Some("baz".to_string()));
     }
 
     #[test]
-    fn test_difffile_proxy_models() {}
+    fn test_btree_map() {
+        let mut map = BTreeMap::<usize, String>::new();
+        let get_position = |m: &BTreeMap<usize, String>, id: usize| m.keys().position(|&k| k == id).unwrap();
 
-    #[test]
-    fn create_rows() {
-        let filter_name = Rc::new(RefCell::new("42".to_string()));
+        map.insert(1, "A".to_string());
+        assert_eq!(get_position(&map, 1), 0);
+        map.insert(2, "C".to_string());
+        assert_eq!(get_position(&map, 2), 1);
+        map.insert(3, "B".to_string());
+        assert_eq!(get_position(&map, 3), 2);
 
-        let model = Rc::new(VecModel::<String>::default());
-        let f = filter_name.clone();
-
-        let filter_model = Rc::new(FilterModel::new(model.clone(), move |s| {
-            let f = f.borrow();
-            s.contains(f.as_str())
-        }));
-        let mut sort_model = Rc::new(SortModel::new_ascending(model.clone()));
-
-        model.push("foo 42".to_string());
-        model.push("bar 42".to_string());
-        model.push("zoo 42 #".to_string());
-        model.push("couch 42 #".to_string());
-
-        model.push("alarm".to_string());
-
-        for name in sort_model.iter() {
-            println!("{}", name);
-        }
-
-        println!("");
-
-        // assert_eq!(sort_model.row_data(0), Some("bar 42".to_string()));
-        // assert_eq!(sort_model.row_data(1), Some("couch 42 #".to_string()));
-        // assert_eq!(sort_model.row_data(2), Some("foo 42".to_string()));
-        // assert_eq!(sort_model.row_data(3), Some("zoo 42 #".to_string()));
-
-        {
-            let mut f = filter_name.borrow_mut();
-            *f = "42 #".to_string();
-        }
-
-        filter_model.reset();
-
-        for name in sort_model.iter() {
-            println!("{}", name);
-        }
-
-        sort_model.reset();
-
-        // assert_eq!(sort_model.row_data(0), Some("couch 42 #".to_string()));
-        // assert_eq!(sort_model.row_data(1), Some("zoo 42 #".to_string()));
+        map.remove(&3);
+        map.insert(3, "C".to_string());
+        assert_eq!(get_position(&map, 3), 2);
+        assert_eq!(map.get(&3), Some("C".to_string()).as_ref());
     }
 }
