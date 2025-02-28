@@ -204,7 +204,7 @@ fn setup_repository(app_window_handle: &ui::AppWindow, project: &Rc<RefCell<Proj
     });
     app_window_handle.global::<ui::Diff>().on_toggle_is_reviewed({
         let project_ref = project.clone();
-        move |id| project_ref.borrow_mut().repository.toggle_file_is_reviewed(id)
+        move |id| project_ref.borrow_mut().repository.toggle_file_is_reviewed(id as usize)
     });
     app_window_handle.global::<ui::Diff>().on_set_sort_criteria({
         let project_ref = project.clone();

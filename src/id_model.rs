@@ -1,18 +1,9 @@
-use std::{cell::RefCell, collections::BTreeMap, sync::atomic::AtomicUsize};
+use std::collections::BTreeMap;
 
 use slint::{Model, ModelNotify};
 
-fn map_id() -> usize {
-    static COUNTER: AtomicUsize = AtomicUsize::new(1);
-    COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed) as usize
-}
-
-struct IdModelItem {
-    value: String,
-    id: u32,
-}
-
-struct IdModel<T> {
+#[derive(Default)]
+pub struct IdModel<T> {
     entity_map: std::cell::RefCell<BTreeMap<usize, T>>,
     notify: ModelNotify,
 }
@@ -46,42 +37,52 @@ impl<T: Clone + 'static> Model for IdModel<T> {
 }
 
 impl<T: Clone> IdModel<T> {
-    fn new() -> IdModel<T> {
-        IdModel {
-            entity_map: RefCell::new(BTreeMap::new()),
-            notify: ModelNotify::default(),
-        }
-    }
-    fn add(&mut self, id: usize, value: T) {
+    pub fn add(&self, id: usize, value: T) {
         self.entity_map.borrow_mut().insert(id, value);
 
         if let Some(index) = self.entity_map.borrow().keys().position(|&k| k == id) {
             self.notify.row_added(index, 1);
         }
     }
-    fn remove(&mut self, id: usize) {
+    pub fn remove(&self, id: usize) {
         let opt_index = self.entity_map.borrow().keys().position(|&k| k == id);
         if let Some(index) = opt_index {
             self.entity_map.borrow_mut().remove(&id);
             self.notify.row_removed(index, 1);
         }
     }
-    fn get(&self, id: usize) -> Option<T> {
+    pub fn update(&self, id: usize, value: T) {
+        let opt_index = self.entity_map.borrow().keys().position(|&k| k == id);
+        if let Some(index) = opt_index {
+            self.entity_map.borrow_mut().insert(id, value);
+            self.notify.row_changed(index);
+        }
+    }
+    pub fn get(&self, id: usize) -> Option<T> {
         self.entity_map.borrow().get(&id).cloned()
+    }
+    pub fn clear(&self) {
+        self.entity_map.borrow_mut().clear();
+        self.notify.reset();
     }
 }
 
 #[cfg(test)]
 mod test {
-    use std::collections::BTreeMap;
+    use std::{collections::BTreeMap, sync::atomic::AtomicUsize};
 
     use slint::Model;
 
-    use super::{map_id, IdModel};
+    use super::IdModel;
+
+    fn map_id() -> usize {
+        static COUNTER: AtomicUsize = AtomicUsize::new(1);
+        COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed) as usize
+    }
 
     #[test]
     fn create_query_remove() {
-        let mut model = IdModel::<String>::new();
+        let model = IdModel::<String>::default();
         let foo_id = map_id();
         let bar_id = map_id();
         model.add(foo_id, "foo".to_string());

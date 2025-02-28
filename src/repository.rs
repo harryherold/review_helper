@@ -1,11 +1,11 @@
-use std::cmp::{self, Ordering};
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::AtomicUsize;
 use std::{path::PathBuf, rc::Rc};
 
-use slint::{Model, ModelRc, SortModel, VecModel};
+use slint::{Model, ModelRc};
 
 use crate::git_utils::ChangeType;
+use crate::id_model::IdModel;
 use crate::{config::Config, git_utils, ui};
 
 pub struct Repository {
@@ -13,30 +13,25 @@ pub struct Repository {
     current_diff: Diff,
 }
 
-fn diff_file_id() -> i32 {
+fn diff_file_id() -> usize {
     static COUNTER: AtomicUsize = AtomicUsize::new(1);
-    COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed) as i32
+    COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
 }
 
-type DiffModelRc = Rc<VecModel<ui::DiffFileItem>>;
-type SortDiffModelRc = Rc<SortModel<DiffModelRc, fn(&ui::DiffFileItem, &ui::DiffFileItem) -> Ordering>>;
+type DiffModelRc = Rc<IdModel<ui::DiffFileItem>>;
 struct Diff {
     start_commit: String,
     end_commit: String,
     file_diff_model: DiffModelRc,
-    // file_diff_sort_model: SortDiffModelRc,
 }
 
 impl Diff {
     pub fn new() -> Diff {
-        let file_diff_model = Rc::new(slint::VecModel::<ui::DiffFileItem>::default());
-        // let sort_callback = |lhs: &ui::DiffFileItem, rhs: &ui::DiffFileItem| -> Ordering { lhs.text.cmp(&rhs.text) };
-
+        let file_diff_model = Rc::new(IdModel::<ui::DiffFileItem>::default());
         Diff {
             start_commit: String::new(),
             end_commit: String::new(),
             file_diff_model: file_diff_model.clone(),
-            // file_diff_sort_model: Rc::new(SortModel::new(file_diff_model, sort_callback)),
         }
     }
     fn id_to_index(&self, id: i32) -> Option<usize> {
@@ -67,14 +62,19 @@ impl Repository {
 
         repo.current_diff.file_diff_model.clear();
         for diff_file in &config.diff_files {
-            repo.current_diff.file_diff_model.push(ui::DiffFileItem {
-                id: diff_file_id(),
-                text: diff_file.file_name.to_owned().into(),
-                is_reviewed: diff_file.is_reviewed,
-                added_lines: -1,
-                removed_lines: -1,
-                change_type: ui::ChangeType::Invalid,
-            })
+            let id = diff_file_id();
+
+            repo.current_diff.file_diff_model.add(
+                id,
+                ui::DiffFileItem {
+                    id: id as i32,
+                    text: diff_file.file_name.to_owned().into(),
+                    is_reviewed: diff_file.is_reviewed,
+                    added_lines: -1,
+                    removed_lines: -1,
+                    change_type: ui::ChangeType::Invalid,
+                },
+            )
         }
         Ok(repo)
     }
@@ -113,10 +113,9 @@ impl Repository {
         self.current_diff
             .file_diff_model
             .iter()
-            .map(|item| item.text.to_string())
-            .enumerate()
-            .for_each(|(index, file)| {
-                file_index_map.insert(file.to_owned(), index);
+            .map(|item| (item.id as usize, item.text.to_string()))
+            .for_each(|(id, file)| {
+                file_index_map.insert(file.to_owned(), id);
                 old_files.insert(file);
             });
 
@@ -135,31 +134,35 @@ impl Repository {
             git_utils::ChangeType::Invalid => ui::ChangeType::Invalid,
         };
 
-        let update_item = |mut item: ui::DiffFileItem, row: usize| {
+        let update_item = |mut item: ui::DiffFileItem| {
             let file_stat = files_stats.get(item.text.as_str()).unwrap();
 
             if item.added_lines != file_stat.added_lines as i32 || item.removed_lines != file_stat.removed_lines as i32 {
                 item.added_lines = file_stat.added_lines as i32;
                 item.removed_lines = file_stat.removed_lines as i32;
                 item.change_type = change_type_to_ui(&file_stat.change_type);
-                self.current_diff.file_diff_model.set_row_data(row, item);
+                self.current_diff.file_diff_model.update(item.id as usize, item);
             }
         };
         let add_item = |file: &String| {
             let file_stat = files_stats.get(file).unwrap();
-            self.current_diff.file_diff_model.push(ui::DiffFileItem {
-                id: diff_file_id(),
-                text: file.into(),
-                is_reviewed: false,
-                added_lines: file_stat.added_lines as i32,
-                removed_lines: file_stat.removed_lines as i32,
-                change_type: change_type_to_ui(&file_stat.change_type),
-            });
+            let id = diff_file_id();
+            self.current_diff.file_diff_model.add(
+                id,
+                ui::DiffFileItem {
+                    id: id as i32,
+                    text: file.into(),
+                    is_reviewed: false,
+                    added_lines: file_stat.added_lines as i32,
+                    removed_lines: file_stat.removed_lines as i32,
+                    change_type: change_type_to_ui(&file_stat.change_type),
+                },
+            );
         };
 
         if diff_files == old_files {
-            for (row, item) in self.current_diff.file_diff_model.iter().enumerate() {
-                update_item(item, row);
+            for item in self.current_diff.file_diff_model.iter() {
+                update_item(item);
             }
             return Ok(());
         } else if diff_files.is_disjoint(&old_files) {
@@ -169,8 +172,9 @@ impl Repository {
             let modified_files = old_files.intersection(&diff_files).collect::<HashSet<&String>>();
             for modified_file in modified_files {
                 let index = file_index_map.get(modified_file).expect("Modified files should not be deleted!");
+
                 if let Some(item) = self.current_diff.file_diff_model.row_data(*index) {
-                    update_item(item, *index);
+                    update_item(item);
                 }
             }
 
@@ -188,11 +192,10 @@ impl Repository {
         Ok(())
     }
 
-    pub fn toggle_file_is_reviewed(&mut self, id: i32) {
-        let index = self.current_diff.id_to_index(id).expect("id-index-mapping is broken!");
-        if let Some(mut item) = self.current_diff.file_diff_model.row_data(index) {
+    pub fn toggle_file_is_reviewed(&mut self, id: usize) {
+        if let Some(mut item) = self.current_diff.file_diff_model.get(id) {
             item.is_reviewed = !item.is_reviewed;
-            self.current_diff.file_diff_model.set_row_data(index, item);
+            self.current_diff.file_diff_model.update(id, item);
         }
     }
 
