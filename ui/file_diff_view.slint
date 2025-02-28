@@ -175,7 +175,7 @@ export component FileDiffView inherits VerticalBox {
                 y: 0;
                 width: parent.width - buttons-layout.width;
                 double-clicked => { Diff.open-file-diff(data.id) }
-                clicked => { checked_id == data.id }
+                clicked => { checked_id = data.id }
             }
         }
     }
