@@ -147,6 +147,7 @@ pub fn diff_file(repo_path: &PathBuf, start_commit: &str, end_commit: &str, file
         args.push(end_commit);
     }
 
+    args.push("--");
     args.push(file);
 
     Command::new("git").current_dir(repo_path).args(args).spawn()?;
