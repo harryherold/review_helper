@@ -137,8 +137,12 @@ fn query_file_stats(
     Ok(files_stats)
 }
 
-pub fn diff_file(repo_path: &PathBuf, start_commit: &str, end_commit: &str, file: &str) -> anyhow::Result<()> {
-    let mut args = vec!["difftool", "-U100000", "--no-prompt", "--tool=meld"];
+pub fn diff_file(repo_path: &PathBuf, start_commit: &str, end_commit: &str, file: &str, diff_tool: &str) -> anyhow::Result<()> {
+    let mut args = vec!["difftool", "-U100000", "--no-prompt"];
+
+    let diff_tool = format!("--tool={}", diff_tool);
+
+    args.push(&diff_tool);
 
     if false == start_commit.is_empty() {
         args.push(start_commit);

@@ -199,11 +199,11 @@ impl Repository {
         }
     }
 
-    pub fn diff_file(&self, id: i32) -> anyhow::Result<()> {
+    pub fn diff_file(&self, id: i32, diff_tool: &str) -> anyhow::Result<()> {
         let index = self.current_diff.id_to_index(id).expect("id-index-mapping is broken!");
         match self.current_diff.file_diff_model.row_data(index as usize) {
             None => Err(anyhow::format_err!("Could not found file in model!")),
-            Some(file_item) => git_utils::diff_file(&self.path, &self.current_diff.start_commit, &self.current_diff.end_commit, &file_item.text),
+            Some(file_item) => git_utils::diff_file(&self.path, &self.current_diff.start_commit, &self.current_diff.end_commit, &file_item.text, diff_tool),
         }
     }
 

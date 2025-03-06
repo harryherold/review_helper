@@ -1,0 +1,49 @@
+import { Popup } from "popup.slint";
+import { Style } from "style.slint";
+
+import { VerticalBox, LineEdit, Button } from "std-widgets.slint";
+
+export global AppConfig {
+    in property <string> diff_tool;
+    callback change-diff-tool(string);
+    callback save();
+}
+
+
+export component AppConfigPopup inherits Popup {
+    title: "Config";
+
+    VerticalBox {
+        alignment: space-between;
+
+        HorizontalLayout {
+            spacing: Style.spacing;
+
+            Text {
+                font-size: 14px;
+                vertical-alignment: center;
+                text: "diff tool";
+            }
+            diff_tool_edit := LineEdit {
+                height: Style.control_height;
+                text: AppConfig.diff_tool;
+            }
+        }
+        HorizontalLayout {
+            spacing: Style.spacing;
+
+            Button {
+                text: "Cancel";
+                clicked => { root.close() }
+            }
+            Button {
+                text: "Save";
+                clicked => {
+                    AppConfig.change-diff-tool(diff_tool_edit.text);
+                    AppConfig.save();
+                    root.close();
+                }
+            }
+        }
+    }
+}

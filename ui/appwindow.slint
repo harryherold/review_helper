@@ -7,8 +7,9 @@ import { Popup } from "popup.slint";
 import { FileNotesPopup } from "file_notes_popup.slint";
 import { StringUtils } from "string_utils.slint";
 import { Menu, MenuItem } from "menu.slint";
+import { AppConfig, AppConfigPopup } from "app_config_popup.slint";
 
-export { Notes, NoteItem, Diff, DiffFileItem, Repository, StringUtils }
+export { AppConfig, Notes, NoteItem, Diff, DiffFileItem, Repository, StringUtils }
 
 export global Project {
     in property <string> path;
@@ -26,6 +27,10 @@ export component AppWindow inherits Window {
     title: Project.path;
 
     notes-popup := FileNotesPopup {
+        initial_x: (root.width / 2) - (self.width / 2);
+        initial_y: (root.height / 2) - (self.height / 2);
+    }
+    app-config-popup := AppConfigPopup {
         initial_x: (root.width / 2) - (self.width / 2);
         initial_y: (root.height / 2) - (self.height / 2);
     }
@@ -58,6 +63,14 @@ export component AppWindow inherits Window {
                     MenuItem {
                         text: "Close";
                         clicked => { root.close() }
+                    }
+                }
+                Menu {
+                    text: "Edit";
+
+                    MenuItem {
+                        text: "Config";
+                        clicked => { app-config-popup.open() }
                     }
                 }
             }

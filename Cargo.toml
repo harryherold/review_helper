@@ -15,6 +15,7 @@ slint = "1.9.2"
 native-dialog = "0.7.0"
 todo-txt = "3.1.0"
 anyhow = "1.0.89"
+dirs = "6.0.0"
 
 [build-dependencies]
 slint-build = "1.0"

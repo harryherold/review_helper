@@ -15,6 +15,7 @@ use slint::{ComponentHandle, ModelExt, ModelRc, SharedString};
 
 use native_dialog::FileDialog;
 
+mod app_config;
 mod project_config;
 mod git_utils;
 mod id_model;
@@ -25,11 +26,13 @@ mod repository;
 pub mod ui;
 
 pub fn main() -> Result<(), slint::PlatformError> {
+
     let app_window = ui::AppWindow::new().unwrap();
 
     app_window.on_close(move || process::exit(0));
     let project = setup_project(&app_window);
-    setup_repository(&app_window, &project);
+    let app_config = setup_app_config(&app_window);
+    setup_repository(&app_window, &project, &app_config);
     setup_notes(&app_window, &project);
 
     app_window.global::<ui::StringUtils>().on_filename({
@@ -77,6 +80,38 @@ fn diff_file_proxy_model(app: ui::AppWindow, model: ModelRc<ui::DiffFileItem>, s
         let proxy = Rc::new(model.sort_by(sort_by_exentsion));
         app.global::<ui::Diff>().set_diff_model(proxy.into())
     }
+}
+
+fn setup_app_config(app_window_handle: &ui::AppWindow) -> Rc<RefCell<app_config::AppConfig>> {
+    let app_config = match app_config::AppConfig::new() {
+        Ok(config) => Rc::new(RefCell::new(config)),
+        Err(e) => {
+            eprintln!("{}", e.to_string());
+            Rc::new(RefCell::new(app_config::AppConfig::default()))
+        }
+    };
+
+    app_window_handle.global::<ui::AppConfig>().on_change_diff_tool({
+        let ui_weak = app_window_handle.as_weak();
+        let app_config = app_config.clone();
+        move |diff_tool| {
+            let ui = ui_weak.unwrap();
+            app_config.borrow_mut().diff_tool = diff_tool.to_string();
+            ui.global::<ui::AppConfig>().set_diff_tool(diff_tool);
+        }
+    });
+    app_window_handle.global::<ui::AppConfig>().on_save({
+        let app_config = app_config.clone();
+        move || {
+            if let Err(e) = app_config.borrow().save() {
+                eprintln!("Errors occurred during app config save: {}", e.to_string());
+            }
+        }
+    });
+
+    app_window_handle.global::<ui::AppConfig>().set_diff_tool(SharedString::from(&app_config.borrow().diff_tool));
+
+    app_config
 }
 
 fn setup_project(app_window_handle: &ui::AppWindow) -> Rc<RefCell<Project>> {
@@ -162,7 +197,7 @@ fn setup_project(app_window_handle: &ui::AppWindow) -> Rc<RefCell<Project>> {
     project
 }
 
-fn setup_repository(app_window_handle: &ui::AppWindow, project: &Rc<RefCell<Project>>) {
+fn setup_repository(app_window_handle: &ui::AppWindow, project: &Rc<RefCell<Project>>, app_config: &Rc<RefCell<app_config::AppConfig>>) {
     app_window_handle.global::<ui::Repository>().on_open({
         let ui_weak = app_window_handle.as_weak();
         let project_ref = project.clone();
@@ -196,8 +231,9 @@ fn setup_repository(app_window_handle: &ui::AppWindow, project: &Rc<RefCell<Proj
     });
     app_window_handle.global::<ui::Diff>().on_open_file_diff({
         let project_ref = project.clone();
+        let app_config = app_config.clone();
         move |id| {
-            if let Err(error) = project_ref.borrow().repository.diff_file(id) {
+            if let Err(error) = project_ref.borrow().repository.diff_file(id, &app_config.borrow().diff_tool) {
                 eprintln!("Error occured while file diff: {}", error.to_string())
             }
         }
