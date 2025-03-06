@@ -6,18 +6,21 @@ use std::str::FromStr;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{path::PathBuf, rc::Rc};
 
-use slint::{Model, SharedString, VecModel};
+use slint::ModelRc;
+use slint::{Model, SharedString};
+
+use crate::id_model::IdModel;
 
 use crate::ui;
 
 const NOTE_FILE_NAME: &str = "notes.txt";
 
-fn note_id() -> i32 {
+fn note_id() -> usize {
     static COUNTER: AtomicUsize = AtomicUsize::new(1);
-    COUNTER.fetch_add(1, Ordering::Relaxed) as i32
+    COUNTER.fetch_add(1, Ordering::Relaxed)
 }
 
-fn write_notes_to_file(vec_model: &VecModel<ui::NoteItem>, path: &PathBuf) -> anyhow::Result<()> {
+fn write_notes_to_file(vec_model: &IdModel<ui::NoteItem>, path: &PathBuf) -> anyhow::Result<()> {
     let mut file = OpenOptions::new().create(true).truncate(true).write(true).open(path)?;
     for item in vec_model.iter() {
         let subject = {
@@ -37,8 +40,8 @@ fn write_notes_to_file(vec_model: &VecModel<ui::NoteItem>, path: &PathBuf) -> an
     Ok(())
 }
 
-fn read_notes_from_file(path: &PathBuf) -> Result<VecModel<ui::NoteItem>, std::io::Error> {
-    let todo_model = slint::VecModel::<ui::NoteItem>::default();
+fn read_notes_from_file(path: &PathBuf) -> Result<IdModel<ui::NoteItem>, std::io::Error> {
+    let todo_model = IdModel::<ui::NoteItem>::default();
 
     if !path.exists() {
         return Ok(todo_model);
@@ -57,8 +60,9 @@ fn read_notes_from_file(path: &PathBuf) -> Result<VecModel<ui::NoteItem>, std::i
                     (task.subject.to_string(), "".to_string())
                 }
             };
-            todo_model.push(ui::NoteItem {
-                id: note_id(),
+            let id = note_id();
+            todo_model.add(id, ui::NoteItem {
+                id: id as i32,
                 is_fixed: task.finished,
                 text: subject.into(),
                 context: context.into(),
@@ -69,30 +73,12 @@ fn read_notes_from_file(path: &PathBuf) -> Result<VecModel<ui::NoteItem>, std::i
 }
 
 pub struct Notes {
-    notes_model: Rc<VecModel<ui::NoteItem>>,
+    notes_model: Rc<IdModel<ui::NoteItem>>,
     note_file: PathBuf,
 }
 impl Notes {
     fn notes_file_exists(path: &Path) -> bool {
         path.join(NOTE_FILE_NAME).exists()
-    }
-
-    pub fn new(path: &Path) -> anyhow::Result<Notes> {
-        if Notes::notes_file_exists(path) {
-            Notes::from_file(path)
-        } else {
-            Ok(Notes {
-                notes_model: Rc::new(slint::VecModel::<ui::NoteItem>::default()),
-                note_file: path.join(NOTE_FILE_NAME),
-            })
-        }
-    }
-
-    pub fn default() -> Notes {
-        Notes {
-            notes_model: Rc::new(slint::VecModel::<ui::NoteItem>::default()),
-            note_file: "".into(),
-        }
     }
 
     fn from_file(path: &Path) -> anyhow::Result<Notes> {
@@ -103,22 +89,32 @@ impl Notes {
         })
     }
 
-    fn id_to_index(&self, id: i32) -> Option<usize> {
-        for (idx, item) in self.notes_model.iter().enumerate() {
-            if item.id == id {
-                return Some(idx);
-            }
+    pub fn new(path: &Path) -> anyhow::Result<Notes> {
+        if Notes::notes_file_exists(path) {
+            Notes::from_file(path)
+        } else {
+            Ok(Notes {
+                notes_model: Rc::new(IdModel::<ui::NoteItem>::default()),
+                note_file: path.join(NOTE_FILE_NAME),
+            })
         }
-        None
     }
 
-    pub fn notes_model(&self) -> Rc<VecModel<ui::NoteItem>> {
-        self.notes_model.clone()
+    pub fn default() -> Notes {
+        Notes {
+            notes_model: Rc::new(IdModel::<ui::NoteItem>::default()),
+            note_file: "".into(),
+        }
+    }
+
+    pub fn notes_model(&self) -> ModelRc<ui::NoteItem> {
+        self.notes_model.clone().into()
     }
 
     pub fn add_note(&self, text: SharedString, context: SharedString) {
-        self.notes_model.push(ui::NoteItem {
-            id: note_id(),
+        let id = note_id();
+        self.notes_model.add(id, ui::NoteItem {
+            id: id as i32,
             is_fixed: false,
             text: text,
             context: context,
@@ -133,23 +129,25 @@ impl Notes {
         }
     }
 
-    pub fn toogle_is_fixed(&self, note_id: i32) {
-        let note_index = self.id_to_index(note_id).expect(&format!("Could not find index for id {}", note_id));
-        if let Some(mut item) = self.notes_model.row_data(note_index) {
+    pub fn toogle_is_fixed(&self, id: usize) {
+        if let Some(mut item) = self.notes_model.get(id) {
             item.is_fixed = !item.is_fixed;
-            self.notes_model.set_row_data(note_index, item);
+            self.notes_model.update(id, item);
         }
     }
 
-    pub fn set_note_text(&self, note_id: i32, text: SharedString) {
-        let note_index = self.id_to_index(note_id).expect(&format!("Could not find index for id {}", note_id));
-        if let Some(mut item) = self.notes_model.row_data(note_index) {
+    pub fn set_note_text(&self, id: usize, text: SharedString) {
+        if let Some(mut item) = self.notes_model.get(id) {
             if item.text == text {
                 return;
             }
             item.text = text;
-            self.notes_model.set_row_data(note_index, item);
+            self.notes_model.update(id, item);
         }
+    }
+
+    pub fn delete_note(&mut self, id: usize) {
+        self.notes_model.remove(id);
     }
 }
 
