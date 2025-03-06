@@ -9,13 +9,13 @@ use std::{
 
 use anyhow::Result;
 
-use config::Config;
+use project_config::ProjectConfig;
 use project::Project;
 use slint::{ComponentHandle, ModelExt, ModelRc, SharedString};
 
 use native_dialog::FileDialog;
 
-mod config;
+mod project_config;
 mod git_utils;
 mod id_model;
 mod notes;
@@ -94,13 +94,13 @@ fn setup_project(app_window_handle: &ui::AppWindow) -> Rc<RefCell<Project>> {
                 return;
             }
             let path = path_option.unwrap();
-            let config_result = Config::read_from(&path);
+            let config_result = ProjectConfig::read_from(&path);
             if let Err(error) = config_result {
                 eprintln!("Could not read config: {}", error.to_string());
                 return;
             }
-            let config = config_result.unwrap();
-            if let Ok(new_project) = Project::from_config(&path, config) {
+            let project_config = config_result.unwrap();
+            if let Ok(new_project) = Project::from_config(&path, project_config) {
                 *project_ref.borrow_mut() = new_project;
                 let project = project_ref.borrow();
 
@@ -213,7 +213,6 @@ fn setup_repository(app_window_handle: &ui::AppWindow, project: &Rc<RefCell<Proj
             let ui = ui_weak.unwrap();
             ui.global::<ui::Diff>().set_current_sort_criteria(sort_criteria);
             diff_file_proxy_model(ui, project_ref.borrow_mut().repository.file_diff_model(), sort_criteria);
-            // ui.global::<ui::Diff>().set_diff_model(project_ref.borrow_mut().repository.file_diff_model())
         }
     });
 }

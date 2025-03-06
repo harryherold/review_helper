@@ -20,7 +20,7 @@ impl DiffFile {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct Config {
+pub struct ProjectConfig {
     pub version: u32,
     pub start_diff: String,
     pub end_diff: String,
@@ -29,9 +29,9 @@ pub struct Config {
     pub diff_files: Vec<DiffFile>,
 }
 
-impl Config {
-    pub fn new() -> Config {
-        Config {
+impl ProjectConfig {
+    pub fn new() -> ProjectConfig {
+        ProjectConfig {
             version: 1,
             start_diff: "".into(),
             end_diff: "".into(),
@@ -40,14 +40,14 @@ impl Config {
             diff_files: Vec::new(),
         }
     }
-    pub fn save(path: &PathBuf, config: &Config) -> anyhow::Result<()> {
+    pub fn save(path: &PathBuf, config: &ProjectConfig) -> anyhow::Result<()> {
         let contents = toml::to_string(config)?;
         fs::write(path, contents).map_err(|e| anyhow::format_err!(e.to_string()))
     }
-    pub fn read_from(path: &PathBuf) -> anyhow::Result<Config> {
+    pub fn read_from(path: &PathBuf) -> anyhow::Result<ProjectConfig> {
         let file_content = fs::read_to_string(path)?;
 
-        let mut config: Config = toml::from_str(&file_content)?;
+        let mut config: ProjectConfig = toml::from_str(&file_content)?;
 
         if config.version != 1 {
             return Err(anyhow::format_err!("Incorrect config version!"));

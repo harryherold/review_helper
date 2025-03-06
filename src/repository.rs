@@ -6,7 +6,7 @@ use slint::{Model, ModelRc};
 
 use crate::git_utils::ChangeType;
 use crate::id_model::IdModel;
-use crate::{config::Config, git_utils, ui};
+use crate::{project_config::ProjectConfig, git_utils, ui};
 
 pub struct Repository {
     path: PathBuf,
@@ -52,16 +52,16 @@ impl Repository {
         }
     }
 
-    pub fn from_config(config: &Config) -> anyhow::Result<Repository> {
+    pub fn from_project_config(project_config: &ProjectConfig) -> anyhow::Result<Repository> {
         let mut repo = Repository {
-            path: PathBuf::from(config.repo_path.to_string()),
+            path: PathBuf::from(project_config.repo_path.to_string()),
             current_diff: Diff::new(),
         };
-        repo.current_diff.start_commit = config.start_diff.clone();
-        repo.current_diff.end_commit = config.end_diff.clone();
+        repo.current_diff.start_commit = project_config.start_diff.clone();
+        repo.current_diff.end_commit = project_config.end_diff.clone();
 
         repo.current_diff.file_diff_model.clear();
-        for diff_file in &config.diff_files {
+        for diff_file in &project_config.diff_files {
             let id = diff_file_id();
 
             repo.current_diff.file_diff_model.add(
