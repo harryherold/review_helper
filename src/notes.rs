@@ -151,6 +151,11 @@ impl Notes {
             self.notes_model.set_row_data(note_index, item);
         }
     }
+
+    pub fn delete_note(&mut self, note_id: i32) {
+        let note_index = self.id_to_index(note_id).expect(&format!("Could not find index for id {}", note_id));
+        self.notes_model.remove(note_index);
+    }
 }
 
 #[cfg(test)]

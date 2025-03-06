@@ -13,6 +13,7 @@ export global Notes {
     callback add-note(string, string);
     callback change-text(int, string);
     callback toggle-fixed(int);
+    callback delete-note(int);
     pure callback file-notes-model(string) -> [NoteItem];
 }
 

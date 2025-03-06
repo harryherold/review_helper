@@ -264,7 +264,7 @@ fn setup_notes(app_window_handle: &ui::AppWindow, project: &Rc<RefCell<Project>>
     });
     app_window_handle.global::<ui::Notes>().on_toggle_fixed({
         let project_ref = project.clone();
-        move |todo_index| project_ref.borrow_mut().notes.toogle_is_fixed(todo_index)
+        move |note_id| project_ref.borrow_mut().notes.toogle_is_fixed(note_id)
     });
     app_window_handle.global::<ui::Notes>().on_file_notes_model({
         let project_ref = project.clone();
@@ -273,5 +273,9 @@ fn setup_notes(app_window_handle: &ui::AppWindow, project: &Rc<RefCell<Project>>
             let file_notes = notes.clone().filter(move |item| item.context.contains(file.as_str()));
             Rc::new(file_notes).into()
         }
+    });
+    app_window_handle.global::<ui::Notes>().on_delete_note({
+        let project_ref = project.clone();
+        move |note_id| project_ref.borrow_mut().notes.delete_note(note_id)
     });
 }
