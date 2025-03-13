@@ -1,0 +1,57 @@
+import { GroupBox } from "std-widgets.slint";
+
+import { Style } from "style.slint";
+
+import { ChangeTypeUtils, ChangeType } from "file_diff_view.slint";
+
+export struct OverallStat {
+    change_type: ChangeType,
+    count: int,
+}
+
+export global OverallDiffStats {
+    in property<int> added_lines: 0;
+    in property<int> removed_lines: 0;
+    in property <[OverallStat]> model;
+}
+
+export component OverallStatistics inherits GroupBox {
+    title: "Statistics";
+
+    HorizontalLayout {
+        height: 50px;
+
+        for data in OverallDiffStats.model: VerticalLayout{
+            width: 40px;
+            Image {
+                source: ChangeTypeUtils.to_icon(data.change_type);
+            }
+            Text {
+                text: "\{data.count}";
+                horizontal-alignment: center;
+            }
+        }
+        VerticalLayout {
+            width: 40px;
+            Image {
+                source: @image-url("../assets/icons/add.svg");
+                colorize: #5e8262;
+            }
+            Text {
+                text: "\{OverallDiffStats.added_lines}";
+                horizontal-alignment: center;
+            }
+        }
+        VerticalLayout {
+            width: 40px;
+            Image {
+                source: @image-url("../assets/icons/remove.svg");
+                colorize: #B06161;
+            }
+            Text {
+                text: "\{OverallDiffStats.removed_lines}";
+                horizontal-alignment: center;
+            }
+        }
+    }
+}

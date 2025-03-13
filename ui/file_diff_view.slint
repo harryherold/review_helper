@@ -16,6 +16,39 @@ export enum ChangeType {
     Broken,
 }
 
+export global ChangeTypeUtils {
+    public pure function to_icon(change_type: ChangeType) -> image {
+        if (change_type == ChangeType.Added) {
+            return @image-url("../assets/icons/git_file_added.svg");
+        }
+        else if (change_type == ChangeType.Broken) {
+            return @image-url("../assets/icons/git_file_broken.svg");
+        }
+        else if (change_type == ChangeType.Copied) {
+            return @image-url("../assets/icons/git_file_copied.svg");
+        }
+        else if (change_type == ChangeType.Deleted) {
+            return @image-url("../assets/icons/git_file_deleted.svg");
+        }
+        else if (change_type == ChangeType.Modified) {
+            return @image-url("../assets/icons/git_file_edited.svg");
+        }
+        else if (change_type == ChangeType.Renamed) {
+            return @image-url("../assets/icons/git_file_renamed.svg");
+        }
+        else if (change_type == ChangeType.TypChanged) {
+            return @image-url("../assets/icons/git_file_type_changed.svg");
+        }
+        else if (change_type == ChangeType.Unknown) {
+            return @image-url("../assets/icons/git_file_unknown.svg");
+        }
+        else if (change_type == ChangeType.Unmerged) {
+            return @image-url("../assets/icons/git_file_unmerged.svg");
+        }
+        return @image-url("../assets/icons/invalid.svg");
+    }
+}
+
 export enum SortCriteria {
     Name,
     Extension
@@ -41,6 +74,7 @@ export global Diff {
     callback set-sort-criteria(SortCriteria);
 }
 
+
 export component FileDiffView inherits VerticalBox {
     callback open-file-notes-popup(string);
 
@@ -53,10 +87,10 @@ export component FileDiffView inherits VerticalBox {
 
         Text {
             text: "Changed Files:";
-            font-weight: 800;
-            font-size: 16px;
+            font-weight: 500;
+            font-size: 14px;
+            vertical-alignment: TextVerticalAlignment.center;
         }
-
         ComboBox {
             model: ["Name", "Extension"];
             current-value: {
@@ -95,37 +129,7 @@ export component FileDiffView inherits VerticalBox {
                 }
                 buttons-layout := HorizontalLayout {
                     Image {
-                        source: {
-                            if (data.change_type == ChangeType.Added) {
-                                return @image-url("../assets/icons/git_file_added.svg");
-                            }
-                            else if (data.change_type == ChangeType.Broken) {
-                                return @image-url("../assets/icons/git_file_broken.svg");
-                            }
-                            else if (data.change_type == ChangeType.Copied) {
-                                return @image-url("../assets/icons/git_file_copied.svg");
-                            }
-                            else if (data.change_type == ChangeType.Deleted) {
-                                return @image-url("../assets/icons/git_file_deleted.svg");
-                            }
-                            else if (data.change_type == ChangeType.Modified) {
-                                return @image-url("../assets/icons/git_file_edited.svg");
-                            }
-                            else if (data.change_type == ChangeType.Renamed) {
-                                return @image-url("../assets/icons/git_file_renamed.svg");
-                            }
-                            else if (data.change_type == ChangeType.TypChanged) {
-                                return @image-url("../assets/icons/git_file_type_changed.svg");
-                            }
-                            else if (data.change_type == ChangeType.Unknown) {
-                                return @image-url("../assets/icons/git_file_unknown.svg");
-                            }
-                            else if (data.change_type == ChangeType.Unmerged) {
-                                return @image-url("../assets/icons/git_file_unmerged.svg");
-                            }
-                            return @image-url("../assets/icons/invalid.svg");
-                        }
-
+                        source: ChangeTypeUtils.to_icon(data.change_type);
                         horizontal-alignment: right;
                     }
                     HorizontalLayout {

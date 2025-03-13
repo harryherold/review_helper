@@ -9,7 +9,9 @@ import { StringUtils } from "string_utils.slint";
 import { Menu, MenuItem } from "menu.slint";
 import { AppConfig, AppConfigPopup } from "app_config_popup.slint";
 
-export { AppConfig, Notes, NoteItem, Diff, DiffFileItem, Repository, StringUtils }
+import { OverallStatistics, OverallDiffStats } from "overall_statistics.slint";
+
+export { AppConfig, Notes, NoteItem, Diff, DiffFileItem, Repository, StringUtils, OverallDiffStats }
 
 export global Project {
     in property <string> path;
@@ -78,6 +80,10 @@ export component AppWindow inherits Window {
         VerticalBox {
             if Project.is_loaded: DiffConfigView {
                 height: 100px;
+                vertical-stretch: 0;
+            }
+            if Repository.is_loaded: OverallStatistics {
+                vertical-stretch: 0;
             }
             if Repository.is_loaded: FileDiffView {
                 open-file-notes-popup(file) => { notes-popup.open-notes(file) }
