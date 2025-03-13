@@ -82,11 +82,11 @@ export component FileDiffView inherits VerticalBox {
             property <[NoteItem]> notes: Notes.file-notes-model(data.text);
 
             background: checked_id == data.id ? #333232 : Palette.background;
+            height: Style.control_height;
 
             HorizontalLayout {
                 alignment: space-between;
                 spacing: 2px;
-                padding-top: Style.spacing;
 
                 file-text := Text {
                     font-size: 14px;
@@ -94,79 +94,80 @@ export component FileDiffView inherits VerticalBox {
                     vertical-alignment: center;
                 }
                 buttons-layout := HorizontalLayout {
-                    spacing: Style.spacing;
-                    Rectangle {
-                        background: #789DBC;
-                        border-radius: 5px;
-                        width: 50px;
-
-                        Text {
-                            font-size: 14px;
-                            vertical-alignment: center;
-                            text: {
-                                if (data.change_type == ChangeType.Added) {
-                                    return "A";
-                                }
-                                else if (data.change_type == ChangeType.Broken) {
-                                    return "B";
-                                }
-                                else if (data.change_type == ChangeType.Copied) {
-                                    return "C";
-                                }
-                                else if (data.change_type == ChangeType.Deleted) {
-                                    return "D";
-                                }
-                                else if (data.change_type == ChangeType.Modified) {
-                                    return "M";
-                                }
-                                else if (data.change_type == ChangeType.Renamed) {
-                                    return "R";
-                                }
-                                else if (data.change_type == ChangeType.TypChanged) {
-                                    return "TC";
-                                }
-                                else if (data.change_type == ChangeType.Unknown) {
-                                    return "U";
-                                }
-                                else if (data.change_type == ChangeType.Unmerged) {
-                                    return "UM";
-                                }
-                                return "??";
-                            };
+                    Image {
+                        source: {
+                            if (data.change_type == ChangeType.Added) {
+                                return @image-url("../assets/icons/git_file_added.svg");
+                            }
+                            else if (data.change_type == ChangeType.Broken) {
+                                return @image-url("../assets/icons/git_file_broken.svg");
+                            }
+                            else if (data.change_type == ChangeType.Copied) {
+                                return @image-url("../assets/icons/git_file_copied.svg");
+                            }
+                            else if (data.change_type == ChangeType.Deleted) {
+                                return @image-url("../assets/icons/git_file_deleted.svg");
+                            }
+                            else if (data.change_type == ChangeType.Modified) {
+                                return @image-url("../assets/icons/git_file_edited.svg");
+                            }
+                            else if (data.change_type == ChangeType.Renamed) {
+                                return @image-url("../assets/icons/git_file_renamed.svg");
+                            }
+                            else if (data.change_type == ChangeType.TypChanged) {
+                                return @image-url("../assets/icons/git_file_type_changed.svg");
+                            }
+                            else if (data.change_type == ChangeType.Unknown) {
+                                return @image-url("../assets/icons/git_file_unknown.svg");
+                            }
+                            else if (data.change_type == ChangeType.Unmerged) {
+                                return @image-url("../assets/icons/git_file_unmerged.svg");
+                            }
+                            return @image-url("../assets/icons/invalid.svg");
                         }
-                    }
-                    if data.added-lines != 0 : Rectangle {
-                        background: #5e8262;
-                        border-radius: 5px;
-                        width: 50px;
 
-                        Text {
-                            font-size: 14px;
-                            vertical-alignment: center;
-                            text: "\{data.added-lines != -1 ? data.added-lines : "??"}";
-                        }
+                        horizontal-alignment: right;
                     }
-                    if data.removed-lines != 0 : Rectangle {
-                        background: #B06161;
-                        border-radius: 5px;
-                        width: 50px;
+                    HorizontalLayout {
+                        padding-top: Style.spacing / 2;
+                        padding-bottom: Style.spacing / 2;
+                        spacing: Style.spacing;
 
-                        Text {
-                            font-size: 14px;
-                            vertical-alignment: center;
-                            text: "\{data.removed-lines != -1 ? data.removed-lines : "??"}";
+                        Rectangle {
+                            background: #5e8262;
+                            border-radius: 5px;
+                            width: 40px;
+                            visible: data.added-lines != 0;
+
+                            Text {
+                                font-size: 14px;
+                                vertical-alignment: center;
+                                text: "\{data.added-lines != -1 ? data.added-lines : "??"}";
+                            }
                         }
-                    }
-                    CheckBox {
-                        enabled: checked_id == data.id;
-                        checked: data.is_reviewed;
-                        toggled => { Diff.toggle-is-reviewed(data.id) }
-                    }
-                    Button {
-                        icon: notes.length > 0 ? @image-url("../assets/icons/note-add-active.svg") : @image-url("../assets/icons/note-add.svg");
-                        width: 40px;
-                        enabled: checked_id == data.id;
-                        clicked => { root.open-file-notes-popup(data.text) }
+                        Rectangle {
+                            background: #B06161;
+                            border-radius: 5px;
+                            width: 40px;
+                            visible: data.removed-lines != 0;
+
+                            Text {
+                                font-size: 14px;
+                                vertical-alignment: center;
+                                text: "\{data.removed-lines != -1 ? data.removed-lines : "??"}";
+                            }
+                        }
+                        Button {
+                            icon: self.checked ? @image-url("../assets/icons/checked.svg") : @image-url("../assets/icons/unchecked.svg");
+                            enabled: checked_id == data.id;
+                            checked: data.is_reviewed;
+                            clicked => { Diff.toggle-is-reviewed(data.id) }
+                        }
+                        Button {
+                            icon: notes.length > 0 ? @image-url("../assets/icons/note-add-active.svg") : @image-url("../assets/icons/note-add.svg");
+                            enabled: checked_id == data.id;
+                            clicked => { root.open-file-notes-popup(data.text) }
+                        }
                     }
                 }
             }
