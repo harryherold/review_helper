@@ -21,7 +21,7 @@ export component OverallStatistics inherits GroupBox {
     HorizontalLayout {
         height: 50px;
 
-        for data in OverallDiffStats.model: VerticalLayout{
+        for data in OverallDiffStats.model: VerticalLayout {
             width: 40px;
             Image {
                 source: ChangeTypeUtils.to_icon(data.change_type);
@@ -38,7 +38,7 @@ export component OverallStatistics inherits GroupBox {
                 colorize: #5e8262;
             }
             Text {
-                text: "\{OverallDiffStats.added_lines}";
+                text: OverallDiffStats.added_lines > 0 ? "\{OverallDiffStats.added_lines}" : "??";
                 horizontal-alignment: center;
             }
         }
@@ -49,7 +49,7 @@ export component OverallStatistics inherits GroupBox {
                 colorize: #B06161;
             }
             Text {
-                text: "\{OverallDiffStats.removed_lines}";
+                text: OverallDiffStats.removed_lines > 0 ? "\{OverallDiffStats.removed_lines}" : "??";
                 horizontal-alignment: center;
             }
         }

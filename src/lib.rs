@@ -149,6 +149,9 @@ fn setup_project(app_window_handle: &ui::AppWindow) -> Rc<RefCell<Project>> {
                 ui.global::<ui::Diff>().set_start_commit(SharedString::from(start_diff));
                 ui.global::<ui::Diff>().set_end_commit(SharedString::from(end_diff));
 
+                let s = project.repository.statistics();
+                ui.global::<ui::OverallDiffStats>().set_model(s.statistics_model.clone().into());
+
                 let sort_criteria = ui.global::<ui::Diff>().get_current_sort_criteria();
                 diff_file_proxy_model(ui, project.repository.file_diff_model(), sort_criteria);
             } else {
@@ -178,8 +181,12 @@ fn setup_project(app_window_handle: &ui::AppWindow) -> Rc<RefCell<Project>> {
                 ui.global::<ui::Diff>().set_start_commit("".into());
                 ui.global::<ui::Diff>().set_end_commit("".into());
 
+                let s = project.repository.statistics();
+                ui.global::<ui::OverallDiffStats>().set_model(s.statistics_model.clone().into());
+
                 let sort_criteria = ui.global::<ui::Diff>().get_current_sort_criteria();
                 diff_file_proxy_model(ui, project.repository.file_diff_model(), sort_criteria);
+
             } else {
                 eprintln!("Error occured while loading config!");
             }
@@ -227,6 +234,11 @@ fn setup_repository(app_window_handle: &ui::AppWindow, project: &Rc<RefCell<Proj
             let ui = ui_weak.unwrap();
             ui.global::<ui::Diff>().set_start_commit(start_commit);
             ui.global::<ui::Diff>().set_end_commit(end_commit);
+            let project = project_ref.borrow();
+            let statistics = project.repository.statistics();
+
+            ui.global::<ui::OverallDiffStats>().set_added_lines(statistics.added_lines as i32);
+            ui.global::<ui::OverallDiffStats>().set_removed_lines(statistics.removed_lines as i32);
         }
     });
     app_window_handle.global::<ui::Diff>().on_open_file_diff({

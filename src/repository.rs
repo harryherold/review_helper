@@ -1,11 +1,12 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::atomic::AtomicUsize;
 use std::{path::PathBuf, rc::Rc};
 
-use slint::{Model, ModelRc};
+use slint::{Model, ModelRc, VecModel};
 
 use crate::git_utils::ChangeType;
 use crate::id_model::IdModel;
+use crate::ui::OverallStat;
 use crate::{project_config::ProjectConfig, git_utils, ui};
 
 pub struct Repository {
@@ -18,20 +19,43 @@ fn diff_file_id() -> usize {
     COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
 }
 
+type DiffStatModel = Rc<VecModel<ui::OverallStat>>;
+pub struct DiffStatistics {
+    pub added_lines: u32,
+    pub removed_lines: u32,
+    pub statistics_model: DiffStatModel,
+}
+
+impl DiffStatistics {
+    fn new() -> Self {
+        DiffStatistics {
+            added_lines: 0,
+            removed_lines: 0,
+            statistics_model: Rc::new(VecModel::<ui::OverallStat>::default()),
+        }
+    }
+    fn clear(&mut self) {
+        self.statistics_model.clear();
+        self.added_lines = 0;
+        self.removed_lines = 0;
+    }
+}
+
 type DiffModelRc = Rc<IdModel<ui::DiffFileItem>>;
 struct Diff {
     start_commit: String,
     end_commit: String,
     file_diff_model: DiffModelRc,
+    statistics: DiffStatistics,
 }
 
 impl Diff {
     pub fn new() -> Diff {
-        let file_diff_model = Rc::new(IdModel::<ui::DiffFileItem>::default());
         Diff {
             start_commit: String::new(),
             end_commit: String::new(),
-            file_diff_model: file_diff_model.clone(),
+            file_diff_model: Rc::new(IdModel::<ui::DiffFileItem>::default()),
+            statistics: DiffStatistics::new(),
         }
     }
     fn id_to_index(&self, id: i32) -> Option<usize> {
@@ -134,6 +158,18 @@ impl Repository {
             git_utils::ChangeType::Invalid => ui::ChangeType::Invalid,
         };
 
+        self.current_diff.statistics.clear();
+        let mut change_type_map = BTreeMap::<ChangeType, u32>::new();
+        for file_stat in files_stats.values() {
+            self.current_diff.statistics.added_lines += file_stat.added_lines;
+            self.current_diff.statistics.removed_lines += file_stat.removed_lines;
+
+            change_type_map.entry(file_stat.change_type.clone()).and_modify(|current| *current += 1).or_insert(1);
+        }
+        for (change_type, count) in change_type_map {
+            self.current_diff.statistics.statistics_model.push(OverallStat{change_type: change_type_to_ui(&change_type), count: count as i32});
+        }
+
         let update_item = |mut item: ui::DiffFileItem| {
             let file_stat = files_stats.get(item.text.as_str()).unwrap();
 
@@ -213,5 +249,9 @@ impl Repository {
 
     pub fn diff_range(&self) -> (&str, &str) {
         (&self.current_diff.start_commit, &self.current_diff.end_commit)
+    }
+
+    pub fn statistics(&self) -> &DiffStatistics {
+        &self.current_diff.statistics
     }
 }

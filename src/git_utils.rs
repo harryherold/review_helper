@@ -1,6 +1,6 @@
 use std::{collections::HashMap, path::PathBuf, process::Command};
 
-#[derive(Debug)]
+#[derive(Debug, Eq, Ord, PartialEq, PartialOrd, Clone)]
 pub enum ChangeType {
     Invalid,
     Added,
