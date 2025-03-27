@@ -123,11 +123,15 @@ export component FileDiffView inherits VerticalBox {
                 spacing: 2px;
 
                 file-text := Text {
+                    overflow: elide;
                     font-size: 14px;
                     text: data.text;
                     vertical-alignment: center;
+                    horizontal-alignment: left;
                 }
                 buttons-layout := HorizontalLayout {
+                    width: 220px;
+
                     Image {
                         source: ChangeTypeUtils.to_icon(data.change_type);
                         horizontal-alignment: right;
