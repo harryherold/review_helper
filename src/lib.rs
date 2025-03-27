@@ -1,19 +1,16 @@
 use std::{
-    cell::RefCell,
-    cmp::Ordering,
-    ffi::OsStr,
-    path::{Path, PathBuf},
-    process,
-    rc::Rc,
+    cell::RefCell, cmp::Ordering, ffi::OsStr, path::{Path, PathBuf}, process, rc::Rc
 };
 
 use anyhow::Result;
 
+use id_model::IdModel;
 use project_config::ProjectConfig;
 use project::Project;
-use slint::{ComponentHandle, ModelExt, ModelRc, SharedString};
+use slint::{ComponentHandle, FilterModel, ModelExt, ModelRc, SharedString, SortModel};
 
 use native_dialog::FileDialog;
+use ui::DiffFileItem;
 
 mod app_config;
 mod project_config;
@@ -25,36 +22,20 @@ mod repository;
 
 pub mod ui;
 
-pub fn main() -> Result<(), slint::PlatformError> {
+type FileDiffFilterModel = Rc<FilterModel<ModelRc<DiffFileItem>, Box<dyn Fn(&ui::DiffFileItem) -> bool>>>;
+type FileDiffSortModel = Rc<SortModel<FileDiffFilterModel, fn(&ui::DiffFileItem, &ui::DiffFileItem) -> Ordering>>;
 
-    let app_window = ui::AppWindow::new().unwrap();
-
-    app_window.on_close(move || process::exit(0));
-    let project = setup_project(&app_window);
-    let app_config = setup_app_config(&app_window);
-    setup_repository(&app_window, &project, &app_config);
-    setup_notes(&app_window, &project);
-
-    app_window.global::<ui::StringUtils>().on_filename({
-        |path| {
-            if let Some(file_name) = PathBuf::from(path.to_string()).file_name() {
-                file_name.to_str().expect("Could not parse os string!").to_string().into()
-            } else {
-                "".into()
-            }
-        }
-    });
-
-    app_window.run()
+struct FileDiffModelContext {
+    filter_model: FileDiffFilterModel,
+    filter_text: Rc<RefCell<SharedString>>,
+    sort_model: FileDiffSortModel,
 }
 
-fn extension_from_filename(filename: &str) -> Option<&str> {
-    Path::new(filename).extension().and_then(OsStr::to_str)
-}
-
-fn diff_file_proxy_model(app: ui::AppWindow, model: ModelRc<ui::DiffFileItem>, sort_criteria: ui::SortCriteria) {
-    let sort_by_name = |lhs: &ui::DiffFileItem, rhs: &ui::DiffFileItem| -> Ordering { lhs.text.to_lowercase().cmp(&rhs.text.to_lowercase()) };
-    let sort_by_exentsion = |lhs: &ui::DiffFileItem, rhs: &ui::DiffFileItem| -> Ordering {
+impl FileDiffModelContext {
+    fn sort_by_name(lhs: &ui::DiffFileItem, rhs: &ui::DiffFileItem) -> Ordering {
+        lhs.text.to_lowercase().cmp(&rhs.text.to_lowercase())
+    }
+    fn sort_by_exentsion(lhs: &ui::DiffFileItem, rhs: &ui::DiffFileItem) -> Ordering {
         let lhs_opt = extension_from_filename(&lhs.text);
         let rhs_opt = extension_from_filename(&rhs.text);
         if lhs_opt.is_some() && rhs_opt.is_some() {
@@ -71,15 +52,87 @@ fn diff_file_proxy_model(app: ui::AppWindow, model: ModelRc<ui::DiffFileItem>, s
         } else {
             lhs.text.to_lowercase().cmp(&rhs.text.to_lowercase())
         }
-    };
-
-    if sort_criteria == ui::SortCriteria::Name {
-        let proxy = Rc::new(model.sort_by(sort_by_name));
-        app.global::<ui::Diff>().set_diff_model(proxy.into())
-    } else {
-        let proxy = Rc::new(model.sort_by(sort_by_exentsion));
-        app.global::<ui::Diff>().set_diff_model(proxy.into())
     }
+
+    fn new(model: ModelRc<ui::DiffFileItem>) -> Self {
+        let filter_text = Rc::new(RefCell::new(SharedString::new()));
+        let clone_filter_text = filter_text.clone();
+
+        let fm: FileDiffFilterModel = Rc::new(FilterModel::new(model, Box::new(move |item: &ui::DiffFileItem| -> bool {
+            let filter_text = filter_text.clone();
+            let pattern = filter_text.borrow();
+            if pattern.is_empty() {
+                return true
+            }
+            else {
+                item.text.to_lowercase().contains(&pattern.as_str().to_lowercase())
+            }
+        })));
+
+        FileDiffModelContext {
+            filter_model: fm.clone(),
+            filter_text: clone_filter_text,
+            sort_model: Rc::new(fm.sort_by(Self::sort_by_name))
+        }
+    }
+
+    fn sort_by(&mut self, sort_criteria: ui::SortCriteria) {
+        if sort_criteria == ui::SortCriteria::Name {
+            self.sort_model = Rc::new(self.filter_model.clone().sort_by(Self::sort_by_name));
+        } else {
+            self.sort_model = Rc::new(self.filter_model.clone().sort_by(Self::sort_by_exentsion));
+        }
+    }
+}
+
+impl Default for FileDiffModelContext {
+    fn default() -> Self {
+        let model: ModelRc<ui::DiffFileItem> = Rc::new(IdModel::<ui::DiffFileItem>::default()).into();
+        let fm: FileDiffFilterModel = Rc::new(model.filter(Box::new(|_| true)));
+        FileDiffModelContext {
+            filter_model: fm.clone(),
+            filter_text: Rc::new(RefCell::new(SharedString::new())),
+            sort_model: Rc::new(fm.sort_by(Self::sort_by_name))
+        }
+    }
+}
+
+pub fn main() -> Result<(), slint::PlatformError> {
+    let app_window = ui::AppWindow::new().unwrap();
+
+    app_window.on_close(move || process::exit(0));
+
+    let file_diff_model_ctx = Rc::new(RefCell::new(FileDiffModelContext::default()));
+    let project = setup_project(&app_window, file_diff_model_ctx.clone());
+    let app_config = setup_app_config(&app_window);
+
+    setup_repository(&app_window, &project, &app_config, file_diff_model_ctx.clone());
+    setup_notes(&app_window, &project);
+
+    app_window.global::<ui::Diff>().on_filter_file_diff({
+        let file_diff_model_ctx = file_diff_model_ctx.clone();
+        move |pattern|{
+            let m = file_diff_model_ctx.borrow_mut();
+            *m.filter_text.borrow_mut() = pattern;
+            m.filter_model.reset();
+        }
+    });
+
+    app_window.global::<ui::StringUtils>().on_filename({
+        |path| {
+            if let Some(file_name) = PathBuf::from(path.to_string()).file_name() {
+                file_name.to_str().expect("Could not parse os string!").to_string().into()
+            } else {
+                "".into()
+            }
+        }
+    });
+
+    app_window.run()
+}
+
+fn extension_from_filename(filename: &str) -> Option<&str> {
+    Path::new(filename).extension().and_then(OsStr::to_str)
 }
 
 fn setup_app_config(app_window_handle: &ui::AppWindow) -> Rc<RefCell<app_config::AppConfig>> {
@@ -114,12 +167,13 @@ fn setup_app_config(app_window_handle: &ui::AppWindow) -> Rc<RefCell<app_config:
     app_config
 }
 
-fn setup_project(app_window_handle: &ui::AppWindow) -> Rc<RefCell<Project>> {
+fn setup_project(app_window_handle: &ui::AppWindow, file_diff_model_ctx: Rc<RefCell<FileDiffModelContext>>) -> Rc<RefCell<Project>> {
     let project = Rc::new(RefCell::new(Project::default()));
 
     app_window_handle.global::<ui::Project>().on_open({
         let ui_weak = app_window_handle.as_weak();
         let project_ref = project.clone();
+        let file_diff_model_ctx = file_diff_model_ctx.clone();
         move || {
             let ui = ui_weak.unwrap();
 
@@ -152,8 +206,9 @@ fn setup_project(app_window_handle: &ui::AppWindow) -> Rc<RefCell<Project>> {
                 let s = project.repository.statistics();
                 ui.global::<ui::OverallDiffStats>().set_model(s.statistics_model.clone().into());
 
-                let sort_criteria = ui.global::<ui::Diff>().get_current_sort_criteria();
-                diff_file_proxy_model(ui, project.repository.file_diff_model(), sort_criteria);
+                *file_diff_model_ctx.borrow_mut() = FileDiffModelContext::new(project.repository.file_diff_model());
+                let m = file_diff_model_ctx.borrow();
+                ui.global::<ui::Diff>().set_diff_model(m.sort_model.clone().into());
             } else {
                 eprintln!("Error occured while loading config!");
             }
@@ -162,6 +217,7 @@ fn setup_project(app_window_handle: &ui::AppWindow) -> Rc<RefCell<Project>> {
     app_window_handle.global::<ui::Project>().on_new({
         let ui_weak = app_window_handle.as_weak();
         let project_ref = project.clone();
+        let file_diff_model_ctx = file_diff_model_ctx.clone();
         move || {
             let ui = ui_weak.unwrap();
             let path_option = FileDialog::new().add_filter("toml project file", &["toml"]).show_save_single_file().unwrap();
@@ -184,8 +240,9 @@ fn setup_project(app_window_handle: &ui::AppWindow) -> Rc<RefCell<Project>> {
                 let s = project.repository.statistics();
                 ui.global::<ui::OverallDiffStats>().set_model(s.statistics_model.clone().into());
 
-                let sort_criteria = ui.global::<ui::Diff>().get_current_sort_criteria();
-                diff_file_proxy_model(ui, project.repository.file_diff_model(), sort_criteria);
+                *file_diff_model_ctx.borrow_mut() = FileDiffModelContext::new(project.repository.file_diff_model());
+                let m = file_diff_model_ctx.borrow();
+                ui.global::<ui::Diff>().set_diff_model(m.sort_model.clone().into());
 
             } else {
                 eprintln!("Error occured while loading config!");
@@ -204,7 +261,7 @@ fn setup_project(app_window_handle: &ui::AppWindow) -> Rc<RefCell<Project>> {
     project
 }
 
-fn setup_repository(app_window_handle: &ui::AppWindow, project: &Rc<RefCell<Project>>, app_config: &Rc<RefCell<app_config::AppConfig>>) {
+fn setup_repository(app_window_handle: &ui::AppWindow, project: &Rc<RefCell<Project>>, app_config: &Rc<RefCell<app_config::AppConfig>>, file_diff_model_ctx: Rc<RefCell<FileDiffModelContext>>) {
     app_window_handle.global::<ui::Repository>().on_open({
         let ui_weak = app_window_handle.as_weak();
         let project_ref = project.clone();
@@ -255,12 +312,14 @@ fn setup_repository(app_window_handle: &ui::AppWindow, project: &Rc<RefCell<Proj
         move |id| project_ref.borrow_mut().repository.toggle_file_is_reviewed(id as usize)
     });
     app_window_handle.global::<ui::Diff>().on_set_sort_criteria({
-        let project_ref = project.clone();
+        let file_diff_model_ctx = file_diff_model_ctx.clone();
         let ui_weak = app_window_handle.as_weak();
         move |sort_criteria| {
             let ui = ui_weak.unwrap();
             ui.global::<ui::Diff>().set_current_sort_criteria(sort_criteria);
-            diff_file_proxy_model(ui, project_ref.borrow_mut().repository.file_diff_model(), sort_criteria);
+            file_diff_model_ctx.borrow_mut().sort_by(sort_criteria);
+            let m = file_diff_model_ctx.borrow();
+            ui.global::<ui::Diff>().set_diff_model(m.sort_model.clone().into());
         }
     });
 }

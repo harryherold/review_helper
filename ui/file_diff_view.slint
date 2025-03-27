@@ -72,6 +72,7 @@ export global Diff {
     callback open-file-diff(int);
     callback toggle-is-reviewed(int);
     callback set-sort-criteria(SortCriteria);
+    callback filter-file-diff(string);
 }
 
 
@@ -83,15 +84,15 @@ export component FileDiffView inherits VerticalBox {
     spacing: Style.spacing;
 
     HorizontalLayout {
-        alignment: space-between;
+        spacing: Style.spacing;
 
-        Text {
-            text: "Changed Files:";
-            font-weight: 500;
-            font-size: 14px;
-            vertical-alignment: TextVerticalAlignment.center;
+        LineEdit {
+            horizontal-alignment: left;
+            placeholder-text: "Filter paths";
+            changed text => { Diff.filter-file-diff(self.text); }
         }
         ComboBox {
+            width: 220px;
             model: ["Name", "Extension"];
             current-value: {
                 if Diff.current_sort_criteria == SortCriteria.Name {
@@ -134,7 +135,7 @@ export component FileDiffView inherits VerticalBox {
 
                     Image {
                         source: ChangeTypeUtils.to_icon(data.change_type);
-                        horizontal-alignment: right;
+                        horizontal-alignment: center;
                     }
                     HorizontalLayout {
                         padding-top: Style.spacing / 2;
