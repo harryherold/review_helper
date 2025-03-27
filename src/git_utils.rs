@@ -1,4 +1,6 @@
-use std::{collections::HashMap, path::PathBuf, process::Command};
+use std::{collections::HashMap, os::windows::process::CommandExt, path::PathBuf, process::Command};
+
+const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 #[derive(Debug, Eq, Ord, PartialEq, PartialOrd, Clone)]
 pub enum ChangeType {
@@ -45,7 +47,7 @@ pub fn is_git_repo(path: &PathBuf) -> bool {
 
 pub fn repo_contains_commit(path: &PathBuf, commit: &str) -> anyhow::Result<bool> {
     let args = vec!["cat-file", "-t", commit];
-    let output = Command::new("git").current_dir(path).args(args).output()?;
+    let output = Command::new("git").current_dir(path).args(args).creation_flags(CREATE_NO_WINDOW).output()?;
     let msg = String::from_utf8(output.stdout)?;
     Ok(msg.contains("commit"))
 }
@@ -69,6 +71,7 @@ fn add_change_type(repo_path: &PathBuf, start_commit: &str, end_commit: &str) ->
     let output = Command::new("git")
         .current_dir(repo_path)
         .args(args)
+        .creation_flags(CREATE_NO_WINDOW)
         .output()
         .expect("git diff name-status not working!");
 
@@ -101,7 +104,7 @@ fn query_file_stats(
         args.push(end_commit);
     }
 
-    let output = Command::new("git").current_dir(repo_path).args(args).output()?;
+    let output = Command::new("git").current_dir(repo_path).args(args).creation_flags(CREATE_NO_WINDOW).output()?;
     let string_output = String::from_utf8(output.stdout.trim_ascii().to_vec())?;
 
     let mut files_stats: HashMap<String, FileStat> = HashMap::new();
@@ -154,13 +157,13 @@ pub fn diff_file(repo_path: &PathBuf, start_commit: &str, end_commit: &str, file
     args.push("--");
     args.push(file);
 
-    Command::new("git").current_dir(repo_path).args(args).spawn()?;
+    Command::new("git").current_dir(repo_path).args(args).creation_flags(CREATE_NO_WINDOW).spawn()?;
     Ok(())
 }
 
 pub fn first_commit(repo_path: &PathBuf) -> anyhow::Result<String> {
     let args = vec!["rev-list", "--max-parents=0", "HEAD"];
-    let output = Command::new("git").current_dir(repo_path).args(args).output()?;
+    let output = Command::new("git").current_dir(repo_path).args(args).creation_flags(CREATE_NO_WINDOW).output()?;
 
     String::from_utf8(output.stdout.trim_ascii().to_vec()).map_err(|e| anyhow::Error::from(e))
 }
