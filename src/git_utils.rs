@@ -53,12 +53,12 @@ pub fn repo_contains_commit(path: &PathBuf, commit: &str) -> anyhow::Result<bool
 }
 
 pub fn diff_git_repo(repo_path: &PathBuf, start_commit: &str, end_commit: &str) -> anyhow::Result<HashMap<String, FileStat>> {
-    let files_change_type = add_change_type(repo_path, start_commit, end_commit)?;
+    let files_change_type = diff_name_status(repo_path, start_commit, end_commit)?;
     let files_stats = query_file_stats(repo_path, start_commit, end_commit, files_change_type)?;
     Ok(files_stats)
 }
 
-fn add_change_type(repo_path: &PathBuf, start_commit: &str, end_commit: &str) -> anyhow::Result<HashMap<String, ChangeType>> {
+fn diff_name_status(repo_path: &PathBuf, start_commit: &str, end_commit: &str) -> anyhow::Result<HashMap<String, ChangeType>> {
     let mut args = vec!["diff", "--name-status"];
 
     if false == start_commit.is_empty() {
