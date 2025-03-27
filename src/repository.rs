@@ -171,14 +171,20 @@ impl Repository {
         }
 
         let update_item = |mut item: ui::DiffFileItem| {
-            let file_stat = files_stats.get(item.text.as_str()).unwrap();
-
-            if item.added_lines != file_stat.added_lines as i32 || item.removed_lines != file_stat.removed_lines as i32 {
-                item.added_lines = file_stat.added_lines as i32;
-                item.removed_lines = file_stat.removed_lines as i32;
-                item.change_type = change_type_to_ui(&file_stat.change_type);
-                self.current_diff.file_diff_model.update(item.id as usize, item);
+            let file_stat_opt = files_stats.get(item.text.as_str());
+            match file_stat_opt {
+                Some(file_stat) => {
+                    if item.added_lines != file_stat.added_lines as i32 || item.removed_lines != file_stat.removed_lines as i32 {
+                        item.added_lines = file_stat.added_lines as i32;
+                        item.removed_lines = file_stat.removed_lines as i32;
+                        item.change_type = change_type_to_ui(&file_stat.change_type);
+                        self.current_diff.file_diff_model.update(item.id as usize, item);
+                    }
+                }
+                None => eprintln!("Error item not found! {}", &item.text)
             }
+
+
         };
         let add_item = |file: &String| {
             let file_stat = files_stats.get(file).unwrap();
@@ -207,18 +213,18 @@ impl Repository {
         } else {
             let modified_files = old_files.intersection(&diff_files).collect::<HashSet<&String>>();
             for modified_file in modified_files {
-                let index = file_index_map.get(modified_file).expect("Modified files should not be deleted!");
+                let id = file_index_map.get(modified_file).expect("Modified files should not be deleted!");
 
-                if let Some(item) = self.current_diff.file_diff_model.row_data(*index) {
+                if let Some(item) = self.current_diff.file_diff_model.get(*id) {
                     update_item(item);
                 }
             }
 
             let deleted_files: HashSet<&String> = old_files.difference(&diff_files).collect();
             for deleted_file in deleted_files {
-                let delete_item = self.current_diff.file_diff_model.iter().enumerate().find(|(_, item)| item.text == deleted_file);
-                if let Some((row, _)) = delete_item {
-                    self.current_diff.file_diff_model.remove(row);
+                let delete_item = self.current_diff.file_diff_model.iter().find(|item| item.text == deleted_file).map(|item| item.id);
+                if let Some(id) = delete_item {
+                    self.current_diff.file_diff_model.remove(id as usize);
                 }
             }
             let new_files: HashSet<&String> = diff_files.difference(&old_files).collect();
