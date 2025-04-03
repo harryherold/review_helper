@@ -33,7 +33,7 @@ impl ChangeType {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct FileStat {
     pub added_lines: u32,
     pub removed_lines: u32,
@@ -104,7 +104,11 @@ fn query_file_stats(
         args.push(end_commit);
     }
 
-    let output = Command::new("git").current_dir(repo_path).args(args).creation_flags(CREATE_NO_WINDOW).output()?;
+    let output = Command::new("git")
+        .current_dir(repo_path)
+        .args(args)
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()?;
     let string_output = String::from_utf8(output.stdout.trim_ascii().to_vec())?;
 
     let mut files_stats: HashMap<String, FileStat> = HashMap::new();
@@ -163,84 +167,86 @@ pub fn diff_file(repo_path: &PathBuf, start_commit: &str, end_commit: &str, file
 
 pub fn first_commit(repo_path: &PathBuf) -> anyhow::Result<String> {
     let args = vec!["rev-list", "--max-parents=0", "HEAD"];
-    let output = Command::new("git").current_dir(repo_path).args(args).creation_flags(CREATE_NO_WINDOW).output()?;
+    let output = Command::new("git")
+        .current_dir(repo_path)
+        .args(args)
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()?;
 
     String::from_utf8(output.stdout.trim_ascii().to_vec()).map_err(|e| anyhow::Error::from(e))
 }
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, default, path::PathBuf, process::Command};
+    use std::{collections::HashMap, path::PathBuf};
 
-    #[derive(Debug)]
-    struct FileStat {
-        added_lines: u32,
-        removed_lines: u32,
+    use crate::git_utils::{diff_git_repo, first_commit, is_git_repo, repo_contains_commit, ChangeType, FileStat};
+
+    struct TestContext {
+        path: PathBuf,
     }
-    #[derive(Debug)]
-    pub enum ChangeType {
-        Invalid,
-        Added,
-        Copied,
-        Deleted,
-        Modified,
-        Renamed,
-        TypChanged,
-        Unmerged,
-        Unknown,
-        Broken,
-    }
-    impl ChangeType {
-        pub fn from_str(change_type: &str) -> ChangeType {
-            match change_type {
-                "A" => ChangeType::Added,
-                "C" => ChangeType::Copied,
-                "D" => ChangeType::Deleted,
-                "M" => ChangeType::Modified,
-                "R" => ChangeType::Renamed,
-                "T" => ChangeType::TypChanged,
-                "U" => ChangeType::Unmerged,
-                "X" => ChangeType::Unknown,
-                "B" => ChangeType::Broken,
-                _default => ChangeType::Invalid,
-            }
+
+    fn setup() -> TestContext {
+        let manifest_dir = std::env!("CARGO_MANIFEST_DIR");
+        TestContext {
+            path: PathBuf::from(manifest_dir),
         }
-        // fn as_str(&self) -> &str {
-        //     match *self {
-        //         ChangeType::Added => "A",
-        //         ChangeType::Copied => "C",
-        //         ChangeType::Deleted => "D",
-        //         ChangeType::Modified => "M",
-        //         ChangeType::Renamed => "R",
-        //         ChangeType::TypChanged => "T",
-        //         ChangeType::Unmerged => "U",
-        //         ChangeType::Unknown => "X",
-        //         ChangeType::Broken => "B",
-        //     }
-        // }
     }
 
     #[test]
-    fn test_query_diff_stats() {
-        let repo_path = PathBuf::from("/home/harry/workspace/review-todo");
-        let start_commit = "c13426875795b97d79c03c1dbf56dc2c87164b34";
-        let end_commit = "98bad3587d5810b300959bdb6c79b811c8b1c2cd";
-        let args = vec!["diff", start_commit, end_commit, "--name-status"];
-        let output = Command::new("git")
-            .current_dir(repo_path)
-            .args(args)
-            .output()
-            .expect("git diff numstats not working!");
-        let string_output = String::from_utf8(output.stdout.trim_ascii().to_vec()).expect("String conversion invalid!");
+    fn test_first_commit() {
+        let ctx = setup();
+        let result = first_commit(&ctx.path);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "9f89049b7f99682c48474d421ac126316adaed15".to_string());
+    }
+    #[test]
+    fn test_is_git_repo() {
+        let ctx = setup();
+        assert!(is_git_repo(&ctx.path));
+    }
 
-        for line in string_output.lines().collect::<Vec<&str>>() {
-            let infos = line.split_whitespace().collect::<Vec<&str>>();
-            assert_eq!(infos.len(), 2);
+    #[test]
+    fn test_repo_contains_commit() {
+        let ctx = setup();
+        let result = repo_contains_commit(&ctx.path, "9f89049b7f99682c48474d421ac126316adaed15");
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+    }
+    #[test]
+    fn test_diff_git_repo() {
+        let ctx = setup();
 
-            let file = infos[1].to_string();
-            let change_type = ChangeType::from_str(infos[0]);
-            println!("{} => {:?}", file, change_type);
-        }
-        // println!("lines {}", lines.len());
+        let start_commit = "70989e0fbda7919d357c0183e62294423f3d9425";
+        let end_commit = "68c5f4631d6e6b040d7887f7445cf1ad4006e1a5";
+        let result = diff_git_repo(&ctx.path, start_commit, end_commit);
+        assert!(result.is_ok());
+        let expected_stats = HashMap::from([
+            (
+                "src/lib.rs".to_string(),
+                FileStat {
+                    added_lines: 137,
+                    removed_lines: 0,
+                    change_type: ChangeType::Added,
+                },
+            ),
+            (
+                "src/main.rs".to_string(),
+                FileStat {
+                    added_lines: 22,
+                    removed_lines: 94,
+                    change_type: ChangeType::Modified,
+                },
+            ),
+            (
+                "rustfmt.toml".to_string(),
+                FileStat {
+                    added_lines: 6,
+                    removed_lines: 0,
+                    change_type: ChangeType::Added,
+                },
+            ),
+        ]);
+        assert_eq!(result.unwrap(), expected_stats);
     }
 }
