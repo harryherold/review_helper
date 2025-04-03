@@ -1,23 +1,28 @@
 use std::{
-    cell::RefCell, cmp::Ordering, ffi::OsStr, path::{Path, PathBuf}, process, rc::Rc
+    cell::RefCell,
+    cmp::Ordering,
+    ffi::OsStr,
+    path::{Path, PathBuf},
+    process,
+    rc::Rc,
 };
 
 use anyhow::Result;
 
 use id_model::IdModel;
-use project_config::ProjectConfig;
 use project::Project;
+use project_config::ProjectConfig;
 use slint::{ComponentHandle, FilterModel, ModelExt, ModelRc, SharedString, SortModel};
 
 use native_dialog::FileDialog;
 use ui::DiffFileItem;
 
 mod app_config;
-mod project_config;
 mod git_utils;
 mod id_model;
 mod notes;
 mod project;
+mod project_config;
 mod repository;
 
 pub mod ui;
@@ -58,21 +63,23 @@ impl FileDiffModelContext {
         let filter_text = Rc::new(RefCell::new(SharedString::new()));
         let clone_filter_text = filter_text.clone();
 
-        let fm: FileDiffFilterModel = Rc::new(FilterModel::new(model, Box::new(move |item: &ui::DiffFileItem| -> bool {
-            let filter_text = filter_text.clone();
-            let pattern = filter_text.borrow();
-            if pattern.is_empty() {
-                return true
-            }
-            else {
-                item.text.to_lowercase().contains(&pattern.as_str().to_lowercase())
-            }
-        })));
+        let fm: FileDiffFilterModel = Rc::new(FilterModel::new(
+            model,
+            Box::new(move |item: &ui::DiffFileItem| -> bool {
+                let filter_text = filter_text.clone();
+                let pattern = filter_text.borrow();
+                if pattern.is_empty() {
+                    return true;
+                } else {
+                    item.text.to_lowercase().contains(&pattern.as_str().to_lowercase())
+                }
+            }),
+        ));
 
         FileDiffModelContext {
             filter_model: fm.clone(),
             filter_text: clone_filter_text,
-            sort_model: Rc::new(fm.sort_by(Self::sort_by_name))
+            sort_model: Rc::new(fm.sort_by(Self::sort_by_name)),
         }
     }
 
@@ -92,7 +99,7 @@ impl Default for FileDiffModelContext {
         FileDiffModelContext {
             filter_model: fm.clone(),
             filter_text: Rc::new(RefCell::new(SharedString::new())),
-            sort_model: Rc::new(fm.sort_by(Self::sort_by_name))
+            sort_model: Rc::new(fm.sort_by(Self::sort_by_name)),
         }
     }
 }
@@ -111,7 +118,7 @@ pub fn main() -> Result<(), slint::PlatformError> {
 
     app_window.global::<ui::Diff>().on_filter_file_diff({
         let file_diff_model_ctx = file_diff_model_ctx.clone();
-        move |pattern|{
+        move |pattern| {
             let m = file_diff_model_ctx.borrow_mut();
             *m.filter_text.borrow_mut() = pattern;
             m.filter_model.reset();
@@ -136,7 +143,7 @@ fn extension_from_filename(filename: &str) -> Option<&str> {
 }
 
 fn setup_app_config(app_window_handle: &ui::AppWindow) -> Rc<RefCell<app_config::AppConfig>> {
-    let app_config = match app_config::AppConfig::new() {
+    let app_config = match app_config::AppConfig::new(app_config::config_dir_path()) {
         Ok(config) => Rc::new(RefCell::new(config)),
         Err(e) => {
             eprintln!("{}", e.to_string());
@@ -149,7 +156,7 @@ fn setup_app_config(app_window_handle: &ui::AppWindow) -> Rc<RefCell<app_config:
         let app_config = app_config.clone();
         move |diff_tool| {
             let ui = ui_weak.unwrap();
-            app_config.borrow_mut().diff_tool = diff_tool.to_string();
+            app_config.borrow_mut().set_diff_tool(diff_tool.to_string());
             ui.global::<ui::AppConfig>().set_diff_tool(diff_tool);
         }
     });
@@ -162,7 +169,9 @@ fn setup_app_config(app_window_handle: &ui::AppWindow) -> Rc<RefCell<app_config:
         }
     });
 
-    app_window_handle.global::<ui::AppConfig>().set_diff_tool(SharedString::from(&app_config.borrow().diff_tool));
+    app_window_handle
+        .global::<ui::AppConfig>()
+        .set_diff_tool(SharedString::from(app_config.borrow().diff_tool()));
 
     app_config
 }
@@ -243,7 +252,6 @@ fn setup_project(app_window_handle: &ui::AppWindow, file_diff_model_ctx: Rc<RefC
                 *file_diff_model_ctx.borrow_mut() = FileDiffModelContext::new(project.repository.file_diff_model());
                 let m = file_diff_model_ctx.borrow();
                 ui.global::<ui::Diff>().set_diff_model(m.sort_model.clone().into());
-
             } else {
                 eprintln!("Error occured while loading config!");
             }
@@ -261,7 +269,12 @@ fn setup_project(app_window_handle: &ui::AppWindow, file_diff_model_ctx: Rc<RefC
     project
 }
 
-fn setup_repository(app_window_handle: &ui::AppWindow, project: &Rc<RefCell<Project>>, app_config: &Rc<RefCell<app_config::AppConfig>>, file_diff_model_ctx: Rc<RefCell<FileDiffModelContext>>) {
+fn setup_repository(
+    app_window_handle: &ui::AppWindow,
+    project: &Rc<RefCell<Project>>,
+    app_config: &Rc<RefCell<app_config::AppConfig>>,
+    file_diff_model_ctx: Rc<RefCell<FileDiffModelContext>>,
+) {
     app_window_handle.global::<ui::Repository>().on_open({
         let ui_weak = app_window_handle.as_weak();
         let project_ref = project.clone();
@@ -302,7 +315,7 @@ fn setup_repository(app_window_handle: &ui::AppWindow, project: &Rc<RefCell<Proj
         let project_ref = project.clone();
         let app_config = app_config.clone();
         move |id| {
-            if let Err(error) = project_ref.borrow().repository.diff_file(id, &app_config.borrow().diff_tool) {
+            if let Err(error) = project_ref.borrow().repository.diff_file(id, &app_config.borrow().diff_tool()) {
                 eprintln!("Error occured while file diff: {}", error.to_string())
             }
         }
