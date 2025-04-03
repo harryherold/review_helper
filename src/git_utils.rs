@@ -1,6 +1,4 @@
-use std::{collections::HashMap, os::windows::process::CommandExt, path::PathBuf, process::Command};
-
-const CREATE_NO_WINDOW: u32 = 0x08000000;
+use std::{collections::HashMap, path::PathBuf, process::Command};
 
 #[derive(Debug, Eq, Ord, PartialEq, PartialOrd, Clone)]
 pub enum ChangeType {
@@ -40,14 +38,33 @@ pub struct FileStat {
     pub change_type: ChangeType,
 }
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
+#[cfg(windows)]
+macro_rules! git_command {
+    ($path:expr, $args:expr) => {
+        // NOTE create no window
+        Command::new("git").current_dir($path).args($args).creation_flags(0x08000000)
+    };
+}
+
+#[cfg(not(windows))]
+macro_rules! git_command {
+    ($path:expr, $args:expr) => {
+        Command::new("git").current_dir($path).args($args)
+    };
+}
+
 pub fn is_git_repo(path: &PathBuf) -> bool {
+    git_command!(path, ["log"]).output().expect("");
     let git_folder = path.join(PathBuf::from(".git"));
     git_folder.is_dir()
 }
 
 pub fn repo_contains_commit(path: &PathBuf, commit: &str) -> anyhow::Result<bool> {
     let args = vec!["cat-file", "-t", commit];
-    let output = Command::new("git").current_dir(path).args(args).creation_flags(CREATE_NO_WINDOW).output()?;
+    let output = git_command!(path, args).output()?;
     let msg = String::from_utf8(output.stdout)?;
     Ok(msg.contains("commit"))
 }
@@ -68,12 +85,7 @@ fn diff_name_status(repo_path: &PathBuf, start_commit: &str, end_commit: &str) -
         args.push(end_commit);
     }
 
-    let output = Command::new("git")
-        .current_dir(repo_path)
-        .args(args)
-        .creation_flags(CREATE_NO_WINDOW)
-        .output()
-        .expect("git diff name-status not working!");
+    let output = git_command!(repo_path, args).output().expect("git diff name-status not working!");
 
     let string_output = String::from_utf8(output.stdout.trim_ascii().to_vec()).expect("String conversion invalid!");
     let mut files_change_type: HashMap<String, ChangeType> = HashMap::new();
@@ -104,11 +116,7 @@ fn query_file_stats(
         args.push(end_commit);
     }
 
-    let output = Command::new("git")
-        .current_dir(repo_path)
-        .args(args)
-        .creation_flags(CREATE_NO_WINDOW)
-        .output()?;
+    let output = git_command!(repo_path, args).output()?;
     let string_output = String::from_utf8(output.stdout.trim_ascii().to_vec())?;
 
     let mut files_stats: HashMap<String, FileStat> = HashMap::new();
@@ -161,17 +169,13 @@ pub fn diff_file(repo_path: &PathBuf, start_commit: &str, end_commit: &str, file
     args.push("--");
     args.push(file);
 
-    Command::new("git").current_dir(repo_path).args(args).creation_flags(CREATE_NO_WINDOW).spawn()?;
+    git_command!(repo_path, args).spawn()?;
     Ok(())
 }
 
 pub fn first_commit(repo_path: &PathBuf) -> anyhow::Result<String> {
     let args = vec!["rev-list", "--max-parents=0", "HEAD"];
-    let output = Command::new("git")
-        .current_dir(repo_path)
-        .args(args)
-        .creation_flags(CREATE_NO_WINDOW)
-        .output()?;
+    let output = git_command!(repo_path, args).output()?;
 
     String::from_utf8(output.stdout.trim_ascii().to_vec()).map_err(|e| anyhow::Error::from(e))
 }
