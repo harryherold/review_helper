@@ -143,7 +143,8 @@ fn extension_from_filename(filename: &str) -> Option<&str> {
 }
 
 fn setup_app_config(app_window_handle: &ui::AppWindow) -> Rc<RefCell<app_config::AppConfig>> {
-    let app_config = match app_config::AppConfig::new(app_config::config_dir_path()) {
+    let app_data_path = dirs::data_local_dir().expect("Could not find OS specific dirs!");
+    let app_config = match app_config::AppConfig::new(app_data_path) {
         Ok(config) => Rc::new(RefCell::new(config)),
         Err(e) => {
             eprintln!("{}", e.to_string());

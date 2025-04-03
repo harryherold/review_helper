@@ -31,15 +31,9 @@ impl Default for AppConfig {
     }
 }
 
-pub fn config_dir_path() -> PathBuf {
-    let mut path = dirs::data_local_dir().expect("Could not find OS specific dirs!");
-    let app_name = std::env!("CARGO_CRATE_NAME");
-    path.push(app_name);
-    path
-}
-
 impl AppConfig {
     pub fn new(mut path: PathBuf) -> anyhow::Result<Self> {
+        path.push(std::env!("CARGO_CRATE_NAME")); // directory
         path.push(APP_CONFIG_FILENAME);
 
         if path.exists() && path.is_file() {
@@ -89,15 +83,16 @@ mod tests {
     impl Drop for TestContext {
         fn drop(&mut self) {
             if self.is_clean_enabled {
-                println!("remove");
-                let result = fs::remove_dir_all(&self.path);
+                let mut remove_path = self.path.clone();
+                remove_path.push(std::env!("CARGO_CRATE_NAME"));
+                let result = fs::remove_dir_all(&remove_path);
                 assert!(result.is_ok());
             }
         }
     }
 
     fn setup(is_clean_enabled: bool) -> TestContext {
-        let path = test_dir_path();
+        let path = env::temp_dir();
         let app_config = AppConfig::new(path.clone());
         assert!(app_config.is_ok());
         TestContext {
@@ -105,13 +100,6 @@ mod tests {
             path,
             is_clean_enabled,
         }
-    }
-
-    fn test_dir_path() -> PathBuf {
-        let mut path = env::temp_dir();
-        let app_name = std::env!("CARGO_CRATE_NAME");
-        path.push(app_name);
-        path
     }
 
     #[test]
