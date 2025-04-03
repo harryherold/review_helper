@@ -57,7 +57,6 @@ macro_rules! git_command {
 }
 
 pub fn is_git_repo(path: &PathBuf) -> bool {
-    git_command!(path, ["log"]).output().expect("");
     let git_folder = path.join(PathBuf::from(".git"));
     git_folder.is_dir()
 }
