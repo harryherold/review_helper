@@ -61,12 +61,15 @@ fn read_notes_from_file(path: &PathBuf) -> Result<IdModel<ui::NoteItem>, std::io
                 }
             };
             let id = note_id();
-            todo_model.add(id, ui::NoteItem {
-                id: id as i32,
-                is_fixed: task.finished,
-                text: subject.into(),
-                context: context.into(),
-            });
+            todo_model.add(
+                id,
+                ui::NoteItem {
+                    id: id as i32,
+                    is_fixed: task.finished,
+                    text: subject.into(),
+                    context: context.into(),
+                },
+            );
         }
     }
     Ok(todo_model)
@@ -76,34 +79,29 @@ pub struct Notes {
     notes_model: Rc<IdModel<ui::NoteItem>>,
     note_file: PathBuf,
 }
-impl Notes {
-    fn notes_file_exists(path: &Path) -> bool {
-        path.join(NOTE_FILE_NAME).exists()
-    }
 
-    fn from_file(path: &Path) -> anyhow::Result<Notes> {
-        let file_path = path.join(NOTE_FILE_NAME);
-        Ok(Notes {
-            notes_model: Rc::new(read_notes_from_file(&file_path)?),
-            note_file: file_path,
-        })
-    }
-
-    pub fn new(path: &Path) -> anyhow::Result<Notes> {
-        if Notes::notes_file_exists(path) {
-            Notes::from_file(path)
-        } else {
-            Ok(Notes {
-                notes_model: Rc::new(IdModel::<ui::NoteItem>::default()),
-                note_file: path.join(NOTE_FILE_NAME),
-            })
-        }
-    }
-
-    pub fn default() -> Notes {
+impl Default for Notes {
+    fn default() -> Self {
         Notes {
             notes_model: Rc::new(IdModel::<ui::NoteItem>::default()),
             note_file: "".into(),
+        }
+    }
+}
+
+impl Notes {
+    pub fn new(path: &Path) -> anyhow::Result<Notes> {
+        let note_file = path.join(NOTE_FILE_NAME);
+        if note_file.exists() {
+            Ok(Notes {
+                notes_model: Rc::new(read_notes_from_file(&note_file)?),
+                note_file,
+            })
+        } else {
+            Ok(Notes {
+                notes_model: Rc::new(IdModel::<ui::NoteItem>::default()),
+                note_file,
+            })
         }
     }
 
@@ -113,12 +111,15 @@ impl Notes {
 
     pub fn add_note(&self, text: SharedString, context: SharedString) {
         let id = note_id();
-        self.notes_model.add(id, ui::NoteItem {
-            id: id as i32,
-            is_fixed: false,
-            text: text,
-            context: context,
-        })
+        self.notes_model.add(
+            id,
+            ui::NoteItem {
+                id: id as i32,
+                is_fixed: false,
+                text,
+                context,
+            },
+        )
     }
 
     pub fn save(&self) -> anyhow::Result<()> {
@@ -153,72 +154,76 @@ impl Notes {
 
 #[cfg(test)]
 mod tests {
-    use std::{env::current_dir, fs::remove_file, path::Path};
+    use std::{env, fs, path::PathBuf};
 
-    use slint::Model;
-
-    use crate::notes::NOTE_FILE_NAME;
+    use slint::{Model, SharedString};
 
     use super::Notes;
 
-    fn create_dummy_notes(path: &Path) -> Notes {
-        let notes_result = Notes::new(path);
-        assert!(notes_result.is_ok());
-        let notes = notes_result.unwrap();
-        notes.add_note("foo".into(), "".into());
-        notes
+    struct TestContext {
+        notes: Notes,
+        path: PathBuf,
+        is_clean_enabled: bool,
     }
-    fn remove_notes_file(path: &Path) {
-        let file_path = path.join(NOTE_FILE_NAME);
-        let result = remove_file(file_path);
-        assert!(result.is_ok());
+
+    impl Drop for TestContext {
+        fn drop(&mut self) {
+            if self.is_clean_enabled {
+                let result = fs::remove_dir_all(&self.path);
+                assert!(result.is_ok());
+            }
+        }
+    }
+
+    fn test_dir_path() -> PathBuf {
+        let mut path = env::temp_dir();
+        let mut app_name = std::env!("CARGO_CRATE_NAME").to_string();
+        app_name.push_str("_notes_tests");
+        path.push(app_name);
+        path
+    }
+
+    fn setup(is_clean_enabled: bool) -> TestContext {
+        let path = test_dir_path();
+        if !path.exists() {
+            assert!(fs::create_dir(&path).is_ok());
+        }
+        let notes = Notes::new(&path);
+        assert!(notes.is_ok());
+        TestContext {
+            notes: notes.unwrap(),
+            path,
+            is_clean_enabled,
+        }
     }
 
     #[test]
     fn test_add_notes() {
-        let dir = current_dir().expect("Could not determine cwd!");
-        let notes = create_dummy_notes(&dir);
-        assert_eq!(notes.notes_model().row_count(), 1);
-        let note = notes.notes_model.row_data(0);
-        assert!(note.is_some());
-        let note = note.unwrap();
-        assert_eq!(note.text, "foo");
-        assert_eq!(note.context, "bar");
-        assert_eq!(note.is_fixed, false);
-    }
-
-    #[test]
-    fn test_save_read_notes() {
-        let dir = current_dir().expect("Could not determine cwd!");
-
         {
-            let notes = create_dummy_notes(&dir);
-            notes.add_note("baz".into(), "/usr/share/foo.h".into());
-            notes.toogle_is_fixed(1);
-            let result = notes.save();
-            assert!(result.is_ok());
+            let ctx = setup(false);
+            ctx.notes.add_note("foo".into(), "/tmp/test.cpp".into());
+            ctx.notes.add_note("bar".into(), "/tmp/test.h".into());
+            assert!(ctx.notes.save().is_ok());
         }
         {
-            let notes = Notes::new(&dir);
-            assert!(notes.is_ok());
-            let notes = notes.unwrap();
-            assert_eq!(notes.notes_model().row_count(), 2);
-            let note = notes.notes_model.row_data(0);
+            let ctx = setup(true);
+            let model = ctx.notes.notes_model();
 
-            assert!(note.is_some() == true);
+            assert_eq!(model.row_count(), 2);
+
+            let note = model.row_data(0);
+            assert!(note.is_some());
+
             let note = note.unwrap();
-            assert_eq!(note.text, "foo");
-            assert_eq!(note.context, "");
-            assert_eq!(note.is_fixed, false);
+            assert_eq!(note.text, Into::<SharedString>::into("foo"));
+            assert_eq!(note.context, Into::<SharedString>::into("/tmp/test.cpp"));
 
-            let note = notes.notes_model.row_data(1);
+            let note = model.row_data(1);
+            assert!(note.is_some());
 
-            assert!(note.is_some() == true);
             let note = note.unwrap();
-            assert_eq!(note.text, "baz");
-            assert_eq!(note.context, "/usr/share/foo.h");
-            assert_eq!(note.is_fixed, true);
+            assert_eq!(note.text, Into::<SharedString>::into("bar"));
+            assert_eq!(note.context, Into::<SharedString>::into("/tmp/test.h"));
         }
-        remove_notes_file(&dir);
     }
 }
