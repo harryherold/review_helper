@@ -154,11 +154,14 @@ impl Notes {
 
 #[cfg(test)]
 mod tests {
-    use std::{env, fs, path::PathBuf};
+    use std::{collections::HashMap, env, fs, path::PathBuf};
 
+    use anyhow::Ok;
     use slint::{Model, SharedString};
 
-    use super::Notes;
+    use crate::{id_model::IdModel, ui};
+
+    use super::{note_id, Notes};
 
     struct TestContext {
         notes: Notes,
@@ -225,5 +228,73 @@ mod tests {
             assert_eq!(note.text, Into::<SharedString>::into("bar"));
             assert_eq!(note.context, Into::<SharedString>::into("/tmp/test.h"));
         }
+    }
+
+    struct MarkDownNotes {
+        general_notes: Vec<String>,
+        file_notes: HashMap<String, Vec<String>>,
+    }
+
+    impl MarkDownNotes {
+        fn read_notes(path: &PathBuf) -> Self {
+            MarkDownNotes {
+                general_notes: Vec::new(),
+                file_notes: HashMap::new(),
+            }
+        }
+    }
+
+    use regex::Regex;
+
+    fn read_notes(path: &PathBuf) -> anyhow::Result<IdModel<ui::NoteItem>> {
+        let to_note = |line: &str| -> Option<(bool, String)> {
+            let pos = line.find("[")?;
+            let is_fixed = false == line.get(pos + 1..)?.starts_with("]");
+            let text: String = if is_fixed {
+                let pos = line.find("]")?;
+                line.get(pos + 1..)?.to_string()
+            } else {
+                line.get(pos + 2..)?.to_string()
+            };
+            Some((is_fixed, text))
+        };
+        let to_file = |line: &str| -> Option<String> {
+            let start = line.find("'")? + 1;
+            let end = line.rfind("'")?;
+            Some(line.get(start..end)?.to_string())
+        };
+        let model = IdModel::<ui::NoteItem>::default();
+        let buffer = fs::read_to_string(path)?;
+        let mut iter = buffer.lines().into_iter();
+        let mut context = String::new();
+
+        while let Some(line) = iter.next() {
+            let line = line.trim();
+            if line.starts_with("#") {
+                context = to_file(line).expect("Error while parsing heading");
+            } else if line.starts_with("*") {
+                let (is_fixed, text) = to_note(line).expect("Error while parsing ListItem");
+                let id = note_id();
+                model.add(
+                    id,
+                    ui::NoteItem {
+                        id: id as i32,
+                        is_fixed,
+                        text: text.into(),
+                        context: context.clone().into(),
+                    },
+                );
+            }
+        }
+        Ok(model)
+    }
+
+    #[test]
+    fn test_read_markdown() {
+        let mut path = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
+        path.push("docs");
+        path.push("foo.md");
+        let notes = read_notes(&path).expect("Could not read notes!");
+        assert_eq!(notes.row_count(), 5);
     }
 }

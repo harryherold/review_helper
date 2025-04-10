@@ -11,9 +11,16 @@ build = "build.rs"
 toml = "0.8.19"
 serde = "1.0.215"
 serde_derive = "1.0.215"
-slint = { version = "1.10.0", default-features = false, features = ["std", "backend-winit", "compat-1-2", "renderer-femtovg", "renderer-software", "backend-qt",] }
+slint = { version = "1.10.0", default-features = false, features = [
+    "std",
+    "backend-winit",
+    "compat-1-2",
+    "renderer-femtovg",
+    "renderer-software",
+    "backend-qt",
+] }
 native-dialog = "0.7.0"
-todo-txt = "3.1.0"
+todo-txt = "3.1.0" # TODO remove
 anyhow = "1.0.89"
 dirs = "6.0.0"
 
