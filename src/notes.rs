@@ -154,7 +154,7 @@ impl Notes {
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, env, fs, path::PathBuf};
+    use std::{env, fs, path::PathBuf};
 
     use anyhow::Ok;
     use slint::{Model, SharedString};
@@ -229,22 +229,6 @@ mod tests {
             assert_eq!(note.context, Into::<SharedString>::into("/tmp/test.h"));
         }
     }
-
-    struct MarkDownNotes {
-        general_notes: Vec<String>,
-        file_notes: HashMap<String, Vec<String>>,
-    }
-
-    impl MarkDownNotes {
-        fn read_notes(path: &PathBuf) -> Self {
-            MarkDownNotes {
-                general_notes: Vec::new(),
-                file_notes: HashMap::new(),
-            }
-        }
-    }
-
-    use regex::Regex;
 
     fn read_notes(path: &PathBuf) -> anyhow::Result<IdModel<ui::NoteItem>> {
         let to_note = |line: &str| -> Option<(bool, String)> {
