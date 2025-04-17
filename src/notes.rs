@@ -1,11 +1,9 @@
-use std::fs::read_to_string;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::Path;
-use std::str::FromStr;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::{path::PathBuf, rc::Rc};
-
+use std::{fs, path::PathBuf, rc::Rc};
+use std::collections::BTreeMap;
 use slint::ModelRc;
 use slint::{Model, SharedString};
 
@@ -13,66 +11,88 @@ use crate::id_model::IdModel;
 
 use crate::ui;
 
-const NOTE_FILE_NAME: &str = "notes.txt";
+const NOTE_FILE_NAME: &str = "notes.md";
 
 fn note_id() -> usize {
     static COUNTER: AtomicUsize = AtomicUsize::new(1);
     COUNTER.fetch_add(1, Ordering::Relaxed)
 }
 
-fn write_notes_to_file(vec_model: &IdModel<ui::NoteItem>, path: &PathBuf) -> anyhow::Result<()> {
-    let mut file = OpenOptions::new().create(true).truncate(true).write(true).open(path)?;
-    for item in vec_model.iter() {
-        let subject = {
-            if item.context.is_empty() {
-                item.text.to_string()
-            } else {
-                format!("{} #{}", item.text.to_string(), item.context.to_string())
-            }
+fn read_notes_from_file(path: &PathBuf) -> anyhow::Result<IdModel<ui::NoteItem>> {
+    let to_note = |line: &str| -> Option<(bool, String)> {
+        let pos = line.find("[")?;
+        let is_fixed = false == line.get(pos + 1..)?.starts_with("]");
+        let text: String = if is_fixed {
+            let pos = line.find("]")?;
+            line.get(pos + 1..)?.trim().to_string()
+        } else {
+            line.get(pos + 2..)?.trim().to_string()
         };
-        let task = todo_txt::Task {
-            subject: subject,
-            finished: item.is_fixed,
-            ..Default::default()
-        };
-        write!(file, "{}\n", task.to_string())?;
-    }
-    Ok(())
-}
+        Some((is_fixed, text))
+    };
+    let to_file = |line: &str| -> Option<String> {
+        let start = line.find("'")? + 1;
+        let end = line.rfind("'")?;
+        Some(line.get(start..end)?.to_string())
+    };
+    let model = IdModel::<ui::NoteItem>::default();
+    let buffer = fs::read_to_string(path)?;
+    let mut iter = buffer.lines().into_iter();
+    let mut context = String::new();
 
-fn read_notes_from_file(path: &PathBuf) -> Result<IdModel<ui::NoteItem>, std::io::Error> {
-    let todo_model = IdModel::<ui::NoteItem>::default();
-
-    if !path.exists() {
-        return Ok(todo_model);
-    }
-
-    for line in read_to_string(path)?.lines() {
-        let task_result = todo_txt::Task::from_str(line);
-        if let Ok(task) = task_result {
-            let (subject, context) = {
-                if task.subject.contains("#") {
-                    let parts: Vec<&str> = task.subject.split("#").collect();
-                    let subject = parts[0].trim().to_string();
-                    let context = parts[1].trim().to_string();
-                    (subject, context)
-                } else {
-                    (task.subject.to_string(), "".to_string())
-                }
-            };
+    while let Some(line) = iter.next() {
+        let line = line.trim();
+        if line.starts_with("#") {
+            context = to_file(line).expect("Error while parsing heading");
+        } else if line.starts_with("*") {
+            let (is_fixed, text) = to_note(line).expect("Error while parsing ListItem");
             let id = note_id();
-            todo_model.add(
+            model.add(
                 id,
                 ui::NoteItem {
                     id: id as i32,
-                    is_fixed: task.finished,
-                    text: subject.into(),
-                    context: context.into(),
+                    is_fixed,
+                    text: text.into(),
+                    context: context.clone().into(),
                 },
             );
         }
     }
-    Ok(todo_model)
+    anyhow::Ok(model)
+}
+fn write_notes_to_file(model: &IdModel<ui::NoteItem>, path: &PathBuf) -> anyhow::Result<()> {
+    let mut general_notes = Vec::<String>::new();
+    let mut file_notes = BTreeMap::<String, Vec<String>>::new();
+
+    let note_item_to_string = |item: &ui::NoteItem| -> String {
+        format!("* [{}] {}", if item.is_fixed { "x" } else { "" }, item.text)
+    };
+
+    for item in model.iter() {
+        let notes: &mut Vec<String> = if item.context.is_empty() {
+            &mut general_notes
+        } else {
+            file_notes.entry(item.context.to_string()).or_insert(Vec::new())
+        };
+        notes.push(note_item_to_string(&item));
+    }
+    let mut file = OpenOptions::new().create(true).truncate(true).write(true).open(path)?;
+
+    for note in general_notes {
+        write!(file, "{}\n", note)?;
+    }
+
+    write!(file, "\n")?;
+
+    for (file_name, notes) in file_notes {
+        write!(file, "# Notes of '{}'\n", file_name)?;
+        for note in notes {
+            write!(file, "{}\n", note)?;
+        }
+        write!(file, "\n")?;
+    }
+
+    anyhow::Ok(())
 }
 
 pub struct Notes {
@@ -155,13 +175,11 @@ impl Notes {
 #[cfg(test)]
 mod tests {
     use std::{env, fs, path::PathBuf};
-
-    use anyhow::Ok;
     use slint::{Model, SharedString};
 
     use crate::{id_model::IdModel, ui};
 
-    use super::{note_id, Notes};
+    use super::{read_notes_from_file, write_notes_to_file, Notes};
 
     struct TestContext {
         notes: Notes,
@@ -200,6 +218,22 @@ mod tests {
         }
     }
 
+    fn assert_eq_notes(notes: &IdModel<ui::NoteItem>, expected_notes: &IdModel<ui::NoteItem>) {
+        assert_eq!(notes.row_count(), expected_notes.row_count());
+        for i in 0..notes.row_count() {
+            let note = notes.row_data(i);
+            assert!(note.is_some());
+            let note = note.unwrap();
+
+            let expected_note = expected_notes.row_data(i);
+            assert!(expected_note.is_some());
+            let expected_note = expected_note.unwrap();
+
+            assert_eq!(note.text, expected_note.text);
+            assert_eq!(note.context, expected_note.context);
+        }
+    }
+
     #[test]
     fn test_add_notes() {
         {
@@ -230,55 +264,98 @@ mod tests {
         }
     }
 
-    fn read_notes(path: &PathBuf) -> anyhow::Result<IdModel<ui::NoteItem>> {
-        let to_note = |line: &str| -> Option<(bool, String)> {
-            let pos = line.find("[")?;
-            let is_fixed = false == line.get(pos + 1..)?.starts_with("]");
-            let text: String = if is_fixed {
-                let pos = line.find("]")?;
-                line.get(pos + 1..)?.to_string()
-            } else {
-                line.get(pos + 2..)?.to_string()
-            };
-            Some((is_fixed, text))
-        };
-        let to_file = |line: &str| -> Option<String> {
-            let start = line.find("'")? + 1;
-            let end = line.rfind("'")?;
-            Some(line.get(start..end)?.to_string())
-        };
-        let model = IdModel::<ui::NoteItem>::default();
-        let buffer = fs::read_to_string(path)?;
-        let mut iter = buffer.lines().into_iter();
-        let mut context = String::new();
-
-        while let Some(line) = iter.next() {
-            let line = line.trim();
-            if line.starts_with("#") {
-                context = to_file(line).expect("Error while parsing heading");
-            } else if line.starts_with("*") {
-                let (is_fixed, text) = to_note(line).expect("Error while parsing ListItem");
-                let id = note_id();
-                model.add(
-                    id,
-                    ui::NoteItem {
-                        id: id as i32,
-                        is_fixed,
-                        text: text.into(),
-                        context: context.clone().into(),
-                    },
-                );
-            }
-        }
-        Ok(model)
-    }
-
     #[test]
     fn test_read_markdown() {
         let mut path = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
         path.push("docs");
         path.push("foo.md");
-        let notes = read_notes(&path).expect("Could not read notes!");
+        let notes = read_notes_from_file(&path);
+        assert!(notes.is_ok());
+        let notes = notes.unwrap();
         assert_eq!(notes.row_count(), 5);
+        let expected_notes = IdModel::<ui::NoteItem>::default();
+        expected_notes.add(1, ui::NoteItem{
+            id: 1,
+            is_fixed: false,
+            text: "foo".into(),
+            context: "".into(),
+        });
+        expected_notes.add(2, ui::NoteItem{
+            id: 2,
+            is_fixed: false,
+            text: "dasdas".into(),
+            context: "".into(),
+        });
+        expected_notes.add(3, ui::NoteItem{
+            id: 3,
+            is_fixed: true,
+            text: "foo bar".into(),
+            context: "/tmp/foo.c".into(),
+        });
+        expected_notes.add(4, ui::NoteItem{
+            id: 4,
+            is_fixed: true,
+            text: "flupp bubb".into(),
+            context: "/tmp/foo.c".into(),
+        });
+        expected_notes.add(5, ui::NoteItem{
+            id: 5,
+            is_fixed: true,
+            text: "schupp".into(),
+            context: "C:\\blubb\\bar.cpp".into(),
+        });
+        assert_eq_notes(&notes, &expected_notes);
+    }
+
+    #[test]
+    fn test_write_markdown() {
+        let mut path = test_dir_path();
+        if !path.exists() {
+            assert!(fs::create_dir(&path).is_ok());
+        }
+        path.push("foo.md");
+
+        let expected_notes = IdModel::<ui::NoteItem>::default();
+        expected_notes.add(1, ui::NoteItem{
+            id: 1,
+            is_fixed: false,
+            text: "foo".into(),
+            context: "".into(),
+        });
+        expected_notes.add(2, ui::NoteItem{
+            id: 2,
+            is_fixed: false,
+            text: "dasdas".into(),
+            context: "".into(),
+        });
+        expected_notes.add(3, ui::NoteItem{
+            id: 3,
+            is_fixed: true,
+            text: "schupp".into(),
+            context: "C:\\blubb\\bar.cpp".into(),
+        });
+        expected_notes.add(4, ui::NoteItem{
+            id: 4,
+            is_fixed: true,
+            text: "foo bar".into(),
+            context: "C:\\blubb\\foo.cpp".into(),
+        });
+        expected_notes.add(5, ui::NoteItem{
+            id: 5,
+            is_fixed: false,
+            text: "flupp bubb".into(),
+            context: "C:\\blubb\\foo.cpp".into(),
+        });
+        assert!(write_notes_to_file(&expected_notes, &path).is_ok());
+
+        let read_notes = read_notes_from_file(&path);
+        assert!(read_notes.is_ok());
+        let read_notes = read_notes.unwrap();
+
+        assert_eq_notes(&read_notes, &expected_notes);
+        
+        if path.exists() {
+            assert!(fs::remove_file(&path).is_ok());
+        }
     }
 }

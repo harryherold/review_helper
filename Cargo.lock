@@ -4117,7 +4117,6 @@ dependencies = [
  "serde_derive",
  "slint",
  "slint-build",
- "todo-txt",
  "toml",
 ]
 
@@ -4864,18 +4863,6 @@ name = "tinyvec_macros"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
-
-[[package]]
-name = "todo-txt"
-version = "3.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d05cffba0d35efa526946df4366a20317b07512ed367a811a2e16fc5d85107ea"
-dependencies = [
- "chrono",
- "nom",
- "regex",
- "thiserror 1.0.49",
-]
 
 [[package]]
 name = "toml"
