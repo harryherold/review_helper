@@ -1,0 +1,24 @@
+import { LineEdit, Button, VerticalBox, HorizontalBox, StandardTableView } from "std-widgets.slint";
+import { CommitPicker } from "commit_picker.slint";
+import { Style } from "style.slint";
+
+export component CommitEditor inherits HorizontalLayout {
+    in property <string> placeholder-text:commit-edit.placeholder-text;
+    in-out property <string> commit;
+
+    spacing: Style.spacing;
+    commit_picker := CommitPicker {
+        accepted (commit) => { root.commit = commit; }
+    }
+    Button {
+        height: Style.control_height;
+        icon: @image-url("../assets/icons/tree.svg");
+        clicked => {
+            commit_picker.show();
+        }
+    }
+    commit-edit := LineEdit {
+        placeholder-text: "Start Commit SHA";
+        text: root.commit;
+    }
+}

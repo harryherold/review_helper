@@ -11,7 +11,9 @@ import { AppConfig, AppConfigPopup } from "app_config_popup.slint";
 
 import { OverallStatistics, OverallDiffStats } from "overall_statistics.slint";
 
-export { AppConfig, Notes, NoteItem, Diff, DiffFileItem, Repository, StringUtils, OverallDiffStats }
+import { CommitPickerAdapter } from "commit_picker.slint";
+
+export { AppConfig, CommitPickerAdapter, Notes, NoteItem, Diff, DiffFileItem, Repository, StringUtils, OverallDiffStats }
 
 export global Project {
     in property <string> path;

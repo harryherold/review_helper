@@ -1,0 +1,66 @@
+import { LineEdit, Button, VerticalBox, HorizontalBox, StandardTableView } from "std-widgets.slint";
+import { Style } from "style.slint";
+
+export global CommitPickerAdapter{
+    in property <[[StandardListViewItem]]> commit_model;
+}
+
+
+export component CommitPicker inherits PopupWindow {
+//        private property <[[StandardListViewItem]]> commit_model: [
+//          [ { text: "Commit 1" }, { text: "Message 1" }, { text: "Author 1" }, {text: "Date 1"}, ],
+//          [ { text: "Commit 2" }, { text: "Message 2" }, { text: "Author 2" }, {text: "Date 2"}, ],
+//          [ { text: "Commit 3" }, { text: "Message 3" }, { text: "Author 3" }, {text: "Date 3"}, ],
+//        ];
+        private property <string> text: item.text;
+        private property <StandardListViewItem> item: selected_commit[0];
+        private property <[StandardListViewItem]> selected_commit: CommitPickerAdapter.commit_model[commit_table_view.current-row];
+
+        close-policy: close-on-click-outside;
+
+        callback accepted(string);
+
+        Rectangle {
+            height:100%;
+            width: 100%;
+            background: #262525;
+            border-color: #333232;
+            border-radius: 10px;
+            border-width: 1px;
+
+            VerticalBox {
+                LineEdit {
+                    placeholder-text: "text filter";
+                }
+                commit_table_view := StandardTableView {
+                    columns: [
+                        { title: "Commit" },
+                        { title: "Message" },
+                        { title: "Author" },
+                        { title: "Date" },
+                    ];
+                    rows: CommitPickerAdapter.commit_model;
+                }
+                HorizontalBox {
+                    alignment: end;
+                    Button {
+                        height: Style.control_height;
+                        text: "Cancel";
+                        clicked => { root.close() }
+                    }
+                    Button {
+                        height: Style.control_height;
+                        text: "Apply";
+                        clicked => {
+                            root.accepted(text);
+                            root.close();
+                        }
+                    }
+                }
+            }
+        }
+        x: 20px;
+        y: 20px;
+        height: 600px;
+        width:800px;
+}
