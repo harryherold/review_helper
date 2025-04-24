@@ -7,11 +7,6 @@ export global CommitPickerAdapter{
 
 
 export component CommitPicker inherits PopupWindow {
-//        private property <[[StandardListViewItem]]> commit_model: [
-//          [ { text: "Commit 1" }, { text: "Message 1" }, { text: "Author 1" }, {text: "Date 1"}, ],
-//          [ { text: "Commit 2" }, { text: "Message 2" }, { text: "Author 2" }, {text: "Date 2"}, ],
-//          [ { text: "Commit 3" }, { text: "Message 3" }, { text: "Author 3" }, {text: "Date 3"}, ],
-//        ];
         private property <string> text: item.text;
         private property <StandardListViewItem> item: selected_commit[0];
         private property <[StandardListViewItem]> selected_commit: CommitPickerAdapter.commit_model[commit_table_view.current-row];
@@ -34,9 +29,9 @@ export component CommitPicker inherits PopupWindow {
                 }
                 commit_table_view := StandardTableView {
                     columns: [
-                        { title: "Commit" },
-                        { title: "Message" },
-                        { title: "Author" },
+                        { title: "Commit", width: 100px },
+                        { title: "Message", width: 400px },
+                        { title: "Author", width: 140px },
                         { title: "Date" },
                     ];
                     rows: CommitPickerAdapter.commit_model;

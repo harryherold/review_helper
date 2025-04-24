@@ -40,6 +40,7 @@ pub struct FileStat {
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
+use chrono::DateTime;
 
 #[cfg(windows)]
 macro_rules! git_command {
@@ -179,11 +180,46 @@ pub fn first_commit(repo_path: &PathBuf) -> anyhow::Result<String> {
     String::from_utf8(output.stdout.trim_ascii().to_vec()).map_err(|e| anyhow::Error::from(e))
 }
 
+pub struct Commit {
+    pub hash: String,
+    pub message: String,
+    pub author: String,
+    pub date: String,
+}
+
+pub fn query_commits(repo_path: &PathBuf) -> anyhow::Result<Vec<Commit>> {
+    let mut commits = Vec::<Commit>::new();
+    let args = vec!["--no-pager", "log", "--pretty=format:\"%h,%an,%aI,%s\""];
+    let output = git_command!(repo_path, args).output()?;
+    let output_string = String::from_utf8(output.stdout.trim_ascii().to_vec())?;
+    
+    for line in output_string.split("\n") {
+        let line = line.trim_matches('"');
+        let mut iter = line.splitn(4, ",");
+
+        let hash = iter.next().expect("Could get read sha!").to_string();
+        let author = iter.next().expect("Could get read author!").to_string();
+        let date = iter.next().expect("Could get read date!").to_string();
+        let message = iter.next().expect("Could get read message!").to_string();
+        
+        let date_time = DateTime::parse_from_rfc3339(&date).expect("Could parse date!");
+        
+        let commit = Commit {
+            hash,
+            author,
+            date: date_time.format("%Y-%m-%d %H:%M:%S").to_string(),
+            message,
+        };
+        commits.push(commit);
+    }
+    Ok(commits)
+}
+
 #[cfg(test)]
 mod tests {
     use std::{collections::HashMap, path::PathBuf};
 
-    use crate::git_utils::{diff_git_repo, first_commit, is_git_repo, repo_contains_commit, ChangeType, FileStat};
+    use crate::git_utils::{diff_git_repo, first_commit, is_git_repo, query_commits, repo_contains_commit, ChangeType, FileStat};
 
     struct TestContext {
         path: PathBuf,
@@ -251,5 +287,21 @@ mod tests {
             ),
         ]);
         assert_eq!(result.unwrap(), expected_stats);
+    }
+
+    #[test]
+    fn test_query_commits() {
+        let ctx = setup();
+        let commits = query_commits(&ctx.path);
+        assert!(commits.is_ok());
+        let commits = commits.unwrap();
+
+        assert!(commits.len() > 75);
+        let first_commit = commits.last().unwrap();
+        
+        assert_eq!(first_commit.hash, "9f89049");
+        assert_eq!(first_commit.message, "Initial commit");
+        assert_eq!(first_commit.author, "Christian von Wascinski");
+        assert_eq!(first_commit.date, "2023-10-14 10:05:19");
     }
 }

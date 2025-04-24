@@ -2,9 +2,9 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::atomic::AtomicUsize;
 use std::{path::PathBuf, rc::Rc};
 
-use slint::{Model, ModelRc, VecModel};
+use slint::{Model, ModelRc, StandardListViewItem, VecModel};
 
-use crate::git_utils::ChangeType;
+use crate::git_utils::{query_commits, ChangeType};
 use crate::id_model::IdModel;
 use crate::ui::OverallStat;
 use crate::{project_config::ProjectConfig, git_utils, ui};
@@ -12,6 +12,7 @@ use crate::{project_config::ProjectConfig, git_utils, ui};
 pub struct Repository {
     path: PathBuf,
     current_diff: Diff,
+    commits:  Rc<VecModel<slint::ModelRc<StandardListViewItem>>>
 }
 
 fn diff_file_id() -> usize {
@@ -61,18 +62,19 @@ impl Diff {
 }
 
 impl Repository {
+    // TODO new should be default
     pub fn new() -> Repository {
         Repository {
             path: "".into(),
             current_diff: Diff::new(),
+            commits: Rc::new(VecModel::<ModelRc<StandardListViewItem>>::default()),
         }
     }
 
     pub fn from_project_config(project_config: &ProjectConfig) -> anyhow::Result<Repository> {
-        let mut repo = Repository {
-            path: PathBuf::from(project_config.repo_path.to_string()),
-            current_diff: Diff::new(),
-        };
+        let mut repo = Self::new();
+        repo.set_path(PathBuf::from(project_config.repo_path.to_string()));
+
         repo.current_diff.start_commit = project_config.start_diff.clone();
         repo.current_diff.end_commit = project_config.end_diff.clone();
 
@@ -112,9 +114,23 @@ impl Repository {
             self.path.to_str()
         }
     }
+    
+    pub fn initialize_commits(&mut self) {
+        let commits = query_commits(&self.path).expect("Could not query commits!");
+        for commit in commits {
+            let items = Rc::new(VecModel::<StandardListViewItem>::default());
+            items.push(slint::SharedString::from(commit.hash).into());
+            items.push(slint::SharedString::from(commit.message).into());
+            items.push(slint::SharedString::from(commit.author).into());
+            items.push(slint::SharedString::from(commit.date).into());
+            
+            self.commits.push(items.into());
+        }
+    }
 
     pub fn set_path(&mut self, path: PathBuf) {
         self.path = path;
+        self.initialize_commits()
     }
 
     pub fn diff_repository(&mut self, start_commit: &str, end_commit: &str) -> anyhow::Result<()> {
@@ -250,5 +266,9 @@ impl Repository {
 
     pub fn statistics(&self) -> &DiffStatistics {
         &self.current_diff.statistics
+    }
+    
+    pub fn commits_model(&self) ->  ModelRc<ModelRc<StandardListViewItem>> {
+        self.commits.clone().into()
     }
 }
