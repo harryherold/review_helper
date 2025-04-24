@@ -12,7 +12,7 @@ use anyhow::Result;
 use id_model::IdModel;
 use project::Project;
 use project_config::ProjectConfig;
-use slint::{ComponentHandle, FilterModel, ModelExt, ModelRc, SharedString, SortModel};
+use slint::{ComponentHandle, FilterModel, Model, ModelExt, ModelRc, SharedString, SortModel, StandardListViewItem, VecModel};
 
 use native_dialog::FileDialog;
 use ui::DiffFileItem;
@@ -104,13 +104,55 @@ impl Default for FileDiffModelContext {
     }
 }
 
+type CommitFilterModel = Rc<FilterModel<ModelRc<ModelRc<StandardListViewItem>>, Box<dyn Fn(&ModelRc<StandardListViewItem>) -> bool>>>;
+struct CommitProxyModel {
+    filter_model: CommitFilterModel,
+    filter_text: Rc<RefCell<SharedString>>,
+}
+
+impl CommitProxyModel {
+    fn new(model: ModelRc<ModelRc<StandardListViewItem>>) -> Self {
+        let filter_text = Rc::new(RefCell::new(SharedString::new()));
+        let clone_filter_text = filter_text.clone();
+
+        let fm: CommitFilterModel = Rc::new(FilterModel::new(model, Box::new(move |row| {
+            let filter_text = filter_text.clone();
+            let pattern = filter_text.borrow();
+            let message = row.row_data(1).unwrap();
+            if pattern.is_empty() {
+                return true;
+            } else {
+                message.text.to_lowercase().contains(&pattern.as_str().to_lowercase())
+            }
+        })));
+
+        CommitProxyModel {
+            filter_model: fm.clone(),
+            filter_text: clone_filter_text,
+        }
+    }
+}
+
+impl Default for CommitProxyModel {
+    fn default() -> Self {
+        let model: ModelRc<ModelRc<StandardListViewItem>> = Rc::new(VecModel::<ModelRc<StandardListViewItem>>::default()).into();
+        let fm: CommitFilterModel = Rc::new(model.filter(Box::new(|_| true)));
+        CommitProxyModel {
+            filter_model: fm.clone(),
+            filter_text: Rc::new(RefCell::new(SharedString::new())),
+        }
+    }
+}
+
 pub fn main() -> Result<(), slint::PlatformError> {
     let app_window = ui::AppWindow::new().unwrap();
 
     app_window.on_close(move || process::exit(0));
 
     let file_diff_model_ctx = Rc::new(RefCell::new(FileDiffModelContext::default()));
-    let project = setup_project(&app_window, file_diff_model_ctx.clone());
+    let commit_proxy_model = Rc::new(RefCell::new(CommitProxyModel::default()));
+
+    let project = setup_project(&app_window, file_diff_model_ctx.clone(), commit_proxy_model.clone());
     let app_config = setup_app_config(&app_window);
 
     setup_repository(&app_window, &project, &app_config, file_diff_model_ctx.clone());
@@ -120,6 +162,15 @@ pub fn main() -> Result<(), slint::PlatformError> {
         let file_diff_model_ctx = file_diff_model_ctx.clone();
         move |pattern| {
             let m = file_diff_model_ctx.borrow_mut();
+            *m.filter_text.borrow_mut() = pattern;
+            m.filter_model.reset();
+        }
+    });
+    
+    app_window.global::<ui::CommitPickerAdapter>().on_filter_commits({
+        let commit_proxy_model = commit_proxy_model.clone();
+        move |pattern| {
+            let m = commit_proxy_model.borrow_mut();
             *m.filter_text.borrow_mut() = pattern;
             m.filter_model.reset();
         }
@@ -177,13 +228,14 @@ fn setup_app_config(app_window_handle: &ui::AppWindow) -> Rc<RefCell<app_config:
     app_config
 }
 
-fn setup_project(app_window_handle: &ui::AppWindow, file_diff_model_ctx: Rc<RefCell<FileDiffModelContext>>) -> Rc<RefCell<Project>> {
+fn setup_project(app_window_handle: &ui::AppWindow, file_diff_model_ctx: Rc<RefCell<FileDiffModelContext>>, commit_proxy_model: Rc<RefCell<CommitProxyModel>>) -> Rc<RefCell<Project>> {
     let project = Rc::new(RefCell::new(Project::default()));
 
     app_window_handle.global::<ui::Project>().on_open({
         let ui_weak = app_window_handle.as_weak();
         let project_ref = project.clone();
         let file_diff_model_ctx = file_diff_model_ctx.clone();
+        let commit_proxy_model = commit_proxy_model.clone();
         move || {
             let ui = ui_weak.unwrap();
 
@@ -219,8 +271,10 @@ fn setup_project(app_window_handle: &ui::AppWindow, file_diff_model_ctx: Rc<RefC
                 *file_diff_model_ctx.borrow_mut() = FileDiffModelContext::new(project.repository.file_diff_model());
                 let m = file_diff_model_ctx.borrow();
                 ui.global::<ui::Diff>().set_diff_model(m.sort_model.clone().into());
-                
-                ui.global::<ui::CommitPickerAdapter>().set_commit_model(project.repository.commits_model())
+
+                *commit_proxy_model.borrow_mut() = CommitProxyModel::new(project.repository.commits_model());
+                let p = commit_proxy_model.borrow();
+                ui.global::<ui::CommitPickerAdapter>().set_commit_model(p.filter_model.clone().into());
             } else {
                 eprintln!("Error occurred while loading config!");
             }
@@ -256,7 +310,9 @@ fn setup_project(app_window_handle: &ui::AppWindow, file_diff_model_ctx: Rc<RefC
                 let m = file_diff_model_ctx.borrow();
                 ui.global::<ui::Diff>().set_diff_model(m.sort_model.clone().into());
 
-                ui.global::<ui::CommitPickerAdapter>().set_commit_model(project.repository.commits_model())
+                *commit_proxy_model.borrow_mut() = CommitProxyModel::new(project.repository.commits_model());
+                let p = commit_proxy_model.borrow();
+                ui.global::<ui::CommitPickerAdapter>().set_commit_model(p.filter_model.clone().into());
             } else {
                 eprintln!("Error occurred while loading config!");
             }

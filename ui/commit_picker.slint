@@ -3,6 +3,8 @@ import { Style } from "style.slint";
 
 export global CommitPickerAdapter{
     in property <[[StandardListViewItem]]> commit_model;
+
+    callback filter_commits(string);
 }
 
 
@@ -26,6 +28,7 @@ export component CommitPicker inherits PopupWindow {
             VerticalBox {
                 LineEdit {
                     placeholder-text: "text filter";
+                    edited(text) => { CommitPickerAdapter.filter_commits(text) }
                 }
                 commit_table_view := StandardTableView {
                     columns: [
