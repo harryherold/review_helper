@@ -40,7 +40,7 @@ impl FileDiffModelContext {
     fn sort_by_name(lhs: &ui::DiffFileItem, rhs: &ui::DiffFileItem) -> Ordering {
         lhs.text.to_lowercase().cmp(&rhs.text.to_lowercase())
     }
-    fn sort_by_exentsion(lhs: &ui::DiffFileItem, rhs: &ui::DiffFileItem) -> Ordering {
+    fn sort_by_extension(lhs: &ui::DiffFileItem, rhs: &ui::DiffFileItem) -> Ordering {
         let lhs_opt = extension_from_filename(&lhs.text);
         let rhs_opt = extension_from_filename(&rhs.text);
         if lhs_opt.is_some() && rhs_opt.is_some() {
@@ -87,7 +87,7 @@ impl FileDiffModelContext {
         if sort_criteria == ui::SortCriteria::Name {
             self.sort_model = Rc::new(self.filter_model.clone().sort_by(Self::sort_by_name));
         } else {
-            self.sort_model = Rc::new(self.filter_model.clone().sort_by(Self::sort_by_exentsion));
+            self.sort_model = Rc::new(self.filter_model.clone().sort_by(Self::sort_by_extension));
         }
     }
 }
@@ -219,8 +219,10 @@ fn setup_project(app_window_handle: &ui::AppWindow, file_diff_model_ctx: Rc<RefC
                 *file_diff_model_ctx.borrow_mut() = FileDiffModelContext::new(project.repository.file_diff_model());
                 let m = file_diff_model_ctx.borrow();
                 ui.global::<ui::Diff>().set_diff_model(m.sort_model.clone().into());
+                
+                ui.global::<ui::CommitPickerAdapter>().set_commit_model(project.repository.commits_model())
             } else {
-                eprintln!("Error occured while loading config!");
+                eprintln!("Error occurred while loading config!");
             }
         }
     });
@@ -253,8 +255,10 @@ fn setup_project(app_window_handle: &ui::AppWindow, file_diff_model_ctx: Rc<RefC
                 *file_diff_model_ctx.borrow_mut() = FileDiffModelContext::new(project.repository.file_diff_model());
                 let m = file_diff_model_ctx.borrow();
                 ui.global::<ui::Diff>().set_diff_model(m.sort_model.clone().into());
+
+                ui.global::<ui::CommitPickerAdapter>().set_commit_model(project.repository.commits_model())
             } else {
-                eprintln!("Error occured while loading config!");
+                eprintln!("Error occurred while loading config!");
             }
         }
     });
@@ -262,7 +266,7 @@ fn setup_project(app_window_handle: &ui::AppWindow, file_diff_model_ctx: Rc<RefC
         let project_ref = project.clone();
         move || {
             if let Err(error) = project_ref.borrow().save() {
-                eprintln!("Error occured while saving: {}", error.to_string())
+                eprintln!("Error occurred while saving: {}", error.to_string())
             }
         }
     });
@@ -317,7 +321,7 @@ fn setup_repository(
         let app_config = app_config.clone();
         move |id| {
             if let Err(error) = project_ref.borrow().repository.diff_file(id, &app_config.borrow().diff_tool()) {
-                eprintln!("Error occured while file diff: {}", error.to_string())
+                eprintln!("Error occurred while file diff: {}", error.to_string())
             }
         }
     });
