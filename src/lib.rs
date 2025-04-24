@@ -5,10 +5,11 @@ use std::{
     path::{Path, PathBuf},
     process,
     rc::Rc,
+    str::FromStr,
 };
 
 use anyhow::Result;
-
+use chrono::{DateTime, FixedOffset};
 use id_model::IdModel;
 use project::Project;
 use project_config::ProjectConfig;
@@ -105,12 +106,43 @@ impl Default for FileDiffModelContext {
 }
 
 type CommitFilterModel = Rc<FilterModel<ModelRc<ModelRc<StandardListViewItem>>, Box<dyn Fn(&ModelRc<StandardListViewItem>) -> bool>>>;
+type CommitSortModel = Rc<SortModel<CommitFilterModel, Box<dyn Fn(&ModelRc<StandardListViewItem>, &ModelRc<StandardListViewItem>) -> Ordering>>>;
 struct CommitProxyModel {
     filter_model: CommitFilterModel,
     filter_text: Rc<RefCell<SharedString>>,
+    sort_model: CommitSortModel,
 }
 
 impl CommitProxyModel {
+    fn get_sort_callback(sort_index: usize, is_sort_ascending: bool) -> Box<dyn Fn(&ModelRc<StandardListViewItem>, &ModelRc<StandardListViewItem>) -> Ordering> {
+        Box::new(move |lhs: &ModelRc<StandardListViewItem>, rhs: &ModelRc<StandardListViewItem>| -> Ordering {
+            let compare_string_columns = || -> Ordering {
+                if is_sort_ascending {
+                    lhs.row_data(sort_index).unwrap().text.cmp(&rhs.row_data(sort_index).unwrap().text)
+                }
+                else {
+                    rhs.row_data(sort_index).unwrap().text.cmp(&lhs.row_data(sort_index).unwrap().text)
+                }
+            };
+            let compare_date_columns = || -> Ordering {
+                let lhs_date: DateTime<FixedOffset> = DateTime::from_str(&lhs.row_data(sort_index).unwrap().text).unwrap();
+                let rhs_date: DateTime<FixedOffset> = DateTime::from_str(&rhs.row_data(sort_index).unwrap().text).unwrap();
+                if is_sort_ascending {
+                    lhs_date.cmp(&rhs_date)
+                }
+                else {
+                    rhs_date.cmp(&lhs_date)
+                }
+            };
+            if sort_index == 3 {
+                compare_date_columns()
+            }
+            else {
+                compare_string_columns()
+            }
+        })
+    }
+
     fn new(model: ModelRc<ModelRc<StandardListViewItem>>) -> Self {
         let filter_text = Rc::new(RefCell::new(SharedString::new()));
         let clone_filter_text = filter_text.clone();
@@ -129,7 +161,12 @@ impl CommitProxyModel {
         CommitProxyModel {
             filter_model: fm.clone(),
             filter_text: clone_filter_text,
+            sort_model: Rc::new(fm.sort_by(CommitProxyModel::get_sort_callback(3, false))),
         }
+    }
+
+    fn sort_by(&mut self, sort_index: usize, is_sort_ascending: bool) {
+        self.sort_model = Rc::new(self.filter_model.clone().sort_by(CommitProxyModel::get_sort_callback(sort_index, is_sort_ascending)));
     }
 }
 
@@ -140,6 +177,7 @@ impl Default for CommitProxyModel {
         CommitProxyModel {
             filter_model: fm.clone(),
             filter_text: Rc::new(RefCell::new(SharedString::new())),
+            sort_model: Rc::new(fm.sort_by(CommitProxyModel::get_sort_callback(3, false))),
         }
     }
 }
@@ -166,13 +204,24 @@ pub fn main() -> Result<(), slint::PlatformError> {
             m.filter_model.reset();
         }
     });
-    
+
     app_window.global::<ui::CommitPickerAdapter>().on_filter_commits({
         let commit_proxy_model = commit_proxy_model.clone();
         move |pattern| {
             let m = commit_proxy_model.borrow_mut();
             *m.filter_text.borrow_mut() = pattern;
             m.filter_model.reset();
+        }
+    });
+
+    app_window.global::<ui::CommitPickerAdapter>().on_sort_commits({
+        let commit_proxy_model = commit_proxy_model.clone();
+        let ui_weak = app_window.as_weak();
+        move |sort_index, is_sort_ascending| {
+            let ui = ui_weak.unwrap();
+            let mut m = commit_proxy_model.borrow_mut();
+            m.sort_by(sort_index as usize, is_sort_ascending);
+            ui.global::<ui::CommitPickerAdapter>().set_commit_model(m.sort_model.clone().into());
         }
     });
 
@@ -274,7 +323,7 @@ fn setup_project(app_window_handle: &ui::AppWindow, file_diff_model_ctx: Rc<RefC
 
                 *commit_proxy_model.borrow_mut() = CommitProxyModel::new(project.repository.commits_model());
                 let p = commit_proxy_model.borrow();
-                ui.global::<ui::CommitPickerAdapter>().set_commit_model(p.filter_model.clone().into());
+                ui.global::<ui::CommitPickerAdapter>().set_commit_model(p.sort_model.clone().into());
             } else {
                 eprintln!("Error occurred while loading config!");
             }
@@ -312,7 +361,7 @@ fn setup_project(app_window_handle: &ui::AppWindow, file_diff_model_ctx: Rc<RefC
 
                 *commit_proxy_model.borrow_mut() = CommitProxyModel::new(project.repository.commits_model());
                 let p = commit_proxy_model.borrow();
-                ui.global::<ui::CommitPickerAdapter>().set_commit_model(p.filter_model.clone().into());
+                ui.global::<ui::CommitPickerAdapter>().set_commit_model(p.sort_model.clone().into());
             } else {
                 eprintln!("Error occurred while loading config!");
             }

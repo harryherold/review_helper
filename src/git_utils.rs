@@ -207,7 +207,7 @@ pub fn query_commits(repo_path: &PathBuf) -> anyhow::Result<Vec<Commit>> {
         let commit = Commit {
             hash,
             author,
-            date: date_time.format("%Y-%m-%d %H:%M:%S").to_string(),
+            date: date_time.to_string(),
             message,
         };
         commits.push(commit);

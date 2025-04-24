@@ -5,14 +5,20 @@ export global CommitPickerAdapter{
     in property <[[StandardListViewItem]]> commit_model;
 
     callback filter_commits(string);
+    callback sort_commits(int, bool);
 }
 
-
 export component CommitPicker inherits PopupWindow {
+        private property <int> sort_index: 3;
+        private property <bool> is_sort_ascending: true;
         private property <string> text: item.text;
         private property <StandardListViewItem> item: selected_commit[0];
         private property <[StandardListViewItem]> selected_commit: CommitPickerAdapter.commit_model[commit_table_view.current-row];
 
+        x: 20px;
+        y: 20px;
+        height: 600px;
+        width:840px;
         close-policy: close-on-click-outside;
 
         callback accepted(string);
@@ -32,12 +38,22 @@ export component CommitPicker inherits PopupWindow {
                 }
                 commit_table_view := StandardTableView {
                     columns: [
-                        { title: "Commit", width: 100px },
-                        { title: "Message", width: 400px },
+                        { title: "Commit", width: 100px, sort_order: SortOrder.unsorted },
+                        { title: "Message", width: 390px },
                         { title: "Author", width: 140px },
-                        { title: "Date" },
+                        { title: "Date", sort_order: SortOrder.descending },
                     ];
                     rows: CommitPickerAdapter.commit_model;
+                    sort-ascending(column) => {
+                        if (column > 0) {
+                            CommitPickerAdapter.sort_commits(column, true)
+                        }
+                    }
+                    sort-descending(column) => {
+                        if (column > 0) {
+                            CommitPickerAdapter.sort_commits(column, false)
+                        }
+                    }
                 }
                 HorizontalBox {
                     alignment: end;
@@ -57,8 +73,4 @@ export component CommitPicker inherits PopupWindow {
                 }
             }
         }
-        x: 20px;
-        y: 20px;
-        height: 600px;
-        width:800px;
 }
