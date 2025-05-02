@@ -2,22 +2,27 @@ import { LineEdit, Button, VerticalBox, HorizontalBox, StandardTableView } from 
 import { CommitPicker } from "commit_picker.slint";
 import { Style } from "style.slint";
 
-export component CommitEditor inherits HorizontalLayout {
+export enum CommitPickerPosition { Left, Right }
+
+export component CommitEditor inherits Rectangle {
+    in property <CommitPickerPosition> picker-position;
     in property <string> placeholder-text:commit-edit.placeholder-text;
     in-out property <string> commit;
 
-    spacing: Style.spacing;
     commit_picker := CommitPicker {
         accepted (commit) => { root.commit = commit; }
     }
-    Button {
-        height: Style.control_height;
+    picker-button := Button {
+        width: Style.control_small_width;
+        x: root.picker-position == CommitPickerPosition.Left ? 0px : commit-edit.width + Style.spacing;
         icon: @image-url("../assets/icons/tree.svg");
         clicked => {
             commit_picker.show();
         }
     }
     commit-edit := LineEdit {
+        width: root.width - picker-button.width - Style.spacing;
+        x: root.picker-position == CommitPickerPosition.Left ? picker-button.width + Style.spacing : 0px;
         placeholder-text: "Start Commit SHA";
         text: root.commit;
     }
