@@ -19,14 +19,14 @@ impl Project {
     pub fn new(path: &PathBuf) -> anyhow::Result<Project> {
         Ok(Project {
             path: path.clone(),
-            repository: Repository::new(),
+            repository: Repository::default(),
             notes: Notes::new(path.parent().expect("Cannot determine parent!"))?,
         })
     }
     pub fn default() -> Project {
         Project {
             path: PathBuf::new(),
-            repository: Repository::new(),
+            repository: Repository::default(),
             notes: Notes::default(),
         }
     }

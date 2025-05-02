@@ -61,18 +61,19 @@ impl Diff {
     }
 }
 
-impl Repository {
-    // TODO new should be default
-    pub fn new() -> Repository {
+impl Default for Repository {
+    fn default() -> Self {
         Repository {
             path: "".into(),
             current_diff: Diff::new(),
             commits: Rc::new(VecModel::<ModelRc<StandardListViewItem>>::default()),
         }
     }
+}
 
+impl Repository {
     pub fn from_project_config(project_config: &ProjectConfig) -> anyhow::Result<Repository> {
-        let mut repo = Self::new();
+        let mut repo = Self::default();
         repo.set_path(PathBuf::from(project_config.repo_path.to_string()));
 
         repo.current_diff.start_commit = project_config.start_diff.clone();
