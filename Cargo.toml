@@ -11,7 +11,7 @@ build = "build.rs"
 toml = "0.8.19"
 serde = "1.0.215"
 serde_derive = "1.0.215"
-slint = { version = "1.10.0", default-features = false, features = [
+slint = { version = "1.11.0", default-features = false, features = [
     "std",
     "backend-winit",
     "compat-1-2",
@@ -25,4 +25,4 @@ dirs = "6.0.0"
 chrono = { version = "0.4", features = ["unstable-locales"] }
 
 [build-dependencies]
-slint-build = "1.10.0"
+slint-build = "1.11.0"

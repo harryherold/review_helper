@@ -7,7 +7,6 @@ use std::{
     rc::Rc,
     str::FromStr,
 };
-
 use anyhow::Result;
 use chrono::{DateTime, FixedOffset};
 use id_model::IdModel;
@@ -16,7 +15,9 @@ use project_config::ProjectConfig;
 use slint::{ComponentHandle, FilterModel, Model, ModelExt, ModelRc, SharedString, SortModel, StandardListViewItem, VecModel};
 
 use native_dialog::FileDialog;
+use slint::private_unstable_api::re_exports::Point;
 use ui::DiffFileItem;
+use crate::command_utils::run_command;
 
 mod app_config;
 mod git_utils;
@@ -25,6 +26,7 @@ mod notes;
 mod project;
 mod project_config;
 mod repository;
+mod command_utils;
 
 pub mod ui;
 
@@ -252,19 +254,20 @@ fn setup_app_config(app_window_handle: &ui::AppWindow) -> Rc<RefCell<app_config:
         }
     };
 
-    app_window_handle.global::<ui::AppConfig>().on_change_diff_tool({
-        let ui_weak = app_window_handle.as_weak();
-        let app_config = app_config.clone();
-        move |diff_tool| {
-            let ui = ui_weak.unwrap();
-            app_config.borrow_mut().set_diff_tool(diff_tool.to_string());
-            ui.global::<ui::AppConfig>().set_diff_tool(diff_tool);
-        }
-    });
     app_window_handle.global::<ui::AppConfig>().on_save({
         let app_config = app_config.clone();
+        let ui_weak = app_window_handle.as_weak();
+
         move || {
-            if let Err(e) = app_config.borrow().save() {
+            let ui = ui_weak.unwrap();
+            let mut app_config = app_config.borrow_mut();
+            let ui_app_config = ui.global::<ui::AppConfig>();
+
+            app_config.config.diff_tool = ui_app_config.get_diff_tool().to_string();
+            app_config.config.editor = ui_app_config.get_editor().to_string();
+            app_config.config.editor_args = ui_app_config.get_editor_args().split(",").map(|s| s.to_string()).collect();
+
+            if let Err(e) = app_config.save() {
                 eprintln!("Errors occurred during app config save: {}", e.to_string());
             }
         }
@@ -272,7 +275,12 @@ fn setup_app_config(app_window_handle: &ui::AppWindow) -> Rc<RefCell<app_config:
 
     app_window_handle
         .global::<ui::AppConfig>()
-        .set_diff_tool(SharedString::from(app_config.borrow().diff_tool()));
+        .set_diff_tool(SharedString::from(app_config.borrow().config.diff_tool.clone()));
+
+    app_window_handle.global::<ui::AppConfig>().set_editor(SharedString::from(app_config.borrow().config.editor.clone()));
+
+    let editor_args = app_config.borrow().config.editor_args.join(",");
+    app_window_handle.global::<ui::AppConfig>().set_editor_args(SharedString::from(editor_args));
 
     app_config
 }
@@ -425,8 +433,28 @@ fn setup_repository(
         let project_ref = project.clone();
         let app_config = app_config.clone();
         move |id| {
-            if let Err(error) = project_ref.borrow().repository.diff_file(id, &app_config.borrow().diff_tool()) {
+            if let Err(error) = project_ref.borrow().repository.diff_file(id, &app_config.borrow().config.diff_tool) {
                 eprintln!("Error occurred while file diff: {}", error.to_string())
+            }
+        }
+    });
+    app_window_handle.global::<ui::Diff>().on_open_file({
+        let project_ref = project.clone();
+        let app_config = app_config.clone();
+        move |file_path| {
+            let project = project_ref.borrow();
+            let repo_path = project.repository.repository_path().expect("Repository path is not set!");
+            let app_config = app_config.borrow();
+            let args = app_config.config.editor_args.iter().map(|arg    | {
+                if arg.contains("{file}") {
+                    arg.replace("{file}", file_path.as_str())
+                }
+                else {
+                    arg.to_string()
+                }
+            }).collect::<Vec<String>>();
+            if let Err(error) = run_command(&app_config.config.editor, &args, &PathBuf::from(repo_path)) {
+                eprintln!("Error occurred while opening file: {}", error.to_string())
             }
         }
     });

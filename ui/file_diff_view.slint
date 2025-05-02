@@ -70,6 +70,7 @@ export global Diff {
     in property <SortCriteria> current_sort_criteria: SortCriteria.Name;
     callback diff-start-end(string, string);
     callback open-file-diff(int);
+    callback open-file(string);
     callback toggle-is-reviewed(int);
     callback set-sort-criteria(SortCriteria);
     callback filter-file-diff(string);
@@ -172,19 +173,50 @@ export component FileDiffView inherits VerticalBox {
                             checked: data.is_reviewed;
                             clicked => { Diff.toggle-is-reviewed(data.id) }
                         }
-                        Button {
+                        property <Point> p: {
+                            x: (root.width - bb.width) - 280px,
+                            y: bb.height
+                        };
+                        bb := Button {
                             icon: notes.length > 0 ? @image-url("../assets/icons/note-add-active.svg") : @image-url("../assets/icons/note-add.svg");
                             enabled: checked_id == data.id;
-                            clicked => { root.open-file-notes-popup(data.text) }
+                            clicked => {
+//                                root.open-file-notes-popup(data.text)
+                                debug(p);
+                                ctx_menu_area.show(p);
+                            }
                         }
                     }
                 }
             }
-            ta := TouchArea {
+            ctx_menu_area := ContextMenuArea {
+                my_menu := Menu {
+                    MenuItem {
+                        title: @tr("Cut");
+                        activated => { debug("Cut"); }
+                    }
+                    MenuItem {
+                        title: @tr("Copy");
+                        activated => { debug("Copy"); }
+                    }
+                    MenuItem {
+                        title: @tr("Paste");
+                        activated => { debug("Paste"); }
+                    }
+                }
+            }
+            TouchArea {
                 x: 0;
                 y: 0;
                 width: parent.width - buttons-layout.width;
-                double-clicked => { Diff.open-file-diff(data.id) }
+                double-clicked => {
+                    if (data.change_type == ChangeType.Added) {
+                        Diff.open-file(data.text);
+                    }
+                    else {
+                        Diff.open-file-diff(data.id);
+                    }
+                }
                 clicked => { checked_id = data.id }
             }
         }

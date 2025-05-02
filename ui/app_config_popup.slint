@@ -4,8 +4,10 @@ import { Style } from "style.slint";
 import { VerticalBox, LineEdit, Button } from "std-widgets.slint";
 
 export global AppConfig {
-    in property <string> diff_tool;
-    callback change-diff-tool(string);
+    in-out property <string> diff_tool;
+    in-out property <string> editor;
+    in-out property <string> editor_args;
+
     callback save();
 }
 
@@ -16,19 +18,44 @@ export component AppConfigPopup inherits Popup {
     VerticalBox {
         alignment: space-between;
 
-        HorizontalLayout {
+        GridLayout {
             spacing: Style.spacing;
 
-            Text {
-                font-size: 14px;
-                vertical-alignment: center;
-                text: "diff tool";
+            Row {
+                Text {
+                    font-size: 14px;
+                    vertical-alignment: center;
+                    text: "diff tool";
+                }
+                diff_tool_edit := LineEdit {
+                    height: Style.control_height;
+                    text <=> AppConfig.diff_tool;
+                }
             }
-            diff_tool_edit := LineEdit {
-                height: Style.control_height;
-                text: AppConfig.diff_tool;
+            Row {
+                Text {
+                    font-size: 14px;
+                    vertical-alignment: center;
+                    text: "editor";
+                }
+                editor_edit := LineEdit {
+                    height: Style.control_height;
+                    text <=> AppConfig.editor;
+                }
+            }
+            Row {
+                Text {
+                    font-size: 14px;
+                    vertical-alignment: center;
+                    text: "editor args";
+                }
+                editor_args_edit := LineEdit {
+                    height: Style.control_height;
+                    text <=> AppConfig.editor_args;
+                }
             }
         }
+
         HorizontalLayout {
             spacing: Style.spacing;
 
@@ -39,7 +66,6 @@ export component AppConfigPopup inherits Popup {
             Button {
                 text: "Save";
                 clicked => {
-                    AppConfig.change-diff-tool(diff_tool_edit.text);
                     AppConfig.save();
                     root.close();
                 }
