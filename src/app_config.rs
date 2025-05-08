@@ -62,24 +62,6 @@ impl AppConfig {
         let contents = toml::to_string(&self.config).expect("Could not convert AppConfig struct to toml string!");
         fs::write(&self.path, contents).map_err(|e| anyhow::format_err!("Could not write app config file: {}", e.to_string()))
     }
-    // pub fn diff_tool(&self) -> &str {
-    //     &self.config.diff_tool
-    // }
-    // pub fn set_diff_tool(&mut self, new_diff_tool: String) {
-    //     self.config.diff_tool = new_diff_tool;
-    // }
-    // pub fn editor(&self) -> &str {
-    //     &self.config.editor
-    // }
-    // pub fn set_editor(&mut self, new_editor: String) {
-    //     self.config.editor = new_editor;
-    // }
-    // pub fn editor_args(&self) -> &Vec<String> {
-    //     &self.config.editor_args
-    // }
-    // pub fn set_editor_args(&mut self, new_editor_args: Vec<String>) {
-    //     self.config.editor_args = new_editor_args;
-    // }
 }
 
 #[cfg(test)]
@@ -120,14 +102,14 @@ mod tests {
     fn test_new_config() {
         {
             let mut ctx = setup(false);
-            assert_eq!(ctx.app_config.diff_tool(), "meld");
+            assert_eq!(ctx.app_config.config.diff_tool, "meld");
 
-            ctx.app_config.set_diff_tool("vscode".to_string());
+            ctx.app_config.config.diff_tool = "vscode".to_string();
             assert!(ctx.app_config.save().is_ok());
         }
         {
             let ctx = setup(true);
-            assert_eq!(ctx.app_config.diff_tool(), "vscode");
+            assert_eq!(ctx.app_config.config.diff_tool, "vscode");
         }
     }
 }

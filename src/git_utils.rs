@@ -302,6 +302,6 @@ mod tests {
         assert_eq!(first_commit.hash, "9f89049");
         assert_eq!(first_commit.message, "Initial commit");
         assert_eq!(first_commit.author, "Christian von Wascinski");
-        assert_eq!(first_commit.date, "2023-10-14 10:05:19");
+        assert_eq!(first_commit.date, "2023-10-14 10:05:19 +02:00");
     }
 }

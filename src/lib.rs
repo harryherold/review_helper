@@ -15,7 +15,6 @@ use project_config::ProjectConfig;
 use slint::{ComponentHandle, FilterModel, Model, ModelExt, ModelRc, SharedString, SortModel, StandardListViewItem, VecModel};
 
 use native_dialog::FileDialog;
-use slint::private_unstable_api::re_exports::Point;
 use ui::DiffFileItem;
 use crate::command_utils::run_command;
 
