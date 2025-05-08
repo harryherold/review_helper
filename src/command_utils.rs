@@ -10,7 +10,7 @@ pub fn run_command(command: &str, args: &Vec<String>, cwd: &PathBuf) -> anyhow::
 }
 
 #[cfg(not(windows))]
-pub fn run_command(command: &str, args: &Vec<String>, cwd: &PathBuf) -> Result<String, String> {
+pub fn run_command(command: &str, args: &Vec<String>, cwd: &PathBuf) -> anyhow::Result<()> {
     Command::new(command).current_dir(cwd).args(args).spawn().map_err(|e| { anyhow::format_err!("Error running command: {}, e.g. {}", command, e) })?;
     Ok(())
 }
