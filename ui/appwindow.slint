@@ -16,6 +16,7 @@ import { CommitPickerAdapter } from "commit_picker.slint";
 export { AppConfig, CommitPickerAdapter, Notes, NoteItem, Diff, DiffFileItem, Repository, StringUtils, OverallDiffStats }
 
 export global Project {
+    in property <bool> has_modifications: false;
     in property <string> path;
     out property <bool> is_loaded: path != "";
     callback open;
@@ -45,36 +46,45 @@ export component AppWindow inherits Window {
             height: 40px;
 
             HorizontalLayout {
-                alignment: start;
+                alignment: space-between;
                 spacing: Style.spacing;
 
-                Menu {
-                    text: "File";
+                HorizontalLayout {
+                    spacing: Style.spacing;
 
-                    MenuItem {
-                        text: "New";
-                        clicked => { Project.new() }
+                    Menu {
+                        text: "File";
+
+                        MenuItem {
+                            text: "New";
+                            clicked => { Project.new() }
+                        }
+                        MenuItem {
+                            text: "Open";
+                            clicked => { Project.open() }
+                        }
+                        MenuItem {
+                            text: "Save";
+                            enabled: Project.is_loaded && Project.has_modifications;
+                            clicked => { Project.save() }
+                        }
+                        MenuItem {
+                            text: "Close";
+                            clicked => { root.close() }
+                        }
                     }
-                    MenuItem {
-                        text: "Open";
-                        clicked => { Project.open() }
-                    }
-                    MenuItem {
-                        text: "Save";
-                        enabled: Project.is_loaded;
-                        clicked => { Project.save() }
-                    }
-                    MenuItem {
-                        text: "Close";
-                        clicked => { root.close() }
+                    Menu {
+                        text: "Edit";
+
+                        MenuItem {
+                            text: "Config";
+                            clicked => { app-config-popup.open() }
+                        }
                     }
                 }
-                Menu {
-                    text: "Edit";
-
-                    MenuItem {
-                        text: "Config";
-                        clicked => { app-config-popup.open() }
+                if Project.has_modifications: HorizontalBox {
+                    Image {
+                        source: @image-url("../assets/icons/save.svg");
                     }
                 }
             }

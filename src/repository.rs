@@ -5,7 +5,7 @@ use std::{path::PathBuf, rc::Rc};
 use slint::{Model, ModelRc, StandardListViewItem, VecModel};
 
 use crate::git_utils::{query_commits, ChangeType};
-use crate::id_model::IdModel;
+use crate::id_model::{IdModel, IdModelChange};
 use crate::ui::OverallStat;
 use crate::{project_config::ProjectConfig, git_utils, ui};
 
@@ -259,6 +259,10 @@ impl Repository {
 
     pub fn file_diff_model(&self) -> ModelRc<ui::DiffFileItem> {
         self.current_diff.file_diff_model.clone().into()
+    }
+    
+    pub fn observe_file_diff_model<Observer: Fn(IdModelChange) + 'static>(&self, observer: Observer) {
+        self.current_diff.file_diff_model.set_observer(observer);
     }
 
     pub fn diff_range(&self) -> (&str, &str) {

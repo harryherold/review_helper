@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 use slint::ModelRc;
 use slint::{Model, SharedString};
 
-use crate::id_model::IdModel;
+use crate::id_model::{IdModel, IdModelChange};
 
 use crate::ui;
 
@@ -169,6 +169,10 @@ impl Notes {
 
     pub fn delete_note(&mut self, id: usize) {
         self.notes_model.remove(id);
+    }
+
+    pub fn observe_notes_model<Observer: Fn(IdModelChange) + 'static>(&self, observer: Observer) {
+        self.notes_model.set_observer(observer);
     }
 }
 
