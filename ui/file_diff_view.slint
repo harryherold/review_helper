@@ -169,7 +169,6 @@ export component FileDiffView inherits VerticalBox {
                         }
                         Button {
                             icon: self.checked ? @image-url("../assets/icons/checked.svg") : @image-url("../assets/icons/unchecked.svg");
-                            enabled: checked_id == data.id;
                             checked: data.is_reviewed;
                             clicked => { Diff.toggle-is-reviewed(data.id) }
                         }
@@ -178,30 +177,61 @@ export component FileDiffView inherits VerticalBox {
                             y: bb.height
                         };
                         bb := Button {
-                            icon: notes.length > 0 ? @image-url("../assets/icons/note-add-active.svg") : @image-url("../assets/icons/note-add.svg");
-                            enabled: checked_id == data.id;
-                            clicked => {
-//                                root.open-file-notes-popup(data.text)
-                                debug(p);
-                                ctx_menu_area.show(p);
+                            icon: @image-url("../assets/icons/menu.svg");
+                            clicked => { action_popup.show(); }
+                        }
+                        action_popup := PopupWindow {
+                            private property <length> delegate_height: 30px;
+                            private property <[string]> action_model: ["diff", "open", "notes"];
+
+                            x: bb.x - (self.width - bb.width);
+                            y: bb.height + Style.border_width;
+                            width: Style.control_width;
+                            height: action_model.length * delegate_height;
+                            close-policy: close-on-click-outside;
+
+                            Rectangle {
+                                width: 100%;
+                                height: 100%;
+                                background: Style.popup_background;
+                                border-color: Style.popup_border_color;
+                                border-width: Style.border_width;
+
+                                VerticalLayout {
+                                    for action[idx] in action_model: VerticalLayout {
+                                        height: delegate_height;
+                                        Rectangle {
+                                            background: ta.has-hover ? #4f4b4b : Style.popup_background;
+                                            border-color: Style.popup_border_color;
+                                            border-width: Style.border_width;
+
+                                            Text {
+                                                text: action;
+                                            }
+                                            ta := TouchArea {
+                                                clicked => {
+                                                    if (action == "notes") {
+                                                        root.open-file-notes-popup(data.text);
+                                                    }
+                                                    if (action == "diff") {
+                                                        Diff.open-file-diff(data.id);
+                                                    }
+                                                    if (action == "open") {
+                                                        Diff.open-file(data.text);
+                                                    }
+                                                    action_popup.close();
+                                                }
+                                            }
+                                        }
+                                        if idx < (action_model.length - 1) : Rectangle {
+                                            height: 1px;
+                                            width: 100%;
+                                            background: #4f4b4b;
+                                        }
+                                    }
+                                }
                             }
                         }
-                    }
-                }
-            }
-            ctx_menu_area := ContextMenuArea {
-                my_menu := Menu {
-                    MenuItem {
-                        title: @tr("Cut");
-                        activated => { debug("Cut"); }
-                    }
-                    MenuItem {
-                        title: @tr("Copy");
-                        activated => { debug("Copy"); }
-                    }
-                    MenuItem {
-                        title: @tr("Paste");
-                        activated => { debug("Paste"); }
                     }
                 }
             }
@@ -209,14 +239,6 @@ export component FileDiffView inherits VerticalBox {
                 x: 0;
                 y: 0;
                 width: parent.width - buttons-layout.width;
-                double-clicked => {
-                    if (data.change_type == ChangeType.Added) {
-                        Diff.open-file(data.text);
-                    }
-                    else {
-                        Diff.open-file-diff(data.id);
-                    }
-                }
                 clicked => { checked_id = data.id }
             }
         }
