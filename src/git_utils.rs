@@ -189,13 +189,13 @@ pub struct Commit {
 
 pub fn query_commits(repo_path: &PathBuf) -> anyhow::Result<Vec<Commit>> {
     let mut commits = Vec::<Commit>::new();
-    let args = vec!["--no-pager", "log", "--pretty=format:\"%h,%an,%aI,%s\""];
+    let args = vec!["--no-pager", "log", "--pretty=format:\"%h¦%an¦%aI¦%s\""];
     let output = git_command!(repo_path, args).output()?;
     let output_string = String::from_utf8(output.stdout.trim_ascii().to_vec())?;
     
     for line in output_string.split("\n") {
         let line = line.trim_matches('"');
-        let mut iter = line.splitn(4, ",");
+        let mut iter = line.splitn(4, "¦");
 
         let hash = iter.next().expect("Could get read sha!").to_string();
         let author = iter.next().expect("Could get read author!").to_string();
