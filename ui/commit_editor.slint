@@ -6,11 +6,11 @@ export enum CommitPickerPosition { Left, Right }
 
 export component CommitEditor inherits Rectangle {
     in property <CommitPickerPosition> picker-position;
-    in property <string> placeholder-text:commit-edit.placeholder-text;
-    in-out property <string> commit;
+    in property <string> placeholder-text: "";
+    in-out property <string> commit: "";
 
     commit_picker := CommitPicker {
-        accepted (commit) => { root.commit = commit; }
+        accepted (commit) => { commit-edit.text = commit; }
     }
     picker-button := Button {
         width: Style.control_small_width;
@@ -23,7 +23,7 @@ export component CommitEditor inherits Rectangle {
     commit-edit := LineEdit {
         width: root.width - picker-button.width - Style.spacing;
         x: root.picker-position == CommitPickerPosition.Left ? picker-button.width + Style.spacing : 0px;
-        placeholder-text: "Start Commit SHA";
-        text: root.commit;
+        placeholder-text: root.placeholder-text;
+        text <=> root.commit;
     }
 }
