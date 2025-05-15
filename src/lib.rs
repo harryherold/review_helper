@@ -209,6 +209,13 @@ pub fn main() -> Result<(), slint::PlatformError> {
         }
     });
 
+    app_window.global::<ui::CommitPickerAdapter>().on_refresh({
+        let project = project.clone();
+        move || {
+            let mut project = project.borrow_mut();
+            project.repository.initialize_commits();
+        }
+    });
     app_window.global::<ui::CommitPickerAdapter>().on_filter_commits({
         let commit_proxy_model = commit_proxy_model.clone();
         move |pattern| {

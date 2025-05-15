@@ -189,7 +189,7 @@ pub struct Commit {
 
 pub fn query_commits(repo_path: &PathBuf) -> anyhow::Result<Vec<Commit>> {
     let mut commits = Vec::<Commit>::new();
-    let args = vec!["--no-pager", "log", "--pretty=format:\"%h¦%an¦%aI¦%s\""];
+    let args = vec!["--no-pager", "log", "--first-parent", "--pretty=format:\"%h¦%an¦%aI¦%s\""];
     let output = git_command!(repo_path, args).output()?;
     let output_string = String::from_utf8(output.stdout.trim_ascii().to_vec())?;
     

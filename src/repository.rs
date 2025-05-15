@@ -117,6 +117,7 @@ impl Repository {
     }
     
     pub fn initialize_commits(&mut self) {
+        self.commits.clear();
         let commits = query_commits(&self.path).expect("Could not query commits!");
         for commit in commits {
             let items = Rc::new(VecModel::<StandardListViewItem>::default());

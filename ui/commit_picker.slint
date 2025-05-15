@@ -6,6 +6,7 @@ export global CommitPickerAdapter{
 
     callback filter_commits(string);
     callback sort_commits(int, bool);
+    callback refresh();
 }
 
 export component CommitPicker inherits PopupWindow {
@@ -32,9 +33,17 @@ export component CommitPicker inherits PopupWindow {
             border-width: 1px;
 
             VerticalBox {
-                LineEdit {
-                    placeholder-text: "text filter";
-                    edited(text) => { CommitPickerAdapter.filter_commits(text) }
+                HorizontalLayout {
+                    spacing: Style.spacing;
+
+                    LineEdit {
+                        placeholder-text: "text filter";
+                        edited(text) => { CommitPickerAdapter.filter_commits(text) }
+                    }
+                    Button {
+                        icon: @image-url("../assets/icons/refresh.svg");
+                        clicked => { CommitPickerAdapter.refresh() }
+                    }
                 }
                 commit_table_view := StandardTableView {
                     columns: [
