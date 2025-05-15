@@ -1,6 +1,6 @@
-import { Button, VerticalBox , HorizontalBox, LineEdit, ListView, CheckBox, GroupBox, Palette } from "std-widgets.slint";
+import { Button, VerticalBox , HorizontalBox, LineEdit, ListView, CheckBox, GroupBox, Palette, TabWidget } from "std-widgets.slint";
 import { Style } from "style.slint";
-import { Notes, NoteItem } from "notes_view.slint";
+import { Notes, NoteItem, NotesView } from "notes_view.slint";
 import { FileDiffView, Diff, DiffFileItem } from "file_diff_view.slint";
 import { DiffConfigView, Repository} from "diff_config_view.slint";
 import { Popup } from "popup.slint";
@@ -89,17 +89,29 @@ export component AppWindow inherits Window {
                 }
             }
         }
-        VerticalBox {
-            if Project.is_loaded: DiffConfigView {
-                height: 100px;
-                vertical-stretch: 0;
+        TabWidget {
+            Tab {
+                title: "File Diff";
+
+                VerticalBox {
+                    if Project.is_loaded: DiffConfigView {
+                        height: 100px;
+                        vertical-stretch: 0;
+                    }
+                    if Repository.is_loaded: OverallStatistics {
+                        vertical-stretch: 0;
+                    }
+                    if Repository.is_loaded: FileDiffView {
+                        open-file-notes-popup(file) => { notes-popup.open-notes(file) }
+                    }
+                }
             }
-            if Repository.is_loaded: OverallStatistics {
-                vertical-stretch: 0;
-            }
-            if Repository.is_loaded: FileDiffView {
-                open-file-notes-popup(file) => { notes-popup.open-notes(file) }
+            Tab {
+                title: "Notes";
+
+                NotesView {}
             }
         }
+
     }
 }

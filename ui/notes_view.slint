@@ -1,4 +1,4 @@
-import { GroupBox, LineEdit, Button, ListView, CheckBox, ComboBox } from "std-widgets.slint";
+import { GroupBox, LineEdit, Button, ListView, CheckBox, ComboBox, VerticalBox } from "std-widgets.slint";
 import { Style } from "style.slint";
 
 export struct NoteItem  {
@@ -17,74 +17,87 @@ export global Notes {
     pure callback file-notes-model(string) -> [NoteItem];
 }
 
-// export component NotesView inherits GroupBox {
-//     title: "Notes:";
+component HeaderColumn inherits Rectangle {
+    in property <string> column_name;
 
-//     VerticalLayout {
-//         spacing: Style.spacing;
+    background: ta.has-hover ? Colors.black : Style.foreground_color;
+    height: Style.control_height;
 
-//         HorizontalLayout {
-//             spacing: Style.spacing;
+    Text {
+        width: root.width;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        overflow: elide;
+        text: root.column_name;
+    }
+    ta := TouchArea {}
+}
 
-//             LineEdit {
-//                 placeholder-text: "Add comment here...";
-//                 accepted => {
-//                     if self.text != "" {
-//                         Notes.add-note(self.text, context);
-//                         self.text = "";
-//                     }
-//                 }
-//             }
-//             private property <string> context: Diff.file_model.length > 0 ? Diff.file_model[0] : "";
+export component NotesView inherits VerticalBox {
+    spacing: Style.spacing;
 
-//             context-type := ComboBox {
-//                 model: ["File", "Text", "Empty"];
-//                 width: 15%;
-//                 selected (type) => {
-//                     if type == "File" {
-//                         context = Diff.file_model.length > 0 ? Diff.file_model[0] : "";
-//                     }
-//                     else {
-//                         context = "";
-//                     }
-//                 }
-//             }
-//             if context-type.current-value == "File" : ComboBox {
-//                 width: 20%;
-//                 model: Diff.file_model;
-//                 selected (file) => { context = file }
+    HorizontalLayout {
+        spacing: Style.spacing;
 
-//             }
-//             if context-type.current-value == "Text" : LineEdit {
-//                 width: 20%;
-//                 edited (edited-text) => { context = edited-text }
-//             }
-//         }
-//         ListView {
-//             padding-right: 0;
-//             padding-left: 0;
-//             for data[idx] in Notes.notes_model: HorizontalLayout {
-//                 spacing: 2px;
-//                 padding-top: Style.spacing;
+        Rectangle {
+            width: 20px;
+            background: Style.foreground_color;
+        }
+        HeaderColumn {
+            column_name: "Text";
+            width: 600px;
+        }
+        HeaderColumn {
+            column_name: "Context";
+        }
+    }
+    ListView {
+        padding-right: 0;
+        padding-left: 0;
 
-//                 CheckBox {
-//                     checked: data.is_fixed;
-//                     toggled => {
-//                         Notes.toggle-fixed(idx);
-//                     }
-//                 }
-//                 LineEdit {
-//                     text: data.text;
-//                     accepted => {
-//                         Notes.change-text(idx, self.text);
-//                     }
-//                 }
-//                 LineEdit {
-//                     read-only: true;
-//                     width: 20%;
-//                     text: data.context;
-//                 }
-//             }
-//         }
-//     }
-// }
+        for note[idx] in Notes.notes_model: HorizontalLayout {
+            spacing: Style.spacing;
+            padding-top: Style.spacing;
+
+            CheckBox {
+                width: 20px;
+                checked: note.is_fixed;
+                toggled => { Notes.toggle-fixed(idx); }
+            }
+            LineEdit {
+                width: 600px;
+                text: note.text;
+                accepted => { Notes.change-text(idx, self.text); }
+            }
+            Rectangle {
+                background: Style.input_background_color;
+                border-radius: 2px;
+                border-color: Style.popup_border_color;
+                border-width: Style.border_width;
+
+                HorizontalLayout {
+                    Rectangle { width: 5px;}
+                    Text {
+                        horizontal-alignment: left;
+                        vertical-alignment: center;
+                        overflow: elide;
+                        text: note.context;
+                    }
+                    Rectangle {
+                        width: 25px;
+                        Image {
+                            vertical-alignment: center;
+                            horizontal-alignment: center;
+                            width: 20px;
+                            height: self.width;
+                            source: @image-url("../assets/icons/edit.svg");
+                        }
+                        TouchArea {
+                            clicked => {debug("edit context!")}
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
