@@ -16,16 +16,16 @@ pub enum ChangeType {
 
 impl ChangeType {
     pub fn from_str(change_type: &str) -> ChangeType {
-        match change_type {
-            "A" => ChangeType::Added,
-            "C" => ChangeType::Copied,
-            "D" => ChangeType::Deleted,
-            "M" => ChangeType::Modified,
-            "R" => ChangeType::Renamed,
-            "T" => ChangeType::TypChanged,
-            "U" => ChangeType::Unmerged,
-            "X" => ChangeType::Unknown,
-            "B" => ChangeType::Broken,
+        match change_type.chars().nth(0).expect("Could not get first char!") {
+            'A' => ChangeType::Added,
+            'C' => ChangeType::Copied,
+            'D' => ChangeType::Deleted,
+            'M' => ChangeType::Modified,
+            'R' => ChangeType::Renamed,
+            'T' => ChangeType::TypChanged,
+            'U' => ChangeType::Unmerged,
+            'X' => ChangeType::Unknown,
+            'B' => ChangeType::Broken,
             _default => ChangeType::Invalid,
         }
     }
@@ -92,10 +92,17 @@ fn diff_name_status(repo_path: &PathBuf, start_commit: &str, end_commit: &str) -
 
     for line in string_output.lines().collect::<Vec<&str>>() {
         let infos = line.split_whitespace().collect::<Vec<&str>>();
-        assert_eq!(infos.len(), 2);
+        assert!(infos.len() > 1);
 
-        let file = infos[1].to_string();
-        files_change_type.insert(file, ChangeType::from_str(infos[0]));
+        let change_type = ChangeType::from_str(infos[0]);
+        let file = if change_type == ChangeType::Renamed {
+            assert_eq!(infos.len(), 3);
+            infos[2].to_string()
+        }
+        else {
+            infos[1].to_string()
+        };
+        files_change_type.insert(file, change_type);
     }
 
     Ok(files_change_type)
@@ -107,7 +114,7 @@ fn query_file_stats(
     end_commit: &str,
     mut files_change_type: HashMap<String, ChangeType>,
 ) -> anyhow::Result<HashMap<String, FileStat>> {
-    let mut args = vec!["diff", "--numstat"];
+    let mut args = vec!["diff", "-z", "--numstat"];
 
     if false == start_commit.is_empty() {
         args.push(start_commit);
@@ -128,26 +135,44 @@ fn query_file_stats(
         }
     };
 
-    for line in string_output.lines().collect::<Vec<&str>>() {
+    let lines = string_output.split("\0").collect::<Vec<&str>>();
+    let mut iter = lines.iter();
+
+    while let Some(line) = iter.next() {
         if line.is_empty() {
             continue;
         }
         let infos = line.split_whitespace().collect::<Vec<&str>>();
+        if infos.len() == 3 {
+            let file = infos[2].to_string();
+            let change_type = if let Some(ct) = files_change_type.remove(&file) {
+                ct
+            } else {
+                ChangeType::Invalid
+            };
+            files_stats.insert(file, FileStat {
+                added_lines: parse_line_number(infos[0])?,
+                removed_lines: parse_line_number(infos[1])?,
+                change_type,
+            });
+        }
+        else {
+            let added_lines = parse_line_number(infos[0])?;
+            let removed_lines = parse_line_number(infos[1])?;
+            let _old_file = iter.next(); // TODO display it as additional information
 
-        assert_eq!(infos.len(), 3);
-
-        let key = infos[2].to_string();
-        let change_type = if let Some(ct) = files_change_type.remove(&key) {
-            ct
-        } else {
-            ChangeType::Invalid
-        };
-        let value = FileStat {
-            added_lines: parse_line_number(infos[0])?,
-            removed_lines: parse_line_number(infos[1])?,
-            change_type: change_type,
-        };
-        files_stats.insert(key, value);
+            let new_file = iter.next().expect("Renamed new file name missing");
+            let change_type = if let Some(ct) = files_change_type.remove(*new_file) {
+                ct
+            } else {
+                ChangeType::Invalid
+            };
+            files_stats.insert(new_file.to_string(), FileStat {
+                added_lines,
+                removed_lines,
+                change_type,
+            });
+        }
     }
     Ok(files_stats)
 }
