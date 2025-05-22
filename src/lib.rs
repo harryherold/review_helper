@@ -1,13 +1,5 @@
 use slint::Weak;
-use std::{
-    cell::RefCell,
-    cmp::Ordering,
-    ffi::OsStr,
-    path::{Path, PathBuf},
-    process,
-    rc::Rc,
-    str::FromStr,
-};
+use std::{cell::RefCell, cmp::Ordering, env, ffi::OsStr, path::{Path, PathBuf}, process, rc::Rc, str::FromStr};
 use anyhow::Result;
 use chrono::{DateTime, FixedOffset};
 use id_model::IdModel;
@@ -186,6 +178,23 @@ impl Default for CommitProxyModel {
     }
 }
 
+fn parse_commandline_args() -> Option<PathBuf> {
+    let args: Vec<String> = env::args().collect();
+    if args.len() == 3 && args[1] == "--project-file" {
+        let path = PathBuf::from(args[2].clone());
+        if !path.exists() {
+            eprintln!("Given project file does not exist!");
+            None
+        }
+        else {
+            Some(PathBuf::from(args[2].clone()))
+        }
+    }
+    else {
+        None
+    }
+}
+
 pub fn main() -> Result<(), slint::PlatformError> {
     let app_window = ui::AppWindow::new().unwrap();
 
@@ -300,58 +309,75 @@ fn modification_observer(ui_weak: Weak<AppWindow>) -> Box<dyn Fn(IdModelChange)>
 }
 
 fn setup_project(app_window_handle: &ui::AppWindow, file_diff_model_ctx: Rc<RefCell<FileDiffModelContext>>, commit_proxy_model: Rc<RefCell<CommitProxyModel>>) -> Rc<RefCell<Project>> {
-    let project = Rc::new(RefCell::new(Project::default()));
+    let read_project = |path| -> anyhow::Result<Project> {
+        let project_config = ProjectConfig::read_from(&path)?;
+        Project::from_config(&path, project_config)
+    };
+    let init_ui = |project: Rc<RefCell<Project>>, ui_weak: Weak<AppWindow>, file_diff_model_ctx: Rc<RefCell<FileDiffModelContext>>, commit_proxy_model: Rc<RefCell<CommitProxyModel>>| {
+        let ui = ui_weak.unwrap();
+        let project = project.borrow();
 
+        ui.global::<ui::Project>().set_path(SharedString::from(project.path.to_str().unwrap()));
+        if let Some(repo_path) = project.repository.repository_path() {
+            ui.global::<ui::Repository>().set_path(SharedString::from(repo_path));
+        }
+        
+        project.notes.observe_notes_model(modification_observer(ui_weak.clone()));
+        
+        ui.global::<ui::Notes>().set_notes_model(project.notes.notes_model().into());
+        
+        let (start_diff, end_diff) = project.repository.diff_range();
+        ui.global::<ui::Diff>().set_start_commit(SharedString::from(start_diff));
+        ui.global::<ui::Diff>().set_end_commit(SharedString::from(end_diff));
+        
+        let s = project.repository.statistics();
+        ui.global::<ui::OverallDiffStats>().set_model(s.statistics_model.clone().into());
+        
+        project.repository.observe_file_diff_model(modification_observer(ui_weak.clone()));
+        
+        *file_diff_model_ctx.borrow_mut() = FileDiffModelContext::new(project.repository.file_diff_model());
+        let m = file_diff_model_ctx.borrow();
+        ui.global::<ui::Diff>().set_diff_model(m.sort_model.clone().into());
+
+        let commit_proxy_model = commit_proxy_model.clone(); 
+        *commit_proxy_model.borrow_mut() = CommitProxyModel::new(project.repository.commits_model());
+        let p = commit_proxy_model.borrow();
+        ui.global::<ui::CommitPickerAdapter>().set_commit_model(p.sort_model.clone().into());
+    };
+
+    let project = {
+        match parse_commandline_args() {
+            None => Rc::new(RefCell::new(Project::default())),
+            Some(path) => {
+                let project_result = read_project(path);
+                if let Err(error) = project_result {
+                    eprintln!("Could not read config: {}", error.to_string());
+                    Rc::new(RefCell::new(Project::default()))
+                }
+                else {
+                    Rc::new(RefCell::new(project_result.unwrap()))
+                }
+            }
+        }
+    };
+    
+    if project.borrow().path.exists() {
+        init_ui(project.clone(), app_window_handle.as_weak(), file_diff_model_ctx.clone(), commit_proxy_model.clone());
+    }
+    
     app_window_handle.global::<ui::Project>().on_open({
         let ui_weak = app_window_handle.as_weak();
         let project_ref = project.clone();
         let file_diff_model_ctx = file_diff_model_ctx.clone();
         let commit_proxy_model = commit_proxy_model.clone();
         move || {
-
-            let ui = ui_weak.unwrap();
-
             let path_option = FileDialog::new().add_filter("toml project file", &["toml"]).show_open_single_file().unwrap();
-
             if path_option.is_none() {
                 return;
             }
-            let path = path_option.unwrap();
-            let config_result = ProjectConfig::read_from(&path);
-            if let Err(error) = config_result {
-                eprintln!("Could not read config: {}", error.to_string());
-                return;
-            }
-            let project_config = config_result.unwrap();
-            if let Ok(new_project) = Project::from_config(&path, project_config) {
+            if let Ok(new_project) = read_project(path_option.unwrap()) {
                 *project_ref.borrow_mut() = new_project;
-                let project = project_ref.borrow();
-
-                ui.global::<ui::Project>().set_path(SharedString::from(path.to_str().unwrap()));
-                if let Some(repo_path) = project.repository.repository_path() {
-                    ui.global::<ui::Repository>().set_path(SharedString::from(repo_path));
-                }
-
-                project.notes.observe_notes_model(modification_observer(ui_weak.clone()));
-
-                ui.global::<ui::Notes>().set_notes_model(project.notes.notes_model().into());
-
-                let (start_diff, end_diff) = project.repository.diff_range();
-                ui.global::<ui::Diff>().set_start_commit(SharedString::from(start_diff));
-                ui.global::<ui::Diff>().set_end_commit(SharedString::from(end_diff));
-
-                let s = project.repository.statistics();
-                ui.global::<ui::OverallDiffStats>().set_model(s.statistics_model.clone().into());
-
-                project.repository.observe_file_diff_model(modification_observer(ui_weak.clone()));
-
-                *file_diff_model_ctx.borrow_mut() = FileDiffModelContext::new(project.repository.file_diff_model());
-                let m = file_diff_model_ctx.borrow();
-                ui.global::<ui::Diff>().set_diff_model(m.sort_model.clone().into());
-
-                *commit_proxy_model.borrow_mut() = CommitProxyModel::new(project.repository.commits_model());
-                let p = commit_proxy_model.borrow();
-                ui.global::<ui::CommitPickerAdapter>().set_commit_model(p.sort_model.clone().into());
+                init_ui(project_ref.clone(), ui_weak.clone(), file_diff_model_ctx.clone(), commit_proxy_model.clone());
             } else {
                 eprintln!("Error occurred while loading config!");
             }
@@ -361,40 +387,15 @@ fn setup_project(app_window_handle: &ui::AppWindow, file_diff_model_ctx: Rc<RefC
         let ui_weak = app_window_handle.as_weak();
         let project_ref = project.clone();
         let file_diff_model_ctx = file_diff_model_ctx.clone();
+        let commit_proxy_model = commit_proxy_model.clone();
         move || {
-            let ui = ui_weak.unwrap();
             let path_option = FileDialog::new().add_filter("toml project file", &["toml"]).show_save_single_file().unwrap();
             if path_option.is_none() {
                 return;
             }
-            let path = path_option.unwrap();
-
-            if let Ok(new_project) = Project::new(&path) {
+            if let Ok(new_project) = Project::new(&path_option.unwrap()) {
                 *project_ref.borrow_mut() = new_project;
-                let project = project_ref.borrow();
-
-                ui.global::<ui::Project>().set_path(SharedString::from(path.to_str().unwrap()));
-                ui.global::<ui::Repository>().set_path("".into());
-                ui.global::<ui::Notes>().set_notes_model(project.notes.notes_model().into());
-
-                ui.global::<ui::Diff>().set_start_commit("".into());
-                ui.global::<ui::Diff>().set_end_commit("".into());
-
-                project.repository.observe_file_diff_model(modification_observer(ui_weak.clone()));
-                project.notes.observe_notes_model(modification_observer(ui_weak.clone()));
-                
-                let s = project.repository.statistics();
-                ui.global::<ui::OverallDiffStats>().set_model(s.statistics_model.clone().into());
-
-                *file_diff_model_ctx.borrow_mut() = FileDiffModelContext::new(project.repository.file_diff_model());
-                let m = file_diff_model_ctx.borrow();
-                ui.global::<ui::Diff>().set_diff_model(m.sort_model.clone().into());
-
-                *commit_proxy_model.borrow_mut() = CommitProxyModel::new(project.repository.commits_model());
-                let p = commit_proxy_model.borrow();
-                ui.global::<ui::CommitPickerAdapter>().set_commit_model(p.sort_model.clone().into());
-
-                ui.global::<ui::Project>().set_has_modifications(true);
+                init_ui(project_ref.clone(), ui_weak.clone(), file_diff_model_ctx.clone(), commit_proxy_model.clone());
             } else {
                 eprintln!("Error occurred while loading config!");
             }
