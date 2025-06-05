@@ -1,21 +1,8 @@
 import { GroupBox, LineEdit, Button, ListView, CheckBox, ComboBox, VerticalBox } from "std-widgets.slint";
+
 import { Style } from "style.slint";
-
-export struct NoteItem  {
-    id: int,
-    text: string,
-    is_fixed: bool,
-    context: string,
-}
-
-export global Notes {
-    in property <[NoteItem]> notes_model;
-    callback add-note(string, string);
-    callback change-text(int, string);
-    callback toggle-fixed(int);
-    callback delete-note(int);
-    pure callback file-notes-model(string) -> [NoteItem];
-}
+import { Repository, Notes } from "globals.slint";
+import { FilePicker } from "file_picker.slint";
 
 component HeaderColumn inherits Rectangle {
     in property <string> column_name;
@@ -30,70 +17,106 @@ component HeaderColumn inherits Rectangle {
         overflow: elide;
         text: root.column_name;
     }
-    ta := TouchArea {}
+
+    ta := TouchArea { }
 }
 
-export component NotesView inherits VerticalBox {
-    spacing: Style.spacing;
+export component NotesView inherits Rectangle {
+    private property <int> editingId: -1;
+    file-picker := FilePicker {
+        initial_x: 0;
+        initial_y: 0;
+        preferred-height: 300px;
+        preferred-width: 300px;
+    }
 
-    HorizontalLayout {
+    VerticalBox {
+
         spacing: Style.spacing;
 
-        Rectangle {
-            width: 20px;
-            background: Style.foreground_color;
-        }
-        HeaderColumn {
-            column_name: "Text";
-            width: 600px;
-        }
-        HeaderColumn {
-            column_name: "Context";
-        }
-    }
-    ListView {
-        padding-right: 0;
-        padding-left: 0;
-
-        for note[idx] in Notes.notes_model: HorizontalLayout {
+        HorizontalLayout {
             spacing: Style.spacing;
-            padding-top: Style.spacing;
 
-            CheckBox {
-                width: 20px;
-                checked: note.is_fixed;
-                toggled => { Notes.toggle-fixed(note.id); }
-            }
-            LineEdit {
-                width: 600px;
-                text: note.text;
-                accepted => { Notes.change-text(note.id, self.text); }
-            }
             Rectangle {
-                background: Style.input_background_color;
-                border-radius: 2px;
-                border-color: Style.popup_border_color;
-                border-width: Style.border_width;
+                width: 20px;
+                background: Style.foreground_color;
+            }
 
-                HorizontalLayout {
-                    Rectangle { width: 5px;}
-                    Text {
-                        horizontal-alignment: left;
-                        vertical-alignment: center;
-                        overflow: elide;
-                        text: note.context;
+            HeaderColumn {
+                column_name: "Text";
+                width: 600px;
+            }
+
+            HeaderColumn {
+                column_name: "Context";
+            }
+        }
+
+        listview := ListView {
+            padding-right: 0;
+            padding-left: 0;
+
+            for note[idx] in Notes.notes_model: HorizontalLayout {
+                spacing: Style.spacing;
+                padding-top: Style.spacing;
+
+                CheckBox {
+                    width: 20px;
+                    checked: note.is_fixed;
+                    toggled => {
+                        Notes.toggle-fixed(note.id);
                     }
-                    Rectangle {
-                        width: 25px;
-                        Image {
-                            vertical-alignment: center;
-                            horizontal-alignment: center;
-                            width: 20px;
-                            height: self.width;
-                            source: @image-url("../assets/icons/edit.svg");
+                }
+
+                text-input := LineEdit {
+                    property <string> note_text: note.text;
+
+                    changed note_text => {
+                        self.text = note_text;
+                    }
+
+                    width: 600px;
+                    text: note.text;
+                    accepted(text) => {
+                        Notes.change-text(note.id, text);
+                    }
+                }
+
+                Rectangle {
+                    background: Style.input_background_color;
+                    border-radius: 2px;
+                    border-color: Style.popup_border_color;
+                    border-width: Style.border_width;
+
+                    HorizontalLayout {
+                        context-edit := LineEdit {
+                            horizontal-alignment: left;
+                            text: note.context;
+                            accepted(text) => {
+                            }
                         }
-                        TouchArea {
-                            clicked => {debug("edit context!")}
+
+                        file-picker-button := Rectangle {
+                            width: 30px;
+                            background: edit-ta.pressed || root.editingId == note.id ? Colors.black : Style.popup_border_color;
+                            border-radius: 2px;
+                            border-color: Style.popup_border_color;
+                            border-width: Style.border_width;
+                            Image {
+                                vertical-alignment: center;
+                                horizontal-alignment: center;
+                                width: 20px;
+                                height: self.width;
+                                source: @image-url("../assets/icons/file_picker.svg");
+                            }
+
+                            edit-ta := TouchArea {
+                                clicked => {
+                                    file-picker.initial_x = root.width - file-picker.width;
+                                    file-picker.initial_y = listview.y + idx * text-input.height + idx * Style.spacing + file-picker-button.height;
+                                    file-picker.open();
+                                }
+                            }
                         }
                     }
                 }

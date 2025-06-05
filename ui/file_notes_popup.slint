@@ -1,9 +1,8 @@
+import { VerticalBox, LineEdit, ListView, CheckBox, Button } from "std-widgets.slint";
+
 import { Popup } from "popup.slint";
 import { Style } from "style.slint";
-import { StringUtils } from "string_utils.slint";
-
-import { Notes, NoteItem } from "notes_view.slint";
-import { VerticalBox, LineEdit, ListView, CheckBox, Button } from "std-widgets.slint";
+import { Notes, NoteItem, StringUtils } from "globals.slint";
 
 export component FileNotesPopup inherits Popup {
     private property <string> file: "<empty>";
@@ -26,22 +25,31 @@ export component FileNotesPopup inherits Popup {
                 self.text = "";
             }
         }
+
         ListView {
             for data[idx] in root.model: HorizontalLayout {
                 spacing: Style.big_spacing;
 
                 CheckBox {
                     checked: data.is_fixed;
-                    toggled => { Notes.toggle-fixed(data.id) }
+                    toggled => {
+                        Notes.toggle-fixed(data.id)
+                    }
                 }
+
                 LineEdit {
                     height: Style.control_height;
                     text: data.text;
-                    accepted => { Notes.change-text(data.id, self.text) }
+                    accepted => {
+                        Notes.change-text(data.id, self.text)
+                    }
                 }
+
                 Button {
                     icon: @image-url("../assets/icons/delete.svg");
-                    clicked => { Notes.delete-note(data.id) }
+                    clicked => {
+                        Notes.delete-note(data.id)
+                    }
                 }
             }
         }

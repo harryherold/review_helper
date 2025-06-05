@@ -1,15 +1,10 @@
 
 import { GroupBox, LineEdit, Button, Button, VerticalBox, HorizontalBox, StandardTableView } from "std-widgets.slint";
-import { Diff } from "file_diff_view.slint";
+
 import { Style } from "style.slint";
 import { CommitPicker } from "commit_picker.slint";
 import { CommitEditor, CommitPickerPosition } from "commit_editor.slint";
-
-export global Repository {
-    in property <string> path;
-    out property <bool> is_loaded: path != "";
-    callback open;
-}
+import { Diff, Repository } from "globals.slint";
 
 export component DiffConfigView inherits GroupBox {
     title: "Git Repo";
@@ -23,12 +18,16 @@ export component DiffConfigView inherits GroupBox {
                 read-only: true;
                 text: Repository.path;
             }
+
             Button {
                 width: Style.control_small_width;
                 icon: @image-url("../assets/icons/folder_open.svg");
-                clicked => { Repository.open() }
+                clicked => {
+                    Repository.open()
+                }
             }
         }
+
         HorizontalLayout {
             visible: Repository.path != "";
             spacing: Style.spacing;
@@ -38,6 +37,7 @@ export component DiffConfigView inherits GroupBox {
                 commit: Diff.start_commit;
                 placeholder-text: "Start Commit SHA";
             }
+
             Button {
                 icon: @image-url("../assets/icons/compare.svg");
                 width: Style.control_small_width;
@@ -45,6 +45,7 @@ export component DiffConfigView inherits GroupBox {
                     Diff.diff-start-end(start-commit-editor.commit, end-commit-editor.commit);
                 }
             }
+
             end-commit-editor := CommitEditor {
                 picker-position: CommitPickerPosition.Right;
                 commit: Diff.end_commit;

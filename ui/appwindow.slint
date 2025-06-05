@@ -1,40 +1,31 @@
 import { Button, VerticalBox , HorizontalBox, LineEdit, ListView, CheckBox, GroupBox, Palette, TabWidget } from "std-widgets.slint";
+
 import { Style } from "style.slint";
-import { Notes, NoteItem, NotesView } from "notes_view.slint";
-import { FileDiffView, Diff, DiffFileItem } from "file_diff_view.slint";
-import { DiffConfigView, Repository} from "diff_config_view.slint";
+import { NotesView } from "notes_view.slint";
+import { FileDiffView } from "file_diff_view.slint";
 import { Popup } from "popup.slint";
 import { FileNotesPopup } from "file_notes_popup.slint";
-import { StringUtils } from "string_utils.slint";
 import { Menu, MenuItem } from "menu.slint";
-import { AppConfig, AppConfigPopup } from "app_config_popup.slint";
+import { AppConfigPopup } from "app_config_popup.slint";
+import { DiffConfigView } from "diff_config_view.slint";
+import { OverallStatistics } from "overall_statistics.slint";
 
-import { OverallStatistics, OverallDiffStats } from "overall_statistics.slint";
+import { Repository, CommitPickerAdapter, OverallDiffStats, AppConfig, StringUtils, Diff, DiffFileItem, Notes, NoteItem, Project  } from "globals.slint";
 
-import { CommitPickerAdapter } from "commit_picker.slint";
-
-export { AppConfig, CommitPickerAdapter, Notes, NoteItem, Diff, DiffFileItem, Repository, StringUtils, OverallDiffStats }
-
-export global Project {
-    in property <bool> has_modifications: false;
-    in property <string> path;
-    out property <bool> is_loaded: path != "";
-    callback open;
-    callback new;
-    callback save;
-}
+export { AppConfig, CommitPickerAdapter, Notes, NoteItem, Diff, DiffFileItem, Repository, StringUtils, OverallDiffStats, Project }
 
 export component AppWindow inherits Window {
     callback close;
 
-    width: 1000px;
-    height: 1000px;
+    preferred-width: 1600px;
+    preferred-height: 1200px;
     title: Project.path;
 
     notes-popup := FileNotesPopup {
         initial_x: (root.width / 2) - (self.width / 2);
         initial_y: (root.height / 2) - (self.height / 2);
     }
+
     app-config-popup := AppConfigPopup {
         initial_x: (root.width / 2) - (self.width / 2);
         initial_y: (root.height / 2) - (self.height / 2);
@@ -57,31 +48,46 @@ export component AppWindow inherits Window {
 
                         MenuItem {
                             text: "New";
-                            clicked => { Project.new() }
+                            clicked => {
+                                Project.new()
+                            }
                         }
+
                         MenuItem {
                             text: "Open";
-                            clicked => { Project.open() }
+                            clicked => {
+                                Project.open()
+                            }
                         }
+
                         MenuItem {
                             text: "Save";
                             enabled: Project.is_loaded && Project.has_modifications;
-                            clicked => { Project.save() }
+                            clicked => {
+                                Project.save()
+                            }
                         }
+
                         MenuItem {
                             text: "Close";
-                            clicked => { root.close() }
+                            clicked => {
+                                root.close()
+                            }
                         }
                     }
+
                     Menu {
                         text: "Edit";
 
                         MenuItem {
                             text: "Config";
-                            clicked => { app-config-popup.open() }
+                            clicked => {
+                                app-config-popup.open()
+                            }
                         }
                     }
                 }
+
                 if Project.has_modifications: HorizontalBox {
                     Image {
                         source: @image-url("../assets/icons/save.svg");
@@ -89,7 +95,9 @@ export component AppWindow inherits Window {
                 }
             }
         }
+
         TabWidget {
+            current-index: 1; // DEBUG
             Tab {
                 title: "File Diff";
 
@@ -102,16 +110,18 @@ export component AppWindow inherits Window {
                         vertical-stretch: 0;
                     }
                     if Repository.is_loaded: FileDiffView {
-                        open-file-notes-popup(file) => { notes-popup.open-notes(file) }
+                        open-file-notes-popup(file) => {
+                            notes-popup.open-notes(file)
+                        }
                     }
                 }
             }
+
             Tab {
                 title: "Notes";
 
-                NotesView {}
+                NotesView { }
             }
         }
-
     }
 }
