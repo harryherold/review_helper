@@ -1,0 +1,25 @@
+import { VerticalBox, LineEdit, ListView } from "std-widgets.slint";
+
+import { Style } from "style.slint";
+import { Repository } from "globals.slint";
+import { Popup } from "popup.slint";
+
+export component FilePicker inherits Popup {
+    callback accepted(string);
+
+    title: "File Picker";
+
+    VerticalBox {
+        LineEdit {
+            placeholder-text: "filter file";
+        }
+
+        ListView {
+            for file in Repository.files_model: Rectangle {
+                Text {
+                    text: file;
+                }
+            }
+        }
+    }
+}
