@@ -208,7 +208,7 @@ pub fn main() -> Result<(), slint::PlatformError> {
     let app_config = setup_app_config(&app_window);
 
     setup_repository(&app_window, &project, &app_config, file_diff_model_ctx.clone());
-    let note_state = setup_notes(&app_window, &project);
+    let _note_state = setup_notes(&app_window, &project);
 
     app_window.global::<ui::Diff>().on_filter_file_diff({
         let file_diff_model_ctx = file_diff_model_ctx.clone();
@@ -522,7 +522,7 @@ fn setup_repository(
 }
 
 struct NoteState {
-    models: Rc<RefCell<HashMap<String, ModelRc<NoteItem>>>>,
+    _models: Rc<RefCell<HashMap<String, ModelRc<NoteItem>>>>,
 }
 
 fn setup_notes(app_window_handle: &ui::AppWindow, project: &Rc<RefCell<Project>>) -> NoteState {
@@ -560,5 +560,5 @@ fn setup_notes(app_window_handle: &ui::AppWindow, project: &Rc<RefCell<Project>>
         let project_ref = project.clone();
         move |id| project_ref.borrow_mut().notes.delete_note(id as usize)
     });
-    NoteState { models: file_models }
+    NoteState { _models: file_models }
 }
