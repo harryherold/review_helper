@@ -150,7 +150,7 @@ impl Notes {
         }
     }
 
-    pub fn toogle_is_fixed(&self, id: usize) {
+    pub fn toggle_is_fixed(&self, id: usize) {
         if let Some(mut item) = self.notes_model.get(id) {
             item.is_fixed = !item.is_fixed;
             self.notes_model.update(id, item);

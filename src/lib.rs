@@ -1,5 +1,6 @@
 use slint::Weak;
 use std::{cell::RefCell, cmp::Ordering, env, ffi::OsStr, path::{Path, PathBuf}, process, rc::Rc, str::FromStr};
+use std::collections::HashMap;
 use anyhow::Result;
 use chrono::{DateTime, FixedOffset};
 use id_model::IdModel;
@@ -11,7 +12,7 @@ use native_dialog::FileDialog;
 use ui::DiffFileItem;
 use crate::command_utils::run_command;
 use crate::id_model::IdModelChange;
-use crate::ui::AppWindow;
+use crate::ui::{AppWindow, NoteItem};
 
 mod app_config;
 mod git_utils;
@@ -207,7 +208,7 @@ pub fn main() -> Result<(), slint::PlatformError> {
     let app_config = setup_app_config(&app_window);
 
     setup_repository(&app_window, &project, &app_config, file_diff_model_ctx.clone());
-    setup_notes(&app_window, &project);
+    let note_state = setup_notes(&app_window, &project);
 
     app_window.global::<ui::Diff>().on_filter_file_diff({
         let file_diff_model_ctx = file_diff_model_ctx.clone();
@@ -520,7 +521,12 @@ fn setup_repository(
     });
 }
 
-fn setup_notes(app_window_handle: &ui::AppWindow, project: &Rc<RefCell<Project>>) {
+struct NoteState {
+    models: Rc<RefCell<HashMap<String, ModelRc<NoteItem>>>>,
+}
+
+fn setup_notes(app_window_handle: &ui::AppWindow, project: &Rc<RefCell<Project>>) -> NoteState {
+    let file_models: Rc<RefCell<HashMap<String, ModelRc<NoteItem>>>> = Rc::new(RefCell::new(HashMap::new()));
     app_window_handle.global::<ui::Notes>().on_add_note({
         let project_ref = project.clone();
         move |text, context| project_ref.borrow_mut().notes.add_note(text, context)
@@ -531,18 +537,28 @@ fn setup_notes(app_window_handle: &ui::AppWindow, project: &Rc<RefCell<Project>>
     });
     app_window_handle.global::<ui::Notes>().on_toggle_fixed({
         let project_ref = project.clone();
-        move |id| project_ref.borrow_mut().notes.toogle_is_fixed(id as usize)
+        move |id| project_ref.borrow_mut().notes.toggle_is_fixed(id as usize)
     });
     app_window_handle.global::<ui::Notes>().on_file_notes_model({
         let project_ref = project.clone();
+        let models = file_models.clone();
         move |file| {
-            let notes = project_ref.borrow_mut().notes.notes_model();
-            let file_notes = notes.clone().filter(move |item| item.context.contains(file.as_str()));
-            Rc::new(file_notes).into()
+            let file_string = file.to_string();
+            let mut models = models.borrow_mut();
+            if models.contains_key(&file.to_string()) {
+                models.get(&file.to_string()).unwrap().clone()
+            }
+            else { 
+                let notes = project_ref.borrow_mut().notes.notes_model();
+                let file_notes = Rc::new(notes.clone().filter(move |item| item.context.contains(file.as_str())));
+                models.insert(file_string, file_notes.clone().into());
+                file_notes.into()
+            }
         }
     });
     app_window_handle.global::<ui::Notes>().on_delete_note({
         let project_ref = project.clone();
         move |id| project_ref.borrow_mut().notes.delete_note(id as usize)
     });
+    NoteState { models: file_models }
 }

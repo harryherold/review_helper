@@ -62,12 +62,12 @@ export component NotesView inherits VerticalBox {
             CheckBox {
                 width: 20px;
                 checked: note.is_fixed;
-                toggled => { Notes.toggle-fixed(idx); }
+                toggled => { Notes.toggle-fixed(note.id); }
             }
             LineEdit {
                 width: 600px;
                 text: note.text;
-                accepted => { Notes.change-text(idx, self.text); }
+                accepted => { Notes.change-text(note.id, self.text); }
             }
             Rectangle {
                 background: Style.input_background_color;
