@@ -67,17 +67,15 @@ impl<T: Clone> IdModel<T> {
         }
     }
     pub fn update(&self, id: usize, value: T) {
-        // let opt_index = self.entity_map.borrow().keys().position(|&k| k == id);
-        // if let Some(index) = opt_index {
-        self.entity_map.borrow_mut().insert(id, value);
-        self.notify.reset();
-
-        // NOTE row_changed is not enough to update the delegate in a ListView, see issue #8619.
-        // self.notify.row_changed(index);
-        if self.observer.borrow().is_some() {
-            self.observer.borrow().as_ref().unwrap()(IdModelChange::EntityChanged);
+        let opt_index = self.entity_map.borrow().keys().position(|&k| k == id);
+        if let Some(index) = opt_index {
+            self.entity_map.borrow_mut().insert(id, value);
+            self.notify.row_changed(index);
+            
+            if self.observer.borrow().is_some() {
+                self.observer.borrow().as_ref().unwrap()(IdModelChange::EntityChanged);
+            }
         }
-        // }
     }
     pub fn get(&self, id: usize) -> Option<T> {
         self.entity_map.borrow().get(&id).cloned()

@@ -27,28 +27,33 @@ export component FileNotesPopup inherits Popup {
         }
 
         ListView {
-            for data[idx] in root.model: HorizontalLayout {
+            for note[idx] in root.model: HorizontalLayout {
                 spacing: Style.big_spacing;
 
                 CheckBox {
-                    checked: data.is_fixed;
+                    checked: note.is_fixed;
                     toggled => {
-                        Notes.toggle-fixed(data.id)
+                        Notes.toggle-fixed(note.id)
                     }
                 }
 
                 LineEdit {
+                    property <string> note_text: note.text;
+
+                    changed note_text => {
+                        self.text = note_text;
+                    }
                     height: Style.control_height;
-                    text: data.text;
+                    text: note.text;
                     accepted => {
-                        Notes.change-text(data.id, self.text)
+                        Notes.change-text(note.id, self.text)
                     }
                 }
 
                 Button {
                     icon: @image-url("../assets/icons/delete.svg");
                     clicked => {
-                        Notes.delete-note(data.id)
+                        Notes.delete-note(note.id)
                     }
                 }
             }
