@@ -2,9 +2,9 @@ use std::path::PathBuf;
 
 use slint::Model;
 
-use crate::project_config;
 use crate::git_utils;
 use crate::notes::Notes;
+use crate::project_config;
 use crate::repository::Repository;
 
 use project_config::ProjectConfig;
@@ -30,7 +30,7 @@ impl Project {
             notes: Notes::default(),
         }
     }
-    
+
     pub fn from_config(project_file: &PathBuf, config: ProjectConfig) -> anyhow::Result<Project> {
         let project_folder = project_file.parent().expect("Cannot determine parent!");
         Ok(Project {

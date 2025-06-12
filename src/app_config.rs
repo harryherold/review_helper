@@ -20,7 +20,11 @@ pub struct AppConfig {
 
 impl Default for Config {
     fn default() -> Self {
-        Self { diff_tool: "meld".to_string(), editor: "code".to_string(), editor_args: vec!["-n".to_string(), "{file}".to_string()] }
+        Self {
+            diff_tool: "meld".to_string(),
+            editor: "code".to_string(),
+            editor_args: vec!["-n".to_string(), "{file}".to_string()],
+        }
     }
 }
 

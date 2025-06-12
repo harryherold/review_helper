@@ -71,7 +71,7 @@ impl<T: Clone> IdModel<T> {
         if let Some(index) = opt_index {
             self.entity_map.borrow_mut().insert(id, value);
             self.notify.row_changed(index);
-            
+
             if self.observer.borrow().is_some() {
                 self.observer.borrow().as_ref().unwrap()(IdModelChange::EntityChanged);
             }
