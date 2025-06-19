@@ -50,7 +50,6 @@ export component NotesView inherits Rectangle {
 
             Rectangle {
                 width: 20px;
-                background: Style.foreground_color;
             }
 
             HeaderColumn {
@@ -61,6 +60,33 @@ export component NotesView inherits Rectangle {
             HeaderColumn {
                 column_name: "Context";
             }
+        }
+
+        HorizontalLayout {
+            spacing: Style.spacing;
+
+            Rectangle {
+                width: 20px;
+            }
+
+            LineEdit {
+                width: 600px;
+                placeholder-text: "Filter Note Text";
+                edited(text) => {
+                    Notes.set-notes-text-filter(text)
+                }
+            }
+
+            LineEdit {
+                placeholder-text: "Filter Context";
+                edited(text) => {
+                    Notes.set-notes-context-filter(text)
+                }
+            }
+        }
+
+        Rectangle {
+            height: Style.spacing;
         }
 
         listview := ListView {

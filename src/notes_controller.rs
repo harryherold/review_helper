@@ -43,5 +43,17 @@ pub fn setup_notes(app_state: &AppState) {
         move |id, context| {
             project_ref.borrow().notes.change_context(id as usize, context);
         }
-    })
+    });
+    app_state.app_window.global::<ui::Notes>().on_set_notes_text_filter({
+        let notes_proxy_models = app_state.notes_proxy_models.clone();
+        move |pattern| {
+            notes_proxy_models.borrow().set_text_filter(pattern);
+        }
+    });
+    app_state.app_window.global::<ui::Notes>().on_set_notes_context_filter({
+        let notes_proxy_models = app_state.notes_proxy_models.clone();
+        move |pattern| {
+            notes_proxy_models.borrow().set_context_filter(pattern);
+        }
+    });
 }

@@ -120,6 +120,8 @@ export global Notes {
     callback toggle-fixed(int);
     callback delete-note(int);
     pure callback file-notes-model(string) -> [NoteItem];
+    callback set-notes-text-filter(string);
+    callback set-notes-context-filter(string);
 }
 
 export global StringUtils {

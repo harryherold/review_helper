@@ -1,7 +1,9 @@
 use crate::app_state::AppState;
 use crate::commit_proxy_model::CommitProxyModel;
 use crate::file_diff_proxy_models::FileDiffProxyModels;
+use crate::files_proxy_model::FilesProxyModel;
 use crate::id_model::IdModelChange;
+use crate::notes_proxy_models::NotesProxyModels;
 use crate::project::Project;
 use crate::project_config::ProjectConfig;
 use crate::ui;
@@ -11,7 +13,6 @@ use std::cell::RefCell;
 use std::env;
 use std::path::PathBuf;
 use std::rc::Rc;
-use crate::files_proxy_model::FilesProxyModel;
 
 pub fn setup_project(app_state: &mut AppState) {
     let read_project = |path| -> anyhow::Result<Project> {
@@ -22,7 +23,8 @@ pub fn setup_project(app_state: &mut AppState) {
                    ui_weak: Weak<ui::AppWindow>,
                    file_diff_model_ctx: Rc<RefCell<FileDiffProxyModels>>,
                    commit_proxy_model: Rc<RefCell<CommitProxyModel>>,
-                   files_proxy_model: Rc<RefCell<FilesProxyModel>>,| {
+                   files_proxy_model: Rc<RefCell<FilesProxyModel>>,
+                   notes_proxy_model: Rc<RefCell<NotesProxyModels>>,| {
         let ui = ui_weak.unwrap();
         let project = project.borrow();
 
@@ -33,7 +35,9 @@ pub fn setup_project(app_state: &mut AppState) {
 
         project.notes.observe_notes_model(modification_observer(ui_weak.clone()));
 
-        ui.global::<ui::Notes>().set_notes_model(project.notes.notes_model().into());
+        *notes_proxy_model.borrow_mut() = NotesProxyModels::new(project.notes.notes_model());
+        let m = notes_proxy_model.borrow();
+        ui.global::<ui::Notes>().set_notes_model(m.model());
 
         let (start_diff, end_diff) = project.repository.diff_range();
         ui.global::<ui::Diff>().set_start_commit(SharedString::from(start_diff));
@@ -71,6 +75,7 @@ pub fn setup_project(app_state: &mut AppState) {
                 app_state.file_diff_proxy_models.clone(),
                 app_state.commit_proxy_model.clone(),
                 app_state.files_proxy_model.clone(),
+                app_state.notes_proxy_models.clone(),
             );
         }
     }
@@ -81,6 +86,7 @@ pub fn setup_project(app_state: &mut AppState) {
         let file_diff_model_ctx = app_state.file_diff_proxy_models.clone();
         let commit_proxy_model = app_state.commit_proxy_model.clone();
         let files_proxy_model = app_state.files_proxy_model.clone();
+        let notes_proxy_model = app_state.notes_proxy_models.clone();
         move || {
             let path_option = FileDialog::new().add_filter("toml project file", &["toml"]).show_open_single_file().unwrap();
             if path_option.is_none() {
@@ -88,7 +94,14 @@ pub fn setup_project(app_state: &mut AppState) {
             }
             if let Ok(new_project) = read_project(path_option.unwrap()) {
                 *project_ref.borrow_mut() = new_project;
-                init_ui(project_ref.clone(), ui_weak.clone(), file_diff_model_ctx.clone(), commit_proxy_model.clone(), files_proxy_model.clone());
+                init_ui(
+                    project_ref.clone(),
+                    ui_weak.clone(),
+                    file_diff_model_ctx.clone(),
+                    commit_proxy_model.clone(),
+                    files_proxy_model.clone(),
+                    notes_proxy_model.clone(),
+                );
             } else {
                 eprintln!("Error occurred while loading config!");
             }
@@ -101,6 +114,7 @@ pub fn setup_project(app_state: &mut AppState) {
         let file_diff_model_ctx = app_state.file_diff_proxy_models.clone();
         let commit_proxy_model = app_state.commit_proxy_model.clone();
         let files_proxy_model = app_state.files_proxy_model.clone();
+        let notes_proxy_model = app_state.notes_proxy_models.clone();
         move || {
             let path_option = FileDialog::new().add_filter("toml project file", &["toml"]).show_save_single_file().unwrap();
             if path_option.is_none() {
@@ -108,7 +122,14 @@ pub fn setup_project(app_state: &mut AppState) {
             }
             if let Ok(new_project) = Project::new(&path_option.unwrap()) {
                 *project_ref.borrow_mut() = new_project;
-                init_ui(project_ref.clone(), ui_weak.clone(), file_diff_model_ctx.clone(), commit_proxy_model.clone(), files_proxy_model.clone());
+                init_ui(
+                    project_ref.clone(),
+                    ui_weak.clone(),
+                    file_diff_model_ctx.clone(),
+                    commit_proxy_model.clone(),
+                    files_proxy_model.clone(),
+                    notes_proxy_model.clone(),
+                );
             } else {
                 eprintln!("Error occurred while loading config!");
             }
@@ -126,18 +147,18 @@ pub fn setup_project(app_state: &mut AppState) {
             }
         }
     });
-    
-    app_state.app_window.global::<ui::FilePickerAdapter>().on_set_filter({ 
+
+    app_state.app_window.global::<ui::FilePickerAdapter>().on_set_filter({
         let files_proxy_model = app_state.files_proxy_model.clone();
         move |pattern| {
             files_proxy_model.borrow_mut().set_filter_text(pattern);
-        } 
+        }
     });
     app_state.app_window.global::<ui::FilePickerAdapter>().on_contains_model_context({
         let files_proxy_model = app_state.files_proxy_model.clone();
         move |context| -> bool {
             let model = files_proxy_model.borrow().files_sort_model();
-            model.iter().any(|file| { file == context })
+            model.iter().any(|file| file == context)
         }
     })
 }
