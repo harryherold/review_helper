@@ -5,6 +5,7 @@ use crate::project::Project;
 use crate::{app_config, ui};
 use std::cell::RefCell;
 use std::rc::Rc;
+use crate::files_proxy_model::FilesProxyModel;
 
 pub struct AppState {
     pub app_window: ui::AppWindow,
@@ -13,6 +14,7 @@ pub struct AppState {
     pub file_diff_proxy_models: Rc<RefCell<FileDiffProxyModels>>,
     pub commit_proxy_model: Rc<RefCell<CommitProxyModel>>,
     pub notes_proxy_models: Rc<RefCell<NotesProxyModels>>,
+    pub files_proxy_model:  Rc<RefCell<FilesProxyModel>>,
 }
 
 impl AppState {
@@ -33,6 +35,7 @@ impl AppState {
             file_diff_proxy_models: Rc::new(RefCell::new(FileDiffProxyModels::default())),
             commit_proxy_model: Rc::new(RefCell::new(CommitProxyModel::default())),
             notes_proxy_models: Rc::new(RefCell::new(NotesProxyModels::default())),
+            files_proxy_model: Rc::new(RefCell::new(FilesProxyModel::default())),
         }
     }
 }

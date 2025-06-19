@@ -20,6 +20,7 @@ mod project_config;
 mod project_controller;
 mod repository;
 mod repository_controller;
+mod files_proxy_model;
 
 mod utils_controller;
 

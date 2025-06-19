@@ -1,7 +1,7 @@
 import { VerticalBox, LineEdit, ListView } from "std-widgets.slint";
 
 import { Style } from "style.slint";
-import { Repository } from "globals.slint";
+import { FilePickerAdapter } from "globals.slint";
 import { Popup } from "popup.slint";
 
 export component FilePicker inherits Popup {
@@ -12,10 +12,11 @@ export component FilePicker inherits Popup {
     VerticalBox {
         LineEdit {
             placeholder-text: "filter file";
+            edited(text) => { FilePickerAdapter.set-filter(text) }
         }
 
         ListView {
-            for file in Repository.files_model: Rectangle {
+            for file in FilePickerAdapter.files_model: Rectangle {
                 Text {
                     text: file;
                 }

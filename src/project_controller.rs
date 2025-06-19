@@ -11,6 +11,7 @@ use std::cell::RefCell;
 use std::env;
 use std::path::PathBuf;
 use std::rc::Rc;
+use crate::files_proxy_model::FilesProxyModel;
 
 pub fn setup_project(app_state: &mut AppState) {
     let read_project = |path| -> anyhow::Result<Project> {
@@ -20,7 +21,8 @@ pub fn setup_project(app_state: &mut AppState) {
     let init_ui = |project: Rc<RefCell<Project>>,
                    ui_weak: Weak<ui::AppWindow>,
                    file_diff_model_ctx: Rc<RefCell<FileDiffProxyModels>>,
-                   commit_proxy_model: Rc<RefCell<CommitProxyModel>>| {
+                   commit_proxy_model: Rc<RefCell<CommitProxyModel>>,
+                   files_proxy_model: Rc<RefCell<FilesProxyModel>>,| {
         let ui = ui_weak.unwrap();
         let project = project.borrow();
 
@@ -50,6 +52,11 @@ pub fn setup_project(app_state: &mut AppState) {
         *commit_proxy_model.borrow_mut() = CommitProxyModel::new(project.repository.commits_model());
         let p = commit_proxy_model.borrow();
         ui.global::<ui::CommitPickerAdapter>().set_commit_model(p.sort_model());
+
+        let files_proxy_model = files_proxy_model.clone();
+        *files_proxy_model.borrow_mut() = FilesProxyModel::new(project.repository.file_diff_model());
+        let m = files_proxy_model.borrow();
+        ui.global::<ui::FilePickerAdapter>().set_files_model(m.files_sort_model());
     };
 
     if let Some(path) = parse_commandline_args() {
@@ -63,6 +70,7 @@ pub fn setup_project(app_state: &mut AppState) {
                 app_state.app_window.as_weak(),
                 app_state.file_diff_proxy_models.clone(),
                 app_state.commit_proxy_model.clone(),
+                app_state.files_proxy_model.clone(),
             );
         }
     }
@@ -72,6 +80,7 @@ pub fn setup_project(app_state: &mut AppState) {
         let project_ref = app_state.project.clone();
         let file_diff_model_ctx = app_state.file_diff_proxy_models.clone();
         let commit_proxy_model = app_state.commit_proxy_model.clone();
+        let files_proxy_model = app_state.files_proxy_model.clone();
         move || {
             let path_option = FileDialog::new().add_filter("toml project file", &["toml"]).show_open_single_file().unwrap();
             if path_option.is_none() {
@@ -79,7 +88,7 @@ pub fn setup_project(app_state: &mut AppState) {
             }
             if let Ok(new_project) = read_project(path_option.unwrap()) {
                 *project_ref.borrow_mut() = new_project;
-                init_ui(project_ref.clone(), ui_weak.clone(), file_diff_model_ctx.clone(), commit_proxy_model.clone());
+                init_ui(project_ref.clone(), ui_weak.clone(), file_diff_model_ctx.clone(), commit_proxy_model.clone(), files_proxy_model.clone());
             } else {
                 eprintln!("Error occurred while loading config!");
             }
@@ -91,6 +100,7 @@ pub fn setup_project(app_state: &mut AppState) {
         let project_ref = app_state.project.clone();
         let file_diff_model_ctx = app_state.file_diff_proxy_models.clone();
         let commit_proxy_model = app_state.commit_proxy_model.clone();
+        let files_proxy_model = app_state.files_proxy_model.clone();
         move || {
             let path_option = FileDialog::new().add_filter("toml project file", &["toml"]).show_save_single_file().unwrap();
             if path_option.is_none() {
@@ -98,7 +108,7 @@ pub fn setup_project(app_state: &mut AppState) {
             }
             if let Ok(new_project) = Project::new(&path_option.unwrap()) {
                 *project_ref.borrow_mut() = new_project;
-                init_ui(project_ref.clone(), ui_weak.clone(), file_diff_model_ctx.clone(), commit_proxy_model.clone());
+                init_ui(project_ref.clone(), ui_weak.clone(), file_diff_model_ctx.clone(), commit_proxy_model.clone(), files_proxy_model.clone());
             } else {
                 eprintln!("Error occurred while loading config!");
             }
@@ -115,6 +125,13 @@ pub fn setup_project(app_state: &mut AppState) {
                 ui.global::<ui::Project>().set_has_modifications(false)
             }
         }
+    });
+    
+    app_state.app_window.global::<ui::FilePickerAdapter>().on_set_filter({ 
+        let files_proxy_model = app_state.files_proxy_model.clone();
+        move |pattern| {
+            files_proxy_model.borrow_mut().set_filter_text(pattern);
+        } 
     });
 }
 

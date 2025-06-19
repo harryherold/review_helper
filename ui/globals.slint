@@ -17,7 +17,6 @@ export global Project {
 
 export global Repository {
     in property <string> path;
-    in property <[string]> files_model;
     out property <bool> is_loaded: path != "";
     callback open;
 }
@@ -124,4 +123,9 @@ export global Notes {
 
 export global StringUtils {
     pure callback filename(string) -> string;
+}
+
+export global FilePickerAdapter {
+    in property <[string]> files_model;
+    callback set-filter(string);
 }
