@@ -52,21 +52,6 @@ pub fn setup_project(app_state: &mut AppState) {
         ui.global::<ui::CommitPickerAdapter>().set_commit_model(p.sort_model());
     };
 
-    let project = {
-        match parse_commandline_args() {
-            None => Rc::new(RefCell::new(Project::default())),
-            Some(path) => {
-                let project_result = read_project(path);
-                if let Err(error) = project_result {
-                    eprintln!("Could not read config: {}", error.to_string());
-                    Rc::new(RefCell::new(Project::default()))
-                } else {
-                    Rc::new(RefCell::new(project_result.unwrap()))
-                }
-            }
-        }
-    };
-
     if let Some(path) = parse_commandline_args() {
         let project_result = read_project(path);
         if let Err(error) = project_result {
@@ -84,7 +69,7 @@ pub fn setup_project(app_state: &mut AppState) {
 
     app_state.app_window.global::<ui::Project>().on_open({
         let ui_weak = app_state.app_window.as_weak();
-        let project_ref = project.clone();
+        let project_ref = app_state.project.clone();
         let file_diff_model_ctx = app_state.file_diff_proxy_models.clone();
         let commit_proxy_model = app_state.commit_proxy_model.clone();
         move || {
@@ -103,7 +88,7 @@ pub fn setup_project(app_state: &mut AppState) {
 
     app_state.app_window.global::<ui::Project>().on_new({
         let ui_weak = app_state.app_window.as_weak();
-        let project_ref = project.clone();
+        let project_ref = app_state.project.clone();
         let file_diff_model_ctx = app_state.file_diff_proxy_models.clone();
         let commit_proxy_model = app_state.commit_proxy_model.clone();
         move || {
