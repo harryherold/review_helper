@@ -6,6 +6,7 @@ export component Popup inherits Rectangle {
     in property <length> initial_x;
     in property <length> initial_y;
     in property <string> title;
+    in property <bool> enable_close_button: false;
     callback closed();
 
     public function open() {
@@ -48,6 +49,15 @@ export component Popup inherits Rectangle {
                     horizontal-alignment: center;
                     vertical-alignment: center;
                     text: root.title;
+                }
+
+                if root.enable_close_button: Button {
+                    height: Style.control_height;
+                    width: 45px;
+                    icon: @image-url("../assets/icons/close.svg");
+                    clicked => {
+                        root.close()
+                    }
                 }
             }
 

@@ -13,7 +13,7 @@ export component FilePicker inherits Popup {
     VerticalBox {
         LineEdit {
             placeholder-text: "filter file";
-            enabled: FilePickerAdapter.files_model.length > 0 && root.selected_file != "";
+            enabled: FilePickerAdapter.files_model.length > 0;
             edited(text) => {
                 FilePickerAdapter.set-filter(text)
             }
