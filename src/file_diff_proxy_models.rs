@@ -10,13 +10,13 @@ use std::rc::Rc;
 type FileDiffFilterModel = Rc<FilterModel<ModelRc<ui::DiffFileItem>, Box<dyn Fn(&ui::DiffFileItem) -> bool>>>;
 type FileDiffSortModel = Rc<SortModel<FileDiffFilterModel, fn(&ui::DiffFileItem, &ui::DiffFileItem) -> Ordering>>;
 
-pub struct FileDiffModelContext {
+pub struct FileDiffProxyModels {
     filter_model: FileDiffFilterModel,
     filter_text: Rc<RefCell<SharedString>>,
     sort_model: FileDiffSortModel,
 }
 
-impl FileDiffModelContext {
+impl FileDiffProxyModels {
     fn sort_by_name(lhs: &ui::DiffFileItem, rhs: &ui::DiffFileItem) -> Ordering {
         lhs.text.to_lowercase().cmp(&rhs.text.to_lowercase())
     }
@@ -56,7 +56,7 @@ impl FileDiffModelContext {
             }),
         ));
 
-        FileDiffModelContext {
+        FileDiffProxyModels {
             filter_model: fm.clone(),
             filter_text: clone_filter_text,
             sort_model: Rc::new(fm.sort_by(Self::sort_by_name)),
@@ -81,11 +81,11 @@ impl FileDiffModelContext {
     }
 }
 
-impl Default for FileDiffModelContext {
+impl Default for FileDiffProxyModels {
     fn default() -> Self {
         let model: ModelRc<ui::DiffFileItem> = Rc::new(IdModel::<ui::DiffFileItem>::default()).into();
         let fm: FileDiffFilterModel = Rc::new(model.filter(Box::new(|_| true)));
-        FileDiffModelContext {
+        FileDiffProxyModels {
             filter_model: fm.clone(),
             filter_text: Rc::new(RefCell::new(SharedString::new())),
             sort_model: Rc::new(fm.sort_by(Self::sort_by_name)),

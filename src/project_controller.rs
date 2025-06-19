@@ -1,6 +1,6 @@
 use crate::app_state::AppState;
 use crate::commit_proxy_model::CommitProxyModel;
-use crate::file_diff_proxy_models::FileDiffModelContext;
+use crate::file_diff_proxy_models::FileDiffProxyModels;
 use crate::id_model::IdModelChange;
 use crate::project::Project;
 use crate::project_config::ProjectConfig;
@@ -19,7 +19,7 @@ pub fn setup_project(app_state: &mut AppState) {
     };
     let init_ui = |project: Rc<RefCell<Project>>,
                    ui_weak: Weak<ui::AppWindow>,
-                   file_diff_model_ctx: Rc<RefCell<FileDiffModelContext>>,
+                   file_diff_model_ctx: Rc<RefCell<FileDiffProxyModels>>,
                    commit_proxy_model: Rc<RefCell<CommitProxyModel>>| {
         let ui = ui_weak.unwrap();
         let project = project.borrow();
@@ -42,7 +42,7 @@ pub fn setup_project(app_state: &mut AppState) {
 
         project.repository.observe_file_diff_model(modification_observer(ui_weak.clone()));
 
-        *file_diff_model_ctx.borrow_mut() = FileDiffModelContext::new(project.repository.file_diff_model());
+        *file_diff_model_ctx.borrow_mut() = FileDiffProxyModels::new(project.repository.file_diff_model());
         let m = file_diff_model_ctx.borrow();
         ui.global::<ui::Diff>().set_diff_model(m.sort_model());
 

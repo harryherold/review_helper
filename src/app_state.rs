@@ -1,5 +1,5 @@
 use crate::commit_proxy_model::CommitProxyModel;
-use crate::file_diff_proxy_models::FileDiffModelContext;
+use crate::file_diff_proxy_models::FileDiffProxyModels;
 use crate::notes_proxy_models::NotesProxyModels;
 use crate::project::Project;
 use crate::{app_config, ui};
@@ -10,7 +10,7 @@ pub struct AppState {
     pub app_window: ui::AppWindow,
     pub app_config: Rc<RefCell<app_config::AppConfig>>,
     pub project: Rc<RefCell<Project>>,
-    pub file_diff_proxy_models: Rc<RefCell<FileDiffModelContext>>,
+    pub file_diff_proxy_models: Rc<RefCell<FileDiffProxyModels>>,
     pub commit_proxy_model: Rc<RefCell<CommitProxyModel>>,
     pub notes_proxy_models: Rc<RefCell<NotesProxyModels>>,
 }
@@ -30,7 +30,7 @@ impl AppState {
             app_window: ui::AppWindow::new().unwrap(),
             app_config,
             project: Rc::new(RefCell::new(Project::default())),
-            file_diff_proxy_models: Rc::new(RefCell::new(FileDiffModelContext::default())),
+            file_diff_proxy_models: Rc::new(RefCell::new(FileDiffProxyModels::default())),
             commit_proxy_model: Rc::new(RefCell::new(CommitProxyModel::default())),
             notes_proxy_models: Rc::new(RefCell::new(NotesProxyModels::default())),
         }
