@@ -6,7 +6,7 @@ use crate::project::Project;
 use crate::project_config::ProjectConfig;
 use crate::ui;
 use native_dialog::FileDialog;
-use slint::{ComponentHandle, SharedString, Weak};
+use slint::{ComponentHandle, Model, SharedString, Weak};
 use std::cell::RefCell;
 use std::env;
 use std::path::PathBuf;
@@ -133,6 +133,13 @@ pub fn setup_project(app_state: &mut AppState) {
             files_proxy_model.borrow_mut().set_filter_text(pattern);
         } 
     });
+    app_state.app_window.global::<ui::FilePickerAdapter>().on_contains_model_context({
+        let files_proxy_model = app_state.files_proxy_model.clone();
+        move |context| -> bool {
+            let model = files_proxy_model.borrow().files_sort_model();
+            model.iter().any(|file| { file == context })
+        }
+    })
 }
 
 fn modification_observer(ui_weak: Weak<ui::AppWindow>) -> Box<dyn Fn(IdModelChange)> {

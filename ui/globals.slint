@@ -116,6 +116,7 @@ export global Notes {
     in property <[NoteItem]> notes_model;
     callback add-note(string, string);
     callback change-text(int, string);
+    callback change-context(int, string);
     callback toggle-fixed(int);
     callback delete-note(int);
     pure callback file-notes-model(string) -> [NoteItem];
@@ -128,4 +129,5 @@ export global StringUtils {
 export global FilePickerAdapter {
     in property <[string]> files_model;
     callback set-filter(string);
+    callback contains-model-context(string) -> bool;
 }

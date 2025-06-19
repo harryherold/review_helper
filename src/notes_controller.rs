@@ -38,4 +38,10 @@ pub fn setup_notes(app_state: &AppState) {
         let project_ref = app_state.project.clone();
         move |id| project_ref.borrow_mut().notes.delete_note(id as usize)
     });
+    app_state.app_window.global::<ui::Notes>().on_change_context({
+        let project_ref = app_state.project.clone();
+        move |id, context| {
+            project_ref.borrow().notes.change_context(id as usize, context);
+        }
+    })
 }

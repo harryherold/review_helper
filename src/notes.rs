@@ -170,7 +170,15 @@ impl Notes {
     pub fn delete_note(&mut self, id: usize) {
         self.notes_model.remove(id);
     }
-
+    pub fn change_context(&self, id: usize, context: SharedString) {
+        if let Some(mut item) = self.notes_model.get(id) {
+            if item.context == context {
+                return;
+            }
+            item.context = context;
+            self.notes_model.update(id, item);
+        }
+    }
     pub fn observe_notes_model<Observer: Fn(IdModelChange) + 'static>(&self, observer: Observer) {
         self.notes_model.set_observer(observer);
     }

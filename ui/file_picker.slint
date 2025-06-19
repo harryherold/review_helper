@@ -1,4 +1,4 @@
-import { VerticalBox, LineEdit, ListView } from "std-widgets.slint";
+import { VerticalBox, LineEdit, ListView, HorizontalBox, Button } from "std-widgets.slint";
 
 import { Style } from "style.slint";
 import { FilePickerAdapter } from "globals.slint";
@@ -6,19 +6,65 @@ import { Popup } from "popup.slint";
 
 export component FilePicker inherits Popup {
     callback accepted(string);
+    in-out property <string> selected_file: "";
 
     title: "File Picker";
 
     VerticalBox {
         LineEdit {
             placeholder-text: "filter file";
-            edited(text) => { FilePickerAdapter.set-filter(text) }
+            enabled: FilePickerAdapter.files_model.length > 0 && root.selected_file != "";
+            edited(text) => {
+                FilePickerAdapter.set-filter(text)
+            }
         }
 
         ListView {
             for file in FilePickerAdapter.files_model: Rectangle {
-                Text {
-                    text: file;
+                background: ta.has-hover ? Style.highlight_color : file == root.selected_file ? Style.foreground_color : Style.background_color;
+                height: Style.control_height;
+                width: parent.width;
+                HorizontalLayout {
+                    alignment: start;
+                    Image {
+                        source: @image-url("../assets/icons/file_picker.svg");
+                    }
+
+                    Rectangle {
+                        width: Style.spacing * 2;
+                    }
+
+                    Text {
+                        vertical-alignment: center;
+                        text: file;
+                    }
+                }
+
+                ta := TouchArea {
+                    clicked => {
+                        root.selected_file = file;
+                    }
+                }
+            }
+        }
+
+        HorizontalLayout {
+            spacing: Style.big_spacing;
+            alignment: end;
+            Button {
+                text: "Cancel";
+                width: Style.control_width;
+                clicked => {
+                    root.close();
+                }
+            }
+
+            Button {
+                width: Style.control_width;
+                text: "Take";
+                enabled: root.selected_file != "";
+                clicked => {
+                    root.accepted(selected_file)
                 }
             }
         }

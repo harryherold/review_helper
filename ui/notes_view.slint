@@ -1,7 +1,7 @@
 import { GroupBox, LineEdit, Button, ListView, CheckBox, ComboBox, VerticalBox } from "std-widgets.slint";
 
 import { Style } from "style.slint";
-import { Repository, Notes } from "globals.slint";
+import { Repository, Notes, FilePickerAdapter } from "globals.slint";
 import { FilePicker } from "file_picker.slint";
 
 component HeaderColumn inherits Rectangle {
@@ -24,10 +24,21 @@ component HeaderColumn inherits Rectangle {
 export component NotesView inherits Rectangle {
     private property <int> editingId: -1;
     file-picker := FilePicker {
+        property <int> currentNoteId: -1;
         initial_x: 0;
         initial_y: 0;
         preferred-height: 300px;
         preferred-width: 300px;
+        accepted(new_context) => {
+            if (self.currentNoteId > -1) {
+                Notes.change-context(self.currentNoteId, new-context);
+            }
+            self.close();
+        }
+        closed => {
+            self.currentNoteId = -1;
+            self.selected_file = "";
+        }
     }
 
     VerticalBox {
@@ -93,6 +104,7 @@ export component NotesView inherits Rectangle {
                             horizontal-alignment: left;
                             text: note.context;
                             accepted(text) => {
+                                Notes.change-context(note.id, text);
                             }
                         }
 
@@ -112,6 +124,10 @@ export component NotesView inherits Rectangle {
 
                             edit-ta := TouchArea {
                                 clicked => {
+                                    file-picker.currentNoteId = note.id;
+                                    if (FilePickerAdapter.contains-model-context(note.context)) {
+                                        file-picker.selected_file = note.context;
+                                    }
                                     file-picker.initial_x = root.width - file-picker.width;
                                     file-picker.initial_y = listview.y + idx * text-input.height + idx * Style.spacing + file-picker-button.height;
                                     file-picker.open();

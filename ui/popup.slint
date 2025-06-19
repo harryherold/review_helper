@@ -6,6 +6,7 @@ export component Popup inherits Rectangle {
     in property <length> initial_x;
     in property <length> initial_y;
     in property <string> title;
+    callback closed();
 
     public function open() {
         self.visible = true;
@@ -25,6 +26,12 @@ export component Popup inherits Rectangle {
     z: 1000;
     visible: false;
 
+    changed visible => {
+        if (root.visible == false) {
+            root.closed();
+        }
+    }
+
     VerticalLayout {
         padding-top: 1px;
         padding-left: 1px;
@@ -41,15 +48,6 @@ export component Popup inherits Rectangle {
                     horizontal-alignment: center;
                     vertical-alignment: center;
                     text: root.title;
-                }
-
-                close-button := Button {
-                    height: Style.control_height;
-                    width: 45px;
-                    icon: @image-url("../assets/icons/close.svg");
-                    clicked => {
-                        root.close()
-                    }
                 }
             }
 
