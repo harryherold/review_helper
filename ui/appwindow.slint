@@ -97,16 +97,16 @@ export component AppWindow inherits Window {
             }
         }
 
-        TabWidget {
-            current-index: 1; // DEBUG
+        if Project.is_loaded: TabWidget {
             Tab {
                 title: "File Diff";
 
                 VerticalBox {
-                    if Project.is_loaded: DiffConfigView {
+                    DiffConfigView {
                         height: 100px;
                         vertical-stretch: 0;
                     }
+
                     if Repository.is_loaded: OverallStatistics {
                         vertical-stretch: 0;
                     }
@@ -122,6 +122,18 @@ export component AppWindow inherits Window {
                 title: "Notes";
 
                 NotesView { }
+            }
+        }
+        if !Project.is_loaded: HorizontalBox {
+            alignment: center;
+            Image {
+                source: @image-url("../assets/icons/warning.svg");
+            }
+
+            Text {
+                vertical-alignment: center;
+                text: "No project loaded";
+                font-size: 18px;
             }
         }
     }
