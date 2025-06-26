@@ -38,9 +38,9 @@ pub struct FileStat {
     pub change_type: ChangeType,
 }
 
+use chrono::DateTime;
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
-use chrono::DateTime;
 
 #[cfg(windows)]
 macro_rules! git_command {
@@ -98,8 +98,7 @@ fn diff_name_status(repo_path: &PathBuf, start_commit: &str, end_commit: &str) -
         let file = if change_type == ChangeType::Renamed {
             assert_eq!(infos.len(), 3);
             infos[2].to_string()
-        }
-        else {
+        } else {
             infos[1].to_string()
         };
         files_change_type.insert(file, change_type);
@@ -150,13 +149,15 @@ fn query_file_stats(
             } else {
                 ChangeType::Invalid
             };
-            files_stats.insert(file, FileStat {
-                added_lines: parse_line_number(infos[0])?,
-                removed_lines: parse_line_number(infos[1])?,
-                change_type,
-            });
-        }
-        else {
+            files_stats.insert(
+                file,
+                FileStat {
+                    added_lines: parse_line_number(infos[0])?,
+                    removed_lines: parse_line_number(infos[1])?,
+                    change_type,
+                },
+            );
+        } else {
             let added_lines = parse_line_number(infos[0])?;
             let removed_lines = parse_line_number(infos[1])?;
             let _old_file = iter.next(); // TODO display it as additional information
@@ -167,11 +168,14 @@ fn query_file_stats(
             } else {
                 ChangeType::Invalid
             };
-            files_stats.insert(new_file.to_string(), FileStat {
-                added_lines,
-                removed_lines,
-                change_type,
-            });
+            files_stats.insert(
+                new_file.to_string(),
+                FileStat {
+                    added_lines,
+                    removed_lines,
+                    change_type,
+                },
+            );
         }
     }
     Ok(files_stats)
@@ -217,7 +221,7 @@ pub fn query_commits(repo_path: &PathBuf) -> anyhow::Result<Vec<Commit>> {
     let args = vec!["--no-pager", "log", "--first-parent", "--pretty=format:\"%h¦%an¦%aI¦%s\""];
     let output = git_command!(repo_path, args).output()?;
     let output_string = String::from_utf8(output.stdout.trim_ascii().to_vec())?;
-    
+
     for line in output_string.split("\n") {
         let line = line.trim_matches('"');
         let mut iter = line.splitn(4, "¦");
@@ -226,9 +230,9 @@ pub fn query_commits(repo_path: &PathBuf) -> anyhow::Result<Vec<Commit>> {
         let author = iter.next().expect("Could get read author!").to_string();
         let date = iter.next().expect("Could get read date!").to_string();
         let message = iter.next().expect("Could get read message!").to_string();
-        
+
         let date_time = DateTime::parse_from_rfc3339(&date).expect("Could parse date!");
-        
+
         let commit = Commit {
             hash,
             author,
@@ -323,7 +327,7 @@ mod tests {
 
         assert!(commits.len() > 75);
         let first_commit = commits.last().unwrap();
-        
+
         assert_eq!(first_commit.hash, "9f89049");
         assert_eq!(first_commit.message, "Initial commit");
         assert_eq!(first_commit.author, "Christian von Wascinski");

@@ -7,12 +7,12 @@ use slint::{Model, ModelRc, StandardListViewItem, VecModel};
 use crate::git_utils::{query_commits, ChangeType};
 use crate::id_model::{IdModel, IdModelChange};
 use crate::ui::OverallStat;
-use crate::{project_config::ProjectConfig, git_utils, ui};
+use crate::{git_utils, project_config::ProjectConfig, ui};
 
 pub struct Repository {
     path: PathBuf,
     current_diff: Diff,
-    commits:  Rc<VecModel<slint::ModelRc<StandardListViewItem>>>
+    commits: Rc<VecModel<slint::ModelRc<StandardListViewItem>>>,
 }
 
 fn diff_file_id() -> usize {
@@ -115,7 +115,7 @@ impl Repository {
             self.path.to_str()
         }
     }
-    
+
     pub fn initialize_commits(&mut self) {
         self.commits.clear();
         let commits = query_commits(&self.path).expect("Could not query commits!");
@@ -125,7 +125,7 @@ impl Repository {
             items.push(slint::SharedString::from(commit.message).into());
             items.push(slint::SharedString::from(commit.author).into());
             items.push(slint::SharedString::from(commit.date).into());
-            
+
             self.commits.push(items.into());
         }
     }
@@ -174,10 +174,16 @@ impl Repository {
             self.current_diff.statistics.added_lines += file_stat.added_lines;
             self.current_diff.statistics.removed_lines += file_stat.removed_lines;
 
-            change_type_map.entry(file_stat.change_type.clone()).and_modify(|current| *current += 1).or_insert(1);
+            change_type_map
+                .entry(file_stat.change_type.clone())
+                .and_modify(|current| *current += 1)
+                .or_insert(1);
         }
         for (change_type, count) in change_type_map {
-            self.current_diff.statistics.statistics_model.push(OverallStat{change_type: change_type_to_ui(&change_type), count: count as i32});
+            self.current_diff.statistics.statistics_model.push(OverallStat {
+                change_type: change_type_to_ui(&change_type),
+                count: count as i32,
+            });
         }
 
         let update_item = |mut item: ui::DiffFileItem| {
@@ -191,10 +197,8 @@ impl Repository {
                         self.current_diff.file_diff_model.update(item.id as usize, item);
                     }
                 }
-                None => eprintln!("Error item not found! {}", &item.text)
+                None => eprintln!("Error item not found! {}", &item.text),
             }
-
-
         };
         let add_item = |file: &String| {
             let file_stat = files_stats.get(file).unwrap();
@@ -232,7 +236,12 @@ impl Repository {
 
             let deleted_files: HashSet<&String> = old_files.difference(&diff_files).collect();
             for deleted_file in deleted_files {
-                let delete_item = self.current_diff.file_diff_model.iter().find(|item| item.text == deleted_file).map(|item| item.id);
+                let delete_item = self
+                    .current_diff
+                    .file_diff_model
+                    .iter()
+                    .find(|item| item.text == deleted_file)
+                    .map(|item| item.id);
                 if let Some(id) = delete_item {
                     self.current_diff.file_diff_model.remove(id as usize);
                 }
@@ -254,14 +263,20 @@ impl Repository {
     pub fn diff_file(&self, id: i32, diff_tool: &str) -> anyhow::Result<()> {
         match self.current_diff.file_diff_model.get(id as usize) {
             None => Err(anyhow::format_err!("Could not found file in model!")),
-            Some(file_item) => git_utils::diff_file(&self.path, &self.current_diff.start_commit, &self.current_diff.end_commit, &file_item.text, diff_tool),
+            Some(file_item) => git_utils::diff_file(
+                &self.path,
+                &self.current_diff.start_commit,
+                &self.current_diff.end_commit,
+                &file_item.text,
+                diff_tool,
+            ),
         }
     }
 
     pub fn file_diff_model(&self) -> ModelRc<ui::DiffFileItem> {
         self.current_diff.file_diff_model.clone().into()
     }
-    
+
     pub fn observe_file_diff_model<Observer: Fn(IdModelChange) + 'static>(&self, observer: Observer) {
         self.current_diff.file_diff_model.set_observer(observer);
     }
@@ -273,8 +288,8 @@ impl Repository {
     pub fn statistics(&self) -> &DiffStatistics {
         &self.current_diff.statistics
     }
-    
-    pub fn commits_model(&self) ->  ModelRc<ModelRc<StandardListViewItem>> {
+
+    pub fn commits_model(&self) -> ModelRc<ModelRc<StandardListViewItem>> {
         self.commits.clone().into()
     }
 }

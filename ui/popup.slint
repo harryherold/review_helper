@@ -1,77 +1,87 @@
-
 import { Button, VerticalBox, LineEdit, ListView, CheckBox } from "std-widgets.slint";
 
 import { Style } from "style.slint";
 
 export component Popup inherits Rectangle {
-        in property <length> initial_x;
-        in property <length> initial_y;
-        in property <string> title;
+    in property <length> initial_x;
+    in property <length> initial_y;
+    in property <string> title;
+    in property <bool> enable_close_button: false;
+    callback closed();
 
-        public function open() {
-            self.visible = true;
+    public function open() {
+        self.visible = true;
+    }
+    public function close() {
+        self.visible = false;
+    }
+
+    width: 400px;
+    height: 400px;
+    background: #262525;
+    border-color: #333232;
+    border-radius: 10px;
+    border-width: 1px;
+    x: self.initial_x;
+    y: self.initial_y;
+    z: 1000;
+    visible: false;
+
+    changed visible => {
+        if (root.visible == false) {
+            root.closed();
         }
-        public function close() {
-            self.visible = false;
-            self.x = initial_x;
-            self.y = initial_y;
-        }
+    }
 
-        width: 400px;
-        height: 400px;
-        background: #262525;
-        border-color: #333232;
-        border-radius: 10px;
-        border-width: 1px;
-        x: self.initial_x;
-        y: self.initial_y;
-        z: 1000;
-        visible: false;
+    VerticalLayout {
+        padding-top: 1px;
+        padding-left: 1px;
+        padding-right: 1px;
+        spacing: Style.spacing;
+        Rectangle {
+            background: #333232;
+            height: Style.control_height;
+            border-top-left-radius: 10px;
+            border-top-right-radius: 10px;
 
-        VerticalLayout {
-            padding-top: 1px;
-            padding-left: 1px;
-            padding-right: 1px;
-            spacing: Style.spacing;
-            Rectangle {
-                background: #333232;
-                height: Style.control_height;
-                border-top-left-radius: 10px;
-                border-top-right-radius: 10px;
-
-                HorizontalLayout {
-                    title-text := Text {
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
-                        text: root.title;
-                    }
-                    close-button := Button {
-                        height: Style.control_height;
-                        width: 45px;
-                        icon: @image-url("../assets/icons/close.svg");
-                        clicked => { root.close() }
-                    }
+            HorizontalLayout {
+                title-text := Text {
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    text: root.title;
                 }
-                popup-ta := TouchArea {
-                    private property <length> start_x: 0;
-                    private property <length> start_y: 0;
 
-                    width: title-text.width;
-                    x: parent.x;
-                    y: parent.y;
-
-                    pointer-event(pe) => {
-                        if (pe.button == PointerEventButton.left && pe.kind == PointerEventKind.down) {
-                            start_x = popup-ta.mouse-x;
-                            start_y = popup-ta.mouse-y;
-                        }
-                    }
-                    moved => {
-                        root.x += popup-ta.mouse-x - self.start_x;
-                        root.y += popup-ta.mouse-y - self.start_y;
+                if root.enable_close_button: Button {
+                    height: Style.control_height;
+                    width: 45px;
+                    icon: @image-url("../assets/icons/close.svg");
+                    clicked => {
+                        root.close()
                     }
                 }
             }
-            @children
+
+            popup-ta := TouchArea {
+                private property <length> start_x: 0;
+                private property <length> start_y: 0;
+
+                width: title-text.width;
+                x: parent.x;
+                y: parent.y;
+
+                pointer-event(pe) => {
+                    if (pe.button == PointerEventButton.left && pe.kind == PointerEventKind.down) {
+                        start_x = popup-ta.mouse-x;
+                        start_y = popup-ta.mouse-y;
+                    }
+                }
+//                moved => {
+//                    root.x += popup-ta.mouse-x - self.start_x;
+//                    root.y += popup-ta.mouse-y - self.start_y;
+//                }
+            }
         }
+
+        @children
+    }
 }

@@ -150,7 +150,7 @@ impl Notes {
         }
     }
 
-    pub fn toogle_is_fixed(&self, id: usize) {
+    pub fn toggle_is_fixed(&self, id: usize) {
         if let Some(mut item) = self.notes_model.get(id) {
             item.is_fixed = !item.is_fixed;
             self.notes_model.update(id, item);
@@ -170,7 +170,15 @@ impl Notes {
     pub fn delete_note(&mut self, id: usize) {
         self.notes_model.remove(id);
     }
-
+    pub fn change_context(&self, id: usize, context: SharedString) {
+        if let Some(mut item) = self.notes_model.get(id) {
+            if item.context == context {
+                return;
+            }
+            item.context = context;
+            self.notes_model.update(id, item);
+        }
+    }
     pub fn observe_notes_model<Observer: Fn(IdModelChange) + 'static>(&self, observer: Observer) {
         self.notes_model.set_observer(observer);
     }

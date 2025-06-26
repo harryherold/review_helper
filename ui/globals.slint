@@ -1,0 +1,148 @@
+export global AppConfig {
+    in-out property <string> diff_tool;
+    in-out property <string> editor;
+    in-out property <string> editor_args;
+
+    callback save();
+}
+
+export global Project {
+    in property <bool> has_modifications: false;
+    in property <string> path;
+    out property <bool> is_loaded: path != "";
+    callback open;
+    callback new;
+    callback save;
+}
+
+export global Repository {
+    in property <string> path;
+    out property <bool> is_loaded: path != "";
+    callback open;
+}
+
+export enum ChangeType {
+    Invalid,
+    Added,
+    Copied,
+    Deleted,
+    Modified,
+    Renamed,
+    TypChanged,
+    Unmerged,
+    Unknown,
+    Broken
+}
+
+export global ChangeTypeUtils {
+    public pure function to_icon(change_type: ChangeType) -> image {
+        if (change_type == ChangeType.Added) {
+            return @image-url("../assets/icons/git_file_added.svg");
+        } else if (change_type == ChangeType.Broken) {
+            return @image-url("../assets/icons/git_file_broken.svg");
+        } else if (change_type == ChangeType.Copied) {
+            return @image-url("../assets/icons/git_file_copied.svg");
+        } else if (change_type == ChangeType.Deleted) {
+            return @image-url("../assets/icons/git_file_deleted.svg");
+        } else if (change_type == ChangeType.Modified) {
+            return @image-url("../assets/icons/git_file_edited.svg");
+        } else if (change_type == ChangeType.Renamed) {
+            return @image-url("../assets/icons/git_file_renamed.svg");
+        } else if (change_type == ChangeType.TypChanged) {
+            return @image-url("../assets/icons/git_file_type_changed.svg");
+        } else if (change_type == ChangeType.Unknown) {
+            return @image-url("../assets/icons/git_file_unknown.svg");
+        } else if (change_type == ChangeType.Unmerged) {
+            return @image-url("../assets/icons/git_file_unmerged.svg");
+        }
+        return @image-url("../assets/icons/invalid.svg");
+    }
+}
+
+export enum SortCriteria {
+    Name,
+    Extension
+}
+
+export struct DiffFileItem {
+    id: int,
+    added_lines: int,
+    removed_lines: int,
+    text: string,
+    is_reviewed: bool,
+    change_type: ChangeType,
+}
+
+export global Diff {
+    in property <string> start_commit;
+    in property <string> end_commit;
+    in property <[DiffFileItem]> diff_model;
+    in property <SortCriteria> current_sort_criteria: SortCriteria.Name;
+    callback diff-start-end(string, string);
+    callback open-file-diff(int);
+    callback open-file(string);
+    callback toggle-is-reviewed(int);
+    callback set-sort-criteria(SortCriteria);
+    callback filter-file-diff(string);
+}
+
+export struct OverallStat {
+    change_type: ChangeType,
+    count: int,
+}
+
+export global OverallDiffStats {
+    in property <int> added_lines: 0;
+    in property <int> removed_lines: 0;
+    in property <[OverallStat]> model;
+}
+
+export global CommitPickerAdapter {
+    in property <[[StandardListViewItem]]> commit_model;
+
+    callback filter_commits(string);
+    callback sort_commits(int, bool);
+    callback refresh();
+}
+
+export struct NoteItem  {
+    id: int,
+    text: string,
+    is_fixed: bool,
+    context: string,
+}
+
+export enum SortOrder {
+    Ascending,
+    Descending
+}
+
+export enum NoteSortCriteria {
+    NoteText,
+    Context
+}
+
+export global Notes {
+    in property <[NoteItem]> notes_model;
+    in property <SortOrder> sort_order;
+    in property <NoteSortCriteria> sort_criteria;
+    callback add-note(string, string);
+    callback change-text(int, string);
+    callback change-context(int, string);
+    callback toggle-fixed(int);
+    callback delete-note(int);
+    pure callback file-notes-model(string) -> [NoteItem];
+    callback set-notes-text-filter(string);
+    callback set-notes-context-filter(string);
+    callback set-notes-sorting(NoteSortCriteria, SortOrder);
+}
+
+export global StringUtils {
+    pure callback filename(string) -> string;
+}
+
+export global FilePickerAdapter {
+    in property <[string]> files_model;
+    callback set-filter(string);
+    callback contains-model-context(string) -> bool;
+}
