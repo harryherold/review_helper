@@ -10,7 +10,7 @@ use crate::ui::OverallStat;
 use crate::{git_utils, project_config::ProjectConfig, ui};
 
 pub struct Repository {
-    path: PathBuf,
+    path: Option<PathBuf>,
     current_diff: Diff,
     commits: Rc<VecModel<slint::ModelRc<StandardListViewItem>>>,
 }
@@ -64,7 +64,7 @@ impl Diff {
 impl Default for Repository {
     fn default() -> Self {
         Repository {
-            path: "".into(),
+            path: None,
             current_diff: Diff::new(),
             commits: Rc::new(VecModel::<ModelRc<StandardListViewItem>>::default()),
         }
@@ -74,7 +74,9 @@ impl Default for Repository {
 impl Repository {
     pub fn from_project_config(project_config: &ProjectConfig) -> anyhow::Result<Repository> {
         let mut repo = Self::default();
-        repo.set_path(PathBuf::from(project_config.repo_path.to_string()));
+        if !project_config.repo_path.is_empty() {
+            repo.set_path(PathBuf::from(project_config.repo_path.to_string()));
+        }
 
         repo.current_diff.start_commit = project_config.start_diff.clone();
         repo.current_diff.end_commit = project_config.end_diff.clone();
@@ -109,29 +111,31 @@ impl Repository {
     }
 
     pub fn repository_path(&self) -> Option<&str> {
-        if !self.path.exists() {
-            None
-        } else {
-            self.path.to_str()
+        match self.path.as_ref() {
+            Some(p) => p.to_str(),
+            None => None,
         }
     }
 
     pub fn initialize_commits(&mut self) {
         self.commits.clear();
-        let commits = query_commits(&self.path).expect("Could not query commits!");
-        for commit in commits {
-            let items = Rc::new(VecModel::<StandardListViewItem>::default());
-            items.push(slint::SharedString::from(commit.hash).into());
-            items.push(slint::SharedString::from(commit.message).into());
-            items.push(slint::SharedString::from(commit.author).into());
-            items.push(slint::SharedString::from(commit.date).into());
+        // TODO: Return error
+        if let Some(path) = self.path.as_ref() {
+            let commits = query_commits(path).expect("Could not query commits!");
+            for commit in commits {
+                let items = Rc::new(VecModel::<StandardListViewItem>::default());
+                items.push(slint::SharedString::from(commit.hash).into());
+                items.push(slint::SharedString::from(commit.message).into());
+                items.push(slint::SharedString::from(commit.author).into());
+                items.push(slint::SharedString::from(commit.date).into());
 
-            self.commits.push(items.into());
+                self.commits.push(items.into());
+            }
         }
     }
 
     pub fn set_path(&mut self, path: PathBuf) {
-        self.path = path;
+        self.path = Some(path);
         self.initialize_commits()
     }
 
@@ -139,7 +143,12 @@ impl Repository {
         self.current_diff.start_commit = start_commit.to_string();
         self.current_diff.end_commit = end_commit.to_string();
 
-        let files_stats = git_utils::diff_git_repo(&self.path, &start_commit, &end_commit)?;
+        if self.path.is_none() {
+            // TODO: Return error
+            return Ok(());
+        }
+        let path = self.path.as_ref().unwrap();
+        let files_stats = git_utils::diff_git_repo(path, &start_commit, &end_commit)?;
 
         let mut old_files: HashSet<String> = HashSet::new();
         let mut file_index_map: HashMap<String, usize> = HashMap::new();
@@ -261,10 +270,15 @@ impl Repository {
     }
 
     pub fn diff_file(&self, id: i32, diff_tool: &str) -> anyhow::Result<()> {
+        if self.path.is_none() {
+            // TODO: Return error
+            return Ok(());
+        }
+        let path = self.path.as_ref().unwrap();
         match self.current_diff.file_diff_model.get(id as usize) {
             None => Err(anyhow::format_err!("Could not found file in model!")),
             Some(file_item) => git_utils::diff_file(
-                &self.path,
+                &path,
                 &self.current_diff.start_commit,
                 &self.current_diff.end_commit,
                 &file_item.text,

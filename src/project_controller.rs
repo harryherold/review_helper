@@ -32,6 +32,9 @@ pub fn setup_project(app_state: &mut AppState) {
         if let Some(repo_path) = project.repository.repository_path() {
             ui.global::<ui::Repository>().set_path(SharedString::from(repo_path));
         }
+        else {
+            ui.global::<ui::Repository>().set_path(SharedString::new());
+        }
 
         project.notes.observe_notes_model(modification_observer(ui_weak.clone()));
 
