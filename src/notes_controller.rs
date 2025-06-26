@@ -56,4 +56,18 @@ pub fn setup_notes(app_state: &AppState) {
             notes_proxy_models.borrow().set_context_filter(pattern);
         }
     });
+    app_state.app_window.global::<ui::Notes>().on_set_notes_sorting({
+        let notes_proxy_models = app_state.notes_proxy_models.clone();
+        let ui_weak = app_state.app_window.as_weak();
+        move |criteria:ui::NoteSortCriteria, order: ui::SortOrder| {
+            let mut model = notes_proxy_models.borrow_mut();
+            model.set_sorting(criteria.clone(), order.clone());
+            
+            let ui = ui_weak.unwrap();
+            let ui_notes = ui.global::<ui::Notes>();
+            ui_notes.set_sort_criteria(criteria);
+            ui_notes.set_sort_order(order);
+            ui_notes.set_notes_model(model.model());
+        }
+    });
 }

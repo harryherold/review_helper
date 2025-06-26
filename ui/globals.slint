@@ -112,8 +112,20 @@ export struct NoteItem  {
     context: string,
 }
 
+export enum SortOrder {
+    Ascending,
+    Descending
+}
+
+export enum NoteSortCriteria {
+    NoteText,
+    Context
+}
+
 export global Notes {
     in property <[NoteItem]> notes_model;
+    in property <SortOrder> sort_order;
+    in property <NoteSortCriteria> sort_criteria;
     callback add-note(string, string);
     callback change-text(int, string);
     callback change-context(int, string);
@@ -122,6 +134,7 @@ export global Notes {
     pure callback file-notes-model(string) -> [NoteItem];
     callback set-notes-text-filter(string);
     callback set-notes-context-filter(string);
+    callback set-notes-sorting(NoteSortCriteria, SortOrder);
 }
 
 export global StringUtils {

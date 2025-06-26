@@ -1,24 +1,44 @@
 import { GroupBox, LineEdit, Button, ListView, CheckBox, ComboBox, VerticalBox } from "std-widgets.slint";
 
 import { Style } from "style.slint";
-import { Repository, Notes, FilePickerAdapter } from "globals.slint";
+import { Repository, Notes, FilePickerAdapter, SortOrder, NoteSortCriteria } from "globals.slint";
 import { FilePicker } from "file_picker.slint";
 
 component HeaderColumn inherits Rectangle {
     in property <string> column_name;
+    in property <NoteSortCriteria> sort_criteria;
+    private property <bool> is_selected: Notes.sort_criteria == root.sort_criteria;
 
-    background: ta.has-hover ? Colors.black : Style.foreground_color;
+    background: root.is_selected ? Colors.black : Style.foreground_color;
     height: Style.control_height;
 
-    Text {
-        width: root.width;
-        horizontal-alignment: center;
-        vertical-alignment: center;
-        overflow: elide;
-        text: root.column_name;
+    HorizontalLayout {
+        alignment: space-between;
+        Rectangle { }
+
+        Text {
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            overflow: elide;
+            text: root.column_name;
+        }
+
+        Image {
+            visible: root.is_selected;
+            source: Notes.sort_order == SortOrder.Ascending ? @image-url("../assets/icons/sort_ascending.svg") : @image-url("../assets/icons/sort_descending.svg");
+        }
     }
 
-    ta := TouchArea { }
+    TouchArea {
+        clicked => {
+            if (root.is_selected) {
+                Notes.set-notes-sorting(root.sort_criteria, Notes.sort_order == SortOrder.Ascending ? SortOrder.Descending : SortOrder.Ascending);
+            }
+            if (!root.is_selected) {
+                Notes.set-notes-sorting(root.sort_criteria, Notes.sort_order);
+            }
+        }
+    }
 }
 
 export component NotesView inherits Rectangle {
@@ -71,11 +91,13 @@ export component NotesView inherits Rectangle {
 
             HeaderColumn {
                 column_name: "Text";
+                sort_criteria: NoteSortCriteria.NoteText;
                 width: 600px;
             }
 
             HeaderColumn {
                 column_name: "Context";
+                sort_criteria: NoteSortCriteria.Context;
             }
         }
 
