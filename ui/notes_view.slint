@@ -22,27 +22,34 @@ component HeaderColumn inherits Rectangle {
 }
 
 export component NotesView inherits Rectangle {
-    private property <int> editingId: -1;
+    private property <int> editing_id: -1;
+    private property <bool> is_filter_active: false;
+    changed is_filter_active => {
+        if (!is_filter_active) {
+            Notes.set-notes-text-filter("");
+            Notes.set-notes-context-filter("");
+        }
+    }
+
     file-picker := FilePicker {
-        property <int> currentNoteId: -1;
+        property <int> current_note_id: -1;
         initial_x: 0;
         initial_y: 0;
         preferred-height: 300px;
         preferred-width: 300px;
         accepted(new_context) => {
-            if (self.currentNoteId > -1) {
-                Notes.change-context(self.currentNoteId, new-context);
+            if (self.current_note_id > -1) {
+                Notes.change-context(self.current_note_id, new-context);
             }
             self.close();
         }
         closed => {
-            self.currentNoteId = -1;
+            self.current_note_id = -1;
             self.selected_file = "";
         }
     }
 
     VerticalBox {
-
         spacing: Style.spacing;
 
         HorizontalLayout {
@@ -50,6 +57,16 @@ export component NotesView inherits Rectangle {
 
             Rectangle {
                 width: 20px;
+
+                Image {
+                    source: root.is_filter_active ? @image-url("../assets/icons/filter_on.svg") : @image-url("../assets/icons/filter_off.svg");
+                }
+
+                TouchArea {
+                    clicked => {
+                        root.is_filter_active = !root.is_filter_active;
+                    }
+                }
             }
 
             HeaderColumn {
@@ -62,7 +79,7 @@ export component NotesView inherits Rectangle {
             }
         }
 
-        HorizontalLayout {
+        if root.is_filter_active: HorizontalLayout {
             spacing: Style.spacing;
 
             Rectangle {
@@ -136,7 +153,7 @@ export component NotesView inherits Rectangle {
 
                         file-picker-button := Rectangle {
                             width: 30px;
-                            background: edit-ta.pressed || root.editingId == note.id ? Colors.black : Style.popup_border_color;
+                            background: edit-ta.pressed || root.editing_id == note.id ? Colors.black : Style.popup_border_color;
                             border-radius: 2px;
                             border-color: Style.popup_border_color;
                             border-width: Style.border_width;
@@ -150,7 +167,7 @@ export component NotesView inherits Rectangle {
 
                             edit-ta := TouchArea {
                                 clicked => {
-                                    file-picker.currentNoteId = note.id;
+                                    file-picker.current_note_id = note.id;
                                     if (FilePickerAdapter.contains-model-context(note.context)) {
                                         file-picker.selected_file = note.context;
                                     }
