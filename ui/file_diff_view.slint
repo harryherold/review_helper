@@ -6,7 +6,13 @@ import { ChangeTypeUtils, SortCriteria, Diff, Notes, NoteItem } from "globals.sl
 export component FileDiffView inherits VerticalBox {
     callback open-file-notes-popup(string);
 
-    private property <int> checked_id: -1;
+    private property <int> selected_id: -1;
+
+    function select_id(id: int) {
+        if (id != root.selected_id) {
+            selected_id = id;
+        }
+    }
 
     spacing: Style.spacing;
 
@@ -43,7 +49,7 @@ export component FileDiffView inherits VerticalBox {
         for data[idx] in Diff.diff_model: Rectangle {
             property <[NoteItem]> notes: Notes.file-notes-model(data.text);
 
-            background: checked_id == data.id ? #333232 : Palette.background;
+            background: selected_id == data.id ? #333232 : Palette.background;
             height: Style.control_height;
 
             HorizontalLayout {
@@ -96,7 +102,10 @@ export component FileDiffView inherits VerticalBox {
                         Button {
                             icon: self.checked ? @image-url("../assets/icons/checked.svg") : @image-url("../assets/icons/unchecked.svg");
                             checked: data.is_reviewed;
-                            clicked => { Diff.toggle-is-reviewed(data.id) }
+                            clicked => {
+                                root.select_id(data.id);
+                                Diff.toggle-is-reviewed(data.id)
+                            }
                         }
                         property <Point> p: {
                             x: (root.width - bb.width) - 280px,
@@ -104,7 +113,10 @@ export component FileDiffView inherits VerticalBox {
                         };
                         bb := Button {
                             icon: @image-url("../assets/icons/menu.svg");
-                            clicked => { action_popup.show(); }
+                            clicked => {
+                                root.select_id(data.id);
+                                action_popup.show();
+                            }
                         }
                         action_popup := PopupWindow {
                             private property <length> delegate_height: 30px;
@@ -164,8 +176,8 @@ export component FileDiffView inherits VerticalBox {
             TouchArea {
                 x: 0;
                 y: 0;
-                width: parent.width - buttons-layout.width;
-                clicked => { checked_id = data.id }
+                width: parent.width - bb.width * 2 - Style.spacing * 2;
+                clicked => { root.select_id(data.id) }
             }
         }
     }

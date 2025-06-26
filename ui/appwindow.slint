@@ -89,9 +89,16 @@ export component AppWindow inherits Window {
                     }
                 }
 
-                if Project.has_modifications: HorizontalBox {
+                if Project.has_modifications: VerticalBox {
                     Image {
                         source: @image-url("../assets/icons/save.svg");
+                        padding: 10px;
+
+                        ta := TouchArea {
+                            clicked => {
+                                Project.save()
+                            }
+                        }
                     }
                 }
             }
