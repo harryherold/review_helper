@@ -117,11 +117,7 @@ export component AppWindow inherits Window {
                     if Repository.is_loaded: OverallStatistics {
                         vertical-stretch: 0;
                     }
-                    if Repository.is_loaded: FileDiffView {
-                        open-file-notes-popup(file) => {
-                            notes-popup.open-notes(file)
-                        }
-                    }
+                    if Repository.is_loaded: FileDiffView { }
                 }
             }
 

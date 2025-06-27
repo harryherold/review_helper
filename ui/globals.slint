@@ -84,6 +84,7 @@ export global Diff {
     callback toggle-is-reviewed(int);
     callback set-sort-criteria(SortCriteria);
     callback filter-file-diff(string);
+    callback diff-model-contains-id(int) -> bool;
 }
 
 export struct OverallStat {

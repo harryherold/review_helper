@@ -2,11 +2,32 @@ import { GroupBox, ListView, CheckBox, Button, Palette, LineEdit, VerticalBox, H
 
 import { Style } from "style.slint";
 import { ChangeTypeUtils, SortCriteria, Diff, Notes, NoteItem } from "globals.slint";
+import { FileNoteDelegate } from "file_note_delegate.slint";
 
 export component FileDiffView inherits VerticalBox {
-    callback open-file-notes-popup(string);
-
     private property <int> selected_id: -1;
+    private property <int> extended_file_id: -1;
+    private property <int> model_count: Diff.diff_model.length;
+    private property <bool> is_selected_id_in_model: true;
+
+    changed selected_id => {
+        if (selected_id != -1 && selected_id != extended_file_id) {
+            extended_file_id = -1;
+        }
+    }
+    changed model_count => {
+        if (model_count > 0 && selected_id != -1) {
+            is_selected_id_in_model = Diff.diff-model-contains-id(selected_id);
+        }
+    }
+    changed is_selected_id_in_model => {
+        if (!is_selected_id_in_model && selected_id != -1) {
+            selected_id = -1;
+        }
+        if (!is_selected_id_in_model && extended_file_id != -1) {
+            extended_file_id = -1;
+        }
+    }
 
     function select_id(id: int) {
         if (id != root.selected_id) {
@@ -44,140 +65,117 @@ export component FileDiffView inherits VerticalBox {
         }
     }
     ListView {
-        padding-right: 0;
-        padding-left: 0;
         for data[idx] in Diff.diff_model: Rectangle {
             property <[NoteItem]> notes: Notes.file-notes-model(data.text);
 
             background: selected_id == data.id ? #333232 : Palette.background;
-            height: Style.control_height;
+            border-width: Style.border_width;
+            border-radius: 5px;
 
-            HorizontalLayout {
-                alignment: space-between;
-                spacing: 2px;
+            TouchArea {
+                clicked => { root.select_id(data.id) }
+                double-clicked => { Diff.open-file-diff(data.id) }
 
-                file-text := Text {
-                    overflow: elide;
-                    font-size: 14px;
-                    text: data.text;
-                    vertical-alignment: center;
-                    horizontal-alignment: left;
-                }
-                buttons-layout := HorizontalLayout {
-                    width: 220px;
-
-                    Image {
-                        source: ChangeTypeUtils.to_icon(data.change_type);
-                        horizontal-alignment: center;
-                    }
+                VerticalLayout {
+                    padding-left: Style.spacing;
+                    padding-right: Style.spacing / 2;
+                    spacing: Style.spacing;
                     HorizontalLayout {
-                        padding-top: Style.spacing / 2;
-                        padding-bottom: Style.spacing / 2;
-                        spacing: Style.spacing;
+                        height: Style.delegate_height;
+                        alignment: space-between;
+                        spacing: 2px;
 
-                        Rectangle {
-                            background: #5e8262;
-                            border-radius: 5px;
-                            width: 40px;
-                            visible: data.added-lines != 0;
-
-                            Text {
-                                font-size: 14px;
-                                vertical-alignment: center;
-                                text: "\{data.added-lines != -1 ? data.added-lines : "??"}";
-                            }
+                        file-text := Text {
+                            overflow: elide;
+                            font-size: 14px;
+                            text: data.text;
+                            vertical-alignment: center;
+                            horizontal-alignment: left;
                         }
-                        Rectangle {
-                            background: #B06161;
-                            border-radius: 5px;
-                            width: 40px;
-                            visible: data.removed-lines != 0;
-
-                            Text {
-                                font-size: 14px;
-                                vertical-alignment: center;
-                                text: "\{data.removed-lines != -1 ? data.removed-lines : "??"}";
+                        buttons-layout := HorizontalLayout {
+                            Image {
+                                source: ChangeTypeUtils.to_icon(data.change_type);
+                                horizontal-alignment: center;
                             }
-                        }
-                        Button {
-                            icon: self.checked ? @image-url("../assets/icons/checked.svg") : @image-url("../assets/icons/unchecked.svg");
-                            checked: data.is_reviewed;
-                            clicked => {
-                                root.select_id(data.id);
-                                Diff.toggle-is-reviewed(data.id)
-                            }
-                        }
-                        property <Point> p: {
-                            x: (root.width - bb.width) - 280px,
-                            y: bb.height
-                        };
-                        bb := Button {
-                            icon: @image-url("../assets/icons/menu.svg");
-                            clicked => {
-                                root.select_id(data.id);
-                                action_popup.show();
-                            }
-                        }
-                        action_popup := PopupWindow {
-                            private property <length> delegate_height: 30px;
-                            private property <[string]> action_model: ["diff", "open", "notes"];
+                            HorizontalLayout {
+                                padding-top: Style.spacing / 2;
+                                padding-bottom: Style.spacing / 2;
+                                spacing: Style.spacing;
 
-                            x: bb.x - (self.width - bb.width);
-                            y: bb.height + Style.border_width;
-                            width: Style.control_width;
-                            height: action_model.length * delegate_height;
-                            close-policy: close-on-click-outside;
+                                Rectangle {
+                                    background: #5e8262;
+                                    border-radius: 5px;
+                                    width: 40px;
+                                    visible: data.added-lines != 0;
 
-                            Rectangle {
-                                width: 100%;
-                                height: 100%;
-                                background: Style.popup_background;
-                                border-color: Style.popup_border_color;
-                                border-width: Style.border_width;
+                                    Text {
+                                        font-size: 14px;
+                                        vertical-alignment: center;
+                                        text: "\{data.added-lines != -1 ? data.added-lines : "??"}";
+                                    }
+                                }
+                                Rectangle {
+                                    background: #B06161;
+                                    border-radius: 5px;
+                                    width: 40px;
+                                    visible: data.removed-lines != 0;
 
-                                VerticalLayout {
-                                    for action[idx] in action_model: VerticalLayout {
-                                        height: delegate_height;
-                                        Rectangle {
-                                            background: ta.has-hover ? #4f4b4b : Style.popup_background;
-                                            border-color: Style.popup_border_color;
-                                            border-width: Style.border_width;
+                                    Text {
+                                        font-size: 14px;
+                                        vertical-alignment: center;
+                                        text: "\{data.removed-lines != -1 ? data.removed-lines : "??"}";
+                                    }
+                                }
+                                Button {
+                                    icon: self.checked ? @image-url("../assets/icons/checked.svg") : @image-url("../assets/icons/unchecked.svg");
+                                    checked: data.is_reviewed;
+                                    enabled: root.selected_id == data.id;
+                                    clicked => { Diff.toggle-is-reviewed(data.id) }
+                                }
+                                property <Point> p: {
+                                    x: (root.width - bb.width) - 280px,
+                                    y: bb.height
+                                };
+                                bb := Button {
+                                    icon: @image-url("../assets/icons/open_editor.svg");
+                                    enabled: root.selected_id == data.id;
+                                    clicked => { Diff.open-file(data.text) }
+                                }
+                                Rectangle {
+                                    background: root.selected_id == data.id ? #434242 : #2e2e2e;
+                                    border-width: Style.border_width;
+                                    border-radius: 5px;
+                                    width: 30px;
 
-                                            Text {
-                                                text: action;
-                                            }
-                                            ta := TouchArea {
-                                                clicked => {
-                                                    if (action == "notes") {
-                                                        root.open-file-notes-popup(data.text);
-                                                    }
-                                                    if (action == "diff") {
-                                                        Diff.open-file-diff(data.id);
-                                                    }
-                                                    if (action == "open") {
-                                                        Diff.open-file(data.text);
-                                                    }
-                                                    action_popup.close();
-                                                }
-                                            }
-                                        }
-                                        if idx < (action_model.length - 1) : Rectangle {
-                                            height: 1px;
-                                            width: 100%;
-                                            background: #4f4b4b;
+                                    Image {
+                                        colorize: notes.length > 0 ? Style.highlight_color : transparent;
+                                        source: root.extended_file_id == data.id ? @image-url("../assets/icons/drop_up.svg") : @image-url("../assets/icons/drop_down.svg");
+
+                                    }
+                                    TouchArea {
+                                        enabled: root.selected_id == data.id;
+                                        clicked => {
+                                            root.extended_file_id = root.extended_file_id == data.id ? -1 : data.id;
                                         }
                                     }
                                 }
                             }
                         }
                     }
+                    if root.extended_file_id == data.id: VerticalBox {
+                        LineEdit {
+                            height: Style.control_height;
+                            placeholder-text: "Add comment here...";
+                            accepted => {
+                                Notes.add-note(self.text, data.text);
+                                self.text = "";
+                            }
+                        }
+                        for note_item in notes: FileNoteDelegate {
+                            note: note-item;
+                        }
+                    }
                 }
-            }
-            TouchArea {
-                x: 0;
-                y: 0;
-                width: parent.width - bb.width * 2 - Style.spacing * 2;
-                clicked => { root.select_id(data.id) }
             }
         }
     }

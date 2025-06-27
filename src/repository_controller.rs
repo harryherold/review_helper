@@ -2,7 +2,7 @@ use crate::app_state::AppState;
 use crate::command_utils::run_command;
 use crate::ui;
 use native_dialog::FileDialog;
-use slint::{ComponentHandle, SharedString};
+use slint::{ComponentHandle, Model, SharedString};
 use std::path::PathBuf;
 
 pub fn setup_repository(app_state: &AppState) {
@@ -112,4 +112,10 @@ pub fn setup_repository(app_state: &AppState) {
             ui.global::<ui::Diff>().set_diff_model(m.sort_model());
         }
     });
+    app_state.app_window.global::<ui::Diff>().on_diff_model_contains_id({
+        let file_diff_model_ctx = app_state.file_diff_proxy_models.clone();
+        move |id| -> bool {
+            file_diff_model_ctx.borrow().sort_model().iter().any(|item| item.id == id)
+        }
+    })
 }
