@@ -77,7 +77,7 @@ impl FileDiffProxyModels {
     }
 
     pub fn sort_model(&self) -> ModelRc<ui::DiffFileItem> {
-        self.filter_model.clone().into()
+        self.sort_model.clone().into()
     }
 }
 
