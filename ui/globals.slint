@@ -145,5 +145,5 @@ export global StringUtils {
 export global FilePickerAdapter {
     in property <[string]> files_model;
     callback set-filter(string);
-    callback contains-model-context(string) -> bool;
+    pure callback contains-model-context(string) -> bool;
 }

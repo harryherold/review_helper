@@ -41,6 +41,47 @@ component HeaderColumn inherits Rectangle {
     }
 }
 
+component FilePickerButton inherits Rectangle {
+    in property <bool> is_editing: false; // root.editing_id == note.id
+    callback clicked <=> edit-ta.clicked;
+
+    width: 30px;
+    background: edit-ta.pressed || root.is_editing ? Colors.black : Style.popup_border_color;
+    border-radius: 2px;
+    border-color: Style.popup_border_color;
+    border-width: Style.border_width;
+
+    Image {
+        vertical-alignment: center;
+        horizontal-alignment: center;
+        width: 20px;
+        height: self.width;
+        source: @image-url("../assets/icons/file_picker.svg");
+    }
+
+    edit-ta := TouchArea { }
+}
+
+component AddButton inherits Rectangle {
+    callback clicked <=> edit-ta.clicked;
+
+    width: 30px;
+    background: edit-ta.pressed ? Colors.black : Style.popup_border_color;
+    border-radius: 2px;
+    border-color: Style.popup_border_color;
+    border-width: Style.border_width;
+
+    Image {
+        vertical-alignment: center;
+        horizontal-alignment: center;
+        width: 20px;
+        height: self.width;
+        source: @image-url("../assets/icons/add.svg");
+    }
+
+    edit-ta := TouchArea { }
+}
+
 export component NotesView inherits Rectangle {
     private property <int> editing_id: -1;
     private property <bool> is_filter_active: false;
@@ -60,6 +101,8 @@ export component NotesView inherits Rectangle {
         accepted(new_context) => {
             if (self.current_note_id > -1) {
                 Notes.change-context(self.current_note_id, new-context);
+            } else {
+                new-context-edit.text = new-context;
             }
             self.close();
         }
@@ -71,6 +114,41 @@ export component NotesView inherits Rectangle {
 
     VerticalBox {
         spacing: Style.spacing;
+        HorizontalLayout {
+            property <string> new_note_text <=> new-note-edit.text;
+            property <string> new_context <=> new-context-edit.text;
+
+            spacing: Style.spacing;
+            new-note-edit := LineEdit {
+                placeholder-text: "Add comment here...";
+            }
+
+            new-context-edit := LineEdit {
+                horizontal-alignment: left;
+                placeholder-text: "Add context here...";
+            }
+
+            new-file-picker-button := FilePickerButton {
+                is_editing: false;
+                clicked => {
+                    file-picker.current_note_id = -1;
+                    file-picker.initial_x = self.x - file-picker.width;
+                    file-picker.initial_y = self.y + self.height;
+                    if (FilePickerAdapter.contains-model-context(new_context)) {
+                        file-picker.selected_file = new_context;
+                    }
+                    file-picker.open();
+                }
+            }
+
+            AddButton {
+                clicked => {
+                    Notes.add-note(new_note_text, new_context);
+                    new_note_text = "";
+                    new_context = "";
+                }
+            }
+        }
 
         HorizontalLayout {
             spacing: Style.spacing;
@@ -173,30 +251,16 @@ export component NotesView inherits Rectangle {
                             }
                         }
 
-                        file-picker-button := Rectangle {
-                            width: 30px;
-                            background: edit-ta.pressed || root.editing_id == note.id ? Colors.black : Style.popup_border_color;
-                            border-radius: 2px;
-                            border-color: Style.popup_border_color;
-                            border-width: Style.border_width;
-                            Image {
-                                vertical-alignment: center;
-                                horizontal-alignment: center;
-                                width: 20px;
-                                height: self.width;
-                                source: @image-url("../assets/icons/file_picker.svg");
-                            }
-
-                            edit-ta := TouchArea {
-                                clicked => {
-                                    file-picker.current_note_id = note.id;
-                                    if (FilePickerAdapter.contains-model-context(note.context)) {
-                                        file-picker.selected_file = note.context;
-                                    }
-                                    file-picker.initial_x = root.width - file-picker.width;
-                                    file-picker.initial_y = listview.y + idx * text-input.height + idx * Style.spacing + file-picker-button.height;
-                                    file-picker.open();
+                        file-picker-button := FilePickerButton {
+                            is_editing: root.editing_id == note.id;
+                            clicked => {
+                                file-picker.current_note_id = note.id;
+                                if (FilePickerAdapter.contains-model-context(note.context)) {
+                                    file-picker.selected_file = note.context;
                                 }
+                                file-picker.initial_x = root.width - file-picker.width;
+                                file-picker.initial_y = listview.y + idx * text-input.height + idx * Style.spacing + file-picker-button.height;
+                                file-picker.open();
                             }
                         }
                     }
