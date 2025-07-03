@@ -3,15 +3,14 @@ import { GroupBox, LineEdit, Button, ListView, CheckBox, ComboBox, VerticalBox }
 import { Style } from "style.slint";
 import { Repository, Notes, FilePickerAdapter, SortOrder, NoteSortCriteria } from "globals.slint";
 import { FilePicker } from "file_picker.slint";
+import { ImageButton } from "image_button.slint";
 
 component HeaderColumn inherits Rectangle {
     in property <string> column_name;
     in property <NoteSortCriteria> sort_criteria;
     private property <bool> is_selected: Notes.sort_criteria == root.sort_criteria;
-
     background: root.is_selected ? Colors.black : Style.foreground_color;
     height: Style.control_height;
-
     HorizontalLayout {
         alignment: space-between;
         Rectangle { }
@@ -41,57 +40,15 @@ component HeaderColumn inherits Rectangle {
     }
 }
 
-component FilePickerButton inherits Rectangle {
-    in property <bool> is_editing: false; // root.editing_id == note.id
-    callback clicked <=> edit-ta.clicked;
-
-    width: 30px;
-    background: edit-ta.pressed || root.is_editing ? Colors.black : Style.popup_border_color;
-    border-radius: 2px;
-    border-color: Style.popup_border_color;
-    border-width: Style.border_width;
-
-    Image {
-        vertical-alignment: center;
-        horizontal-alignment: center;
-        width: 20px;
-        height: self.width;
-        source: @image-url("../assets/icons/file_picker.svg");
-    }
-
-    edit-ta := TouchArea { }
-}
-
-component AddButton inherits Rectangle {
-    callback clicked <=> edit-ta.clicked;
-
-    width: 30px;
-    background: edit-ta.pressed ? Colors.black : Style.popup_border_color;
-    border-radius: 2px;
-    border-color: Style.popup_border_color;
-    border-width: Style.border_width;
-
-    Image {
-        vertical-alignment: center;
-        horizontal-alignment: center;
-        width: 20px;
-        height: self.width;
-        source: @image-url("../assets/icons/add.svg");
-    }
-
-    edit-ta := TouchArea { }
-}
-
 export component NotesView inherits Rectangle {
-    private property <int> editing_id: -1;
     private property <bool> is_filter_active: false;
+    private property <[length]> columns_width: [Style.image_width + 2 * Style.big_spacing, 600px];
     changed is_filter_active => {
         if (!is_filter_active) {
             Notes.set-notes-text-filter("");
             Notes.set-notes-context-filter("");
         }
     }
-
     file-picker := FilePicker {
         property <int> current_note_id: -1;
         initial_x: 0;
@@ -112,12 +69,11 @@ export component NotesView inherits Rectangle {
         }
     }
 
-    VerticalBox {
+    vertical-box := VerticalBox {
         spacing: Style.spacing;
         HorizontalLayout {
             property <string> new_note_text <=> new-note-edit.text;
             property <string> new_context <=> new-context-edit.text;
-
             spacing: Style.spacing;
             new-note-edit := LineEdit {
                 placeholder-text: "Add comment here...";
@@ -128,12 +84,13 @@ export component NotesView inherits Rectangle {
                 placeholder-text: "Add context here...";
             }
 
-            new-file-picker-button := FilePickerButton {
-                is_editing: false;
+            new-file-picker-button := ImageButton {
+                source: @image-url("../assets/icons/file_picker.svg");
+                background: self.pressed || (file-picker.visible && file-picker.current_note_id == -1) ? Colors.black : Style.popup_border_color;
                 clicked => {
                     file-picker.current_note_id = -1;
-                    file-picker.initial_x = self.x - file-picker.width;
-                    file-picker.initial_y = self.y + self.height;
+                    file-picker.initial_x = root.width - file-picker.width;
+                    file-picker.initial_y = vertical-box.y + Style.spacing * 3 + self.height;
                     if (FilePickerAdapter.contains-model-context(new_context)) {
                         file-picker.selected_file = new_context;
                     }
@@ -141,7 +98,9 @@ export component NotesView inherits Rectangle {
                 }
             }
 
-            AddButton {
+            ImageButton {
+                source: @image-url("../assets/icons/add.svg");
+                enabled: new_note_text != "";
                 clicked => {
                     Notes.add-note(new_note_text, new_context);
                     new_note_text = "";
@@ -152,25 +111,19 @@ export component NotesView inherits Rectangle {
 
         HorizontalLayout {
             spacing: Style.spacing;
-
-            Rectangle {
-                width: 20px;
-
-                Image {
-                    source: root.is_filter_active ? @image-url("../assets/icons/filter_on.svg") : @image-url("../assets/icons/filter_off.svg");
-                }
-
-                TouchArea {
-                    clicked => {
-                        root.is_filter_active = !root.is_filter_active;
-                    }
+            filter-button := ImageButton {
+                width: columns_width[0];
+                source: root.is_filter_active ? @image-url("../assets/icons/filter_on.svg") : @image-url("../assets/icons/filter_off.svg");
+                background: self.pressed || root.is_filter_active ? Colors.black : Style.popup_border_color;
+                clicked => {
+                    root.is_filter_active = !root.is_filter_active;
                 }
             }
 
             HeaderColumn {
+                width: columns_width[1];
                 column_name: "Text";
                 sort_criteria: NoteSortCriteria.NoteText;
-                width: 600px;
             }
 
             HeaderColumn {
@@ -181,13 +134,12 @@ export component NotesView inherits Rectangle {
 
         if root.is_filter_active: HorizontalLayout {
             spacing: Style.spacing;
-
             Rectangle {
-                width: 20px;
+                width: columns_width[0];
             }
 
             LineEdit {
-                width: 600px;
+                width: columns_width[1];
                 placeholder-text: "Filter Note Text";
                 edited(text) => {
                     Notes.set-notes-text-filter(text)
@@ -201,68 +153,63 @@ export component NotesView inherits Rectangle {
                 }
             }
         }
-
-        Rectangle {
-            height: Style.spacing;
-        }
-
         listview := ListView {
             padding-right: 0;
             padding-left: 0;
-
             for note[idx] in Notes.notes_model: HorizontalLayout {
                 spacing: Style.spacing;
                 padding-top: Style.spacing;
 
-                CheckBox {
-                    width: 20px;
+                ImageButton {
+                    width: root.columns_width[0];
+                    checkable: true;
                     checked: note.is_fixed;
-                    toggled => {
+                    source: self.checked ? @image-url("../assets/icons/checked.svg") : @image-url("../assets/icons/unchecked.svg");
+                    clicked => {
                         Notes.toggle-fixed(note.id);
                     }
                 }
 
                 text-input := LineEdit {
                     property <string> note_text: note.text;
-
                     changed note_text => {
                         self.text = note_text;
                     }
-
-                    width: 600px;
+                    width: root.columns_width[1];
                     text: note.text;
                     accepted(text) => {
                         Notes.change-text(note.id, text);
                     }
                 }
 
-                Rectangle {
-                    background: Style.input_background_color;
-                    border-radius: 2px;
-                    border-color: Style.popup_border_color;
-                    border-width: Style.border_width;
+                context-edit := LineEdit {
+                    horizontal-alignment: left;
+                    text: note.context;
+                    accepted(text) => {
+                        Notes.change-context(note.id, text);
+                    }
+                }
 
-                    HorizontalLayout {
-                        context-edit := LineEdit {
-                            horizontal-alignment: left;
-                            text: note.context;
-                            accepted(text) => {
-                                Notes.change-context(note.id, text);
-                            }
+                file-picker-button := ImageButton {
+                    width: root.columns_width[0];
+                    source: @image-url("../assets/icons/file_picker.svg");
+                    background: self.pressed || file-picker.current_note_id == note.id ? Colors.black : Style.popup_border_color;
+                    clicked => {
+                        file-picker.current_note_id = note.id;
+                        if (FilePickerAdapter.contains-model-context(note.context)) {
+                            file-picker.selected_file = note.context;
                         }
+                        file-picker.initial_x = root.width - file-picker.width;
+                        file-picker.initial_y = listview.y + idx * text-input.height + (idx + 2) * Style.spacing + file-picker-button.height;
+                        file-picker.open();
+                    }
+                }
 
-                        file-picker-button := FilePickerButton {
-                            is_editing: root.editing_id == note.id;
-                            clicked => {
-                                file-picker.current_note_id = note.id;
-                                if (FilePickerAdapter.contains-model-context(note.context)) {
-                                    file-picker.selected_file = note.context;
-                                }
-                                file-picker.initial_x = root.width - file-picker.width;
-                                file-picker.initial_y = listview.y + idx * text-input.height + idx * Style.spacing + file-picker-button.height;
-                                file-picker.open();
-                            }
-                        }
+                ImageButton {
+                    width: root.columns_width[0];
+                    source: @image-url("../assets/icons/delete.svg");
+                    clicked => {
+                        Notes.delete-note(note.id)
                     }
                 }
             }
