@@ -165,6 +165,9 @@ export component NotesView inherits Rectangle {
                 }
             }
 
+            if root.is_filter_active: Rectangle {
+                height: Style.spacing;
+            }
             if root.is_filter_active: HorizontalLayout {
                 spacing: Style.spacing;
                 Rectangle {
