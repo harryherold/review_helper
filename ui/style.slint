@@ -1,5 +1,8 @@
 export struct ColorPalette {
     disabled: color,
+    selected: color,
+    lines_added: color,
+    lines_removed: color,
 }
 
 export struct Font {
@@ -15,7 +18,7 @@ export global Style {
     out property <length> control_width: 80px;
     out property <length> control_small_width: 50px;
     out property <length> border_width: 1px;
-    out property <length> border_radius: 2px;
+    out property <length> border_radius: 5px;
     out property <color> popup_background: #262525;
     out property <color> popup_border_color: #333232;
     out property <color> foreground_color: #333232;
@@ -25,6 +28,11 @@ export global Style {
     out property <color> foreground_disabled_color: #767373;
 
     out property <length> menu_border_radius: 5px;
-    out property <ColorPalette> palette: { disabled: #767373 };
+    out property <ColorPalette> palette: {
+        disabled: #767373,
+        selected: #373737,
+        lines_added: #5e8262,
+        lines_removed: #B06161,
+    };
     out property <Font> font: { menu_size: 16px };
 }

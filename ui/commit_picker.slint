@@ -1,4 +1,4 @@
-import { LineEdit, Button, VerticalBox, HorizontalBox, StandardTableView } from "std-widgets.slint";
+import { LineEdit, Button, VerticalBox, HorizontalBox, Palette, StandardTableView } from "std-widgets.slint";
 import { Style } from "style.slint";
 import { CommitPickerAdapter } from "globals.slint";
 
@@ -20,10 +20,10 @@ export component CommitPicker inherits PopupWindow {
     Rectangle {
         height: 100%;
         width: 100%;
-        background: #262525;
-        border-color: #333232;
-        border-radius: 10px;
-        border-width: 1px;
+        background: Palette.background;
+        border-color: Palette.border;
+        border-width: Style.border_width;
+        border-radius: Style.menu_border_radius;
 
         VerticalBox {
             HorizontalLayout {

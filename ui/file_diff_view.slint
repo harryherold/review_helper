@@ -3,13 +3,13 @@ import { GroupBox, ListView, CheckBox, Button, Palette, LineEdit, VerticalBox, H
 import { Style } from "style.slint";
 import { ChangeTypeUtils, SortCriteria, Diff, Notes, NoteItem } from "globals.slint";
 import { FileNoteDelegate } from "file_note_delegate.slint";
+import { ImageButton } from "image_button.slint";
 
 export component FileDiffView inherits VerticalBox {
     private property <int> selected_id: -1;
     private property <int> extended_file_id: -1;
     private property <int> model_count: Diff.diff_model.length;
     private property <bool> is_selected_id_in_model: true;
-
     changed selected_id => {
         if (selected_id != -1 && selected_id != extended_file_id) {
             extended_file_id = -1;
@@ -28,23 +28,22 @@ export component FileDiffView inherits VerticalBox {
             extended_file_id = -1;
         }
     }
-
     function select_id(id: int) {
         if (id != root.selected_id) {
             selected_id = id;
         }
     }
-
     spacing: Style.spacing;
-
     HorizontalLayout {
         spacing: Style.spacing;
-
         LineEdit {
             horizontal-alignment: left;
             placeholder-text: "Filter paths";
-            changed text => { Diff.filter-file-diff(self.text); }
+            changed text => {
+                Diff.filter-file-diff(self.text);
+            }
         }
+
         ComboBox {
             width: 220px;
             model: ["Name", "Extension"];
@@ -57,25 +56,31 @@ export component FileDiffView inherits VerticalBox {
             selected(current-criteria) => {
                 if current-criteria == "Name" {
                     Diff.set-sort-criteria(SortCriteria.Name);
-                }
-                else {
+                } else {
                     Diff.set-sort-criteria(SortCriteria.Extension);
                 }
             }
         }
     }
+
     ListView {
         for data[idx] in Diff.diff_model: Rectangle {
             property <[NoteItem]> notes: Notes.file-notes-model(data.text);
 
-            background: selected_id == data.id ? #333232 : Palette.background;
-            border-width: Style.border_width;
-            border-radius: 5px;
-
+            states [
+                selected when selected_id == data.id: {
+                    background: Style.palette.selected;
+                    border-width: Style.border_width;
+                    border-radius: Style.border_radius;
+                }
+            ]
             TouchArea {
-                clicked => { root.select_id(data.id) }
-                double-clicked => { Diff.open-file-diff(data.id) }
-
+                clicked => {
+                    root.select_id(data.id)
+                }
+                double-clicked => {
+                    Diff.open-file-diff(data.id)
+                }
                 VerticalLayout {
                     padding-left: Style.spacing;
                     padding-right: Style.spacing / 2;
@@ -84,7 +89,6 @@ export component FileDiffView inherits VerticalBox {
                         height: Style.delegate_height;
                         alignment: space-between;
                         spacing: 2px;
-
                         file-text := Text {
                             overflow: elide;
                             font-size: 14px;
@@ -92,76 +96,69 @@ export component FileDiffView inherits VerticalBox {
                             vertical-alignment: center;
                             horizontal-alignment: left;
                         }
+
                         buttons-layout := HorizontalLayout {
                             Image {
                                 source: ChangeTypeUtils.to_icon(data.change_type);
                                 horizontal-alignment: center;
                             }
+
                             HorizontalLayout {
                                 padding-top: Style.spacing / 2;
                                 padding-bottom: Style.spacing / 2;
                                 spacing: Style.spacing;
-
                                 Rectangle {
-                                    background: #5e8262;
+                                    background: Style.palette.lines-added;
                                     border-radius: 5px;
                                     width: 40px;
                                     visible: data.added-lines != 0;
-
                                     Text {
                                         font-size: 14px;
                                         vertical-alignment: center;
                                         text: "\{data.added-lines != -1 ? data.added-lines : "??"}";
                                     }
                                 }
+
                                 Rectangle {
-                                    background: #B06161;
+                                    background: Style.palette.lines-removed;
                                     border-radius: 5px;
                                     width: 40px;
                                     visible: data.removed-lines != 0;
-
                                     Text {
                                         font-size: 14px;
                                         vertical-alignment: center;
                                         text: "\{data.removed-lines != -1 ? data.removed-lines : "??"}";
                                     }
                                 }
-                                Button {
-                                    icon: self.checked ? @image-url("../assets/icons/checked.svg") : @image-url("../assets/icons/unchecked.svg");
-                                    checked: data.is_reviewed;
-                                    enabled: root.selected_id == data.id;
-                                    clicked => { Diff.toggle-is-reviewed(data.id) }
-                                }
-                                property <Point> p: {
-                                    x: (root.width - bb.width) - 280px,
-                                    y: bb.height
-                                };
-                                bb := Button {
-                                    icon: @image-url("../assets/icons/open_editor.svg");
-                                    enabled: root.selected_id == data.id;
-                                    clicked => { Diff.open-file(data.text) }
-                                }
-                                Rectangle {
-                                    background: root.selected_id == data.id ? #434242 : #2e2e2e;
-                                    border-width: Style.border_width;
-                                    border-radius: 5px;
-                                    width: 30px;
 
-                                    Image {
-                                        colorize: notes.length > 0 ? Style.highlight_color : transparent;
-                                        source: root.extended_file_id == data.id ? @image-url("../assets/icons/drop_up.svg") : @image-url("../assets/icons/drop_down.svg");
-
+                                ImageButton {
+                                    source: data.is_reviewed ? @image-url("../assets/icons/checked.svg") : @image-url("../assets/icons/unchecked.svg");
+                                    enabled: root.selected_id == data.id;
+                                    clicked => {
+                                        Diff.toggle-is-reviewed(data.id)
                                     }
-                                    TouchArea {
-                                        enabled: root.selected_id == data.id;
-                                        clicked => {
-                                            root.extended_file_id = root.extended_file_id == data.id ? -1 : data.id;
-                                        }
+                                }
+
+                                property <Point> p: { x: (root.width - bb.width) - 280px, y: bb.height };
+                                bb := ImageButton {
+                                    source: @image-url("../assets/icons/open_editor.svg");
+                                    enabled: root.selected_id == data.id;
+                                    clicked => {
+                                        Diff.open-file(data.text)
+                                    }
+                                }
+
+                                ImageButton {
+                                    source: root.extended_file_id == data.id ? @image-url("../assets/icons/drop_up.svg") : @image-url("../assets/icons/drop_down.svg");
+                                    enabled: root.selected_id == data.id;
+                                    clicked => {
+                                        root.extended_file_id = root.extended_file_id == data.id ? -1 : data.id;
                                     }
                                 }
                             }
                         }
                     }
+
                     if root.extended_file_id == data.id: VerticalBox {
                         LineEdit {
                             height: Style.control_height;
@@ -171,6 +168,7 @@ export component FileDiffView inherits VerticalBox {
                                 self.text = "";
                             }
                         }
+
                         for note_item in notes: FileNoteDelegate {
                             note: note-item;
                         }

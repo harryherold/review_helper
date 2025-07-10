@@ -1,4 +1,5 @@
 import { Style } from "style.slint";
+import { Palette } from "std-widgets.slint";
 
 export component ImageButton inherits Rectangle {
     out property <bool> pressed: ta.pressed;
@@ -8,16 +9,15 @@ export component ImageButton inherits Rectangle {
     in-out property <bool> checked: false;
     callback clicked();
     width: image.width + 2 * Style.big_spacing;
-    background: ta.pressed || root.checked ? Colors.black : Style.popup_border_color;
+    background: ta.pressed || root.checked ? Palette.alternate-background : Palette.control-background;
     border-radius: Style.border_radius;
-    border-color: Style.popup_border_color;
     border-width: Style.border_width;
     image := Image {
         vertical-alignment: center;
         horizontal-alignment: center;
         width: Style.image_width;
         source: root.source;
-        colorize: root.enabled ? Colors.white : Style.foreground_disabled_color;
+        colorize: root.enabled ? Palette.foreground : Style.palette.disabled;
     }
 
     ta := TouchArea {
