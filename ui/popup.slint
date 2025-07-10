@@ -1,4 +1,4 @@
-import { Button, VerticalBox, LineEdit, ListView, CheckBox } from "std-widgets.slint";
+import { Button, VerticalBox, LineEdit, ListView, CheckBox, Palette } from "std-widgets.slint";
 
 import { Style } from "style.slint";
 
@@ -18,10 +18,10 @@ export component Popup inherits Rectangle {
 
     width: 400px;
     height: 400px;
-    background: #262525;
-    border-color: #333232;
-    border-radius: 10px;
-    border-width: 1px;
+    background: Palette.background;
+    border-color: Palette.border;
+    border-width: Style.border_width;
+    border-radius: Style.menu_border_radius;
     x: self.initial_x;
     y: self.initial_y;
     z: 1000;
@@ -39,7 +39,7 @@ export component Popup inherits Rectangle {
         padding-right: 1px;
         spacing: Style.spacing;
         Rectangle {
-            background: #333232;
+//            background: #333232;
             height: Style.control_height;
             border-top-left-radius: 10px;
             border-top-right-radius: 10px;

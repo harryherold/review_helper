@@ -5,11 +5,9 @@ export component ImageButton inherits Rectangle {
     out property <bool> pressed: ta.pressed;
     in-out property <bool> enabled <=> ta.enabled;
     in property <image> source;
-    in property <bool> checkable: false;
-    in-out property <bool> checked: false;
     callback clicked();
     width: image.width + 2 * Style.big_spacing;
-    background: ta.pressed || root.checked ? Palette.alternate-background : Palette.control-background;
+    background: ta.pressed ? Palette.alternate-background : Palette.control-background;
     border-radius: Style.border_radius;
     border-width: Style.border_width;
     image := Image {
@@ -22,10 +20,7 @@ export component ImageButton inherits Rectangle {
 
     ta := TouchArea {
         clicked => {
-            if (root.checkable) {
-                root.checked = !root.checked;
-            }
-            root.clicked();
+            root.clicked()
         }
     }
 }

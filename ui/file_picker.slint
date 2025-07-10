@@ -21,7 +21,11 @@ export component FilePicker inherits Popup {
 
         ListView {
             for file in FilePickerAdapter.files_model: Rectangle {
-                background: ta.has-hover ? Style.highlight_color : file == root.selected_file ? Style.foreground_color : Style.background_color;
+                states [
+                    is_selected_file when file == root.selected_file: {
+                        background: Style.palette.selected;
+                    }
+                ]
                 height: Style.control_height;
                 width: parent.width;
                 HorizontalLayout {

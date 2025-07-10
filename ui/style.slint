@@ -7,6 +7,7 @@ export struct ColorPalette {
 
 export struct Font {
     menu_size: length,
+    sub_section_size: length,
 }
 
 export global Style {
@@ -34,5 +35,5 @@ export global Style {
         lines_added: #5e8262,
         lines_removed: #B06161,
     };
-    out property <Font> font: { menu_size: 16px };
+    out property <Font> font: { menu_size: 16px, sub_section_size: 12px };
 }

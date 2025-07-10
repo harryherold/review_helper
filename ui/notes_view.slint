@@ -1,15 +1,19 @@
-import { GroupBox, LineEdit, Button, ListView, CheckBox, ComboBox, VerticalBox } from "std-widgets.slint";
+import { GroupBox, LineEdit, Button, ListView, CheckBox, ComboBox, HorizontalBox, VerticalBox, Palette, StyleMetrics } from "std-widgets.slint";
 
 import { Style } from "style.slint";
 import { Repository, Notes, FilePickerAdapter, SortOrder, NoteSortCriteria } from "globals.slint";
 import { FilePicker } from "file_picker.slint";
 import { ImageButton } from "image_button.slint";
+import { SubSectionText } from "sub_section_text.slint";
 
 component HeaderColumn inherits Rectangle {
     in property <string> column_name;
     in property <NoteSortCriteria> sort_criteria;
     private property <bool> is_selected: Notes.sort_criteria == root.sort_criteria;
-    background: root.is_selected ? Colors.black : Style.foreground_color;
+
+    background: ta.pressed ? Palette.alternate-background : Palette.control-background;
+    border-radius: Style.border_radius;
+    border-width: Style.border_width;
     height: Style.control_height;
     HorizontalLayout {
         alignment: space-between;
@@ -25,10 +29,11 @@ component HeaderColumn inherits Rectangle {
         Image {
             visible: root.is_selected;
             source: Notes.sort_order == SortOrder.Ascending ? @image-url("../assets/icons/sort_ascending.svg") : @image-url("../assets/icons/sort_descending.svg");
+            colorize: Palette.foreground;
         }
     }
 
-    TouchArea {
+    ta := TouchArea {
         clicked => {
             if (root.is_selected) {
                 Notes.set-notes-sorting(root.sort_criteria, Notes.sort_order == SortOrder.Ascending ? SortOrder.Descending : SortOrder.Ascending);
@@ -49,6 +54,8 @@ export component NotesView inherits Rectangle {
             Notes.set-notes-context-filter("");
         }
     }
+    background: Palette.control-background;
+
     file-picker := FilePicker {
         property <int> current_note_id: -1;
         initial_x: 0;
@@ -71,10 +78,16 @@ export component NotesView inherits Rectangle {
 
     vertical-box := VerticalBox {
         spacing: Style.spacing;
-        HorizontalLayout {
+
+        SubSectionText {
+            text: "New Note:";
+        }
+
+        HorizontalBox {
             property <string> new_note_text <=> new-note-edit.text;
             property <string> new_context <=> new-context-edit.text;
             spacing: Style.spacing;
+            padding-left: 0px;
             new-note-edit := LineEdit {
                 placeholder-text: "Add comment here...";
             }
@@ -86,7 +99,6 @@ export component NotesView inherits Rectangle {
 
             new-file-picker-button := ImageButton {
                 source: @image-url("../assets/icons/file_picker.svg");
-                background: self.pressed || (file-picker.visible && file-picker.current_note_id == -1) ? Colors.black : Style.popup_border_color;
                 clicked => {
                     file-picker.current_note_id = -1;
                     file-picker.initial_x = root.width - file-picker.width;
@@ -109,107 +121,132 @@ export component NotesView inherits Rectangle {
             }
         }
 
-        HorizontalLayout {
-            spacing: Style.spacing;
-            filter-button := ImageButton {
-                width: columns_width[0];
-                source: root.is_filter_active ? @image-url("../assets/icons/filter_on.svg") : @image-url("../assets/icons/filter_off.svg");
-                background: self.pressed || root.is_filter_active ? Colors.black : Style.popup_border_color;
-                clicked => {
-                    root.is_filter_active = !root.is_filter_active;
-                }
-            }
-
-            HeaderColumn {
-                width: columns_width[1];
-                column_name: "Text";
-                sort_criteria: NoteSortCriteria.NoteText;
-            }
-
-            HeaderColumn {
-                column_name: "Context";
-                sort_criteria: NoteSortCriteria.Context;
-            }
+        SubSectionText {
+            text: "All Notes:";
         }
 
-        if root.is_filter_active: HorizontalLayout {
-            spacing: Style.spacing;
-            Rectangle {
-                width: columns_width[0];
-            }
+        VerticalBox {
+            padding-left: 0px;
 
-            LineEdit {
-                width: columns_width[1];
-                placeholder-text: "Filter Note Text";
-                edited(text) => {
-                    Notes.set-notes-text-filter(text)
-                }
-            }
-
-            LineEdit {
-                placeholder-text: "Filter Context";
-                edited(text) => {
-                    Notes.set-notes-context-filter(text)
-                }
-            }
-        }
-        listview := ListView {
-            padding-right: 0;
-            padding-left: 0;
-            for note[idx] in Notes.notes_model: HorizontalLayout {
+            HorizontalLayout {
                 spacing: Style.spacing;
-                padding-top: Style.spacing;
 
-                ImageButton {
-                    width: root.columns_width[0];
-                    checkable: true;
-                    checked: note.is_fixed;
-                    source: self.checked ? @image-url("../assets/icons/checked.svg") : @image-url("../assets/icons/unchecked.svg");
+                Rectangle {
+                    width: columns_width[0];
+
+                    Image {
+                        source: @image-url("../assets/icons/checklist.svg");
+                        vertical-alignment: center;
+                        horizontal-alignment: center;
+                        width: Style.image_width;
+                        colorize: Palette.foreground;
+                    }
+                }
+
+                HeaderColumn {
+                    width: columns_width[1];
+                    column_name: "Text";
+                    sort_criteria: NoteSortCriteria.NoteText;
+                }
+
+                HeaderColumn {
+                    column_name: "Context";
+                    sort_criteria: NoteSortCriteria.Context;
+                }
+
+                Rectangle {
+                    width: columns_width[0];
+                }
+
+                filter-button := ImageButton {
+                    width: columns_width[0];
+                    source: root.is_filter_active ? @image-url("../assets/icons/filter_on.svg") : @image-url("../assets/icons/filter_off.svg");
                     clicked => {
-                        Notes.toggle-fixed(note.id);
+                        root.is_filter_active = !root.is_filter_active;
+                    }
+                }
+            }
+
+            if root.is_filter_active: HorizontalLayout {
+                spacing: Style.spacing;
+                Rectangle {
+                    width: columns_width[0];
+                }
+
+                LineEdit {
+                    width: columns_width[1];
+                    placeholder-text: "Filter Note Text";
+                    edited(text) => {
+                        Notes.set-notes-text-filter(text)
                     }
                 }
 
-                text-input := LineEdit {
-                    property <string> note_text: note.text;
-                    changed note_text => {
-                        self.text = note_text;
-                    }
-                    width: root.columns_width[1];
-                    text: note.text;
-                    accepted(text) => {
-                        Notes.change-text(note.id, text);
+                LineEdit {
+                    placeholder-text: "Filter Context";
+                    edited(text) => {
+                        Notes.set-notes-context-filter(text)
                     }
                 }
 
-                context-edit := LineEdit {
-                    horizontal-alignment: left;
-                    text: note.context;
-                    accepted(text) => {
-                        Notes.change-context(note.id, text);
-                    }
+                Rectangle {
+                    width: columns_width[0] * 2 + Style.spacing;
                 }
+            }
+            listview := ListView {
+                padding-right: 0;
+                padding-left: 0;
+                for note[idx] in Notes.notes_model: HorizontalLayout {
+                    spacing: Style.spacing;
+                    padding-top: Style.spacing;
 
-                file-picker-button := ImageButton {
-                    width: root.columns_width[0];
-                    source: @image-url("../assets/icons/file_picker.svg");
-                    background: self.pressed || file-picker.current_note_id == note.id ? Colors.black : Style.popup_border_color;
-                    clicked => {
-                        file-picker.current_note_id = note.id;
-                        if (FilePickerAdapter.contains-model-context(note.context)) {
-                            file-picker.selected_file = note.context;
+                    ImageButton {
+                        width: root.columns_width[0];
+                        source: note.is_fixed ? @image-url("../assets/icons/checked.svg") : @image-url("../assets/icons/unchecked.svg");
+                        clicked => {
+                            Notes.toggle-fixed(note.id);
                         }
-                        file-picker.initial_x = root.width - file-picker.width;
-                        file-picker.initial_y = listview.y + idx * text-input.height + (idx + 2) * Style.spacing + file-picker-button.height;
-                        file-picker.open();
                     }
-                }
 
-                ImageButton {
-                    width: root.columns_width[0];
-                    source: @image-url("../assets/icons/delete.svg");
-                    clicked => {
-                        Notes.delete-note(note.id)
+                    text-input := LineEdit {
+                        property <string> note_text: note.text;
+                        changed note_text => {
+                            self.text = note_text;
+                        }
+                        width: root.columns_width[1];
+                        text: note.text;
+                        accepted(text) => {
+                            Notes.change-text(note.id, text);
+                        }
+                    }
+
+                    context-edit := LineEdit {
+                        horizontal-alignment: left;
+                        text: note.context;
+                        accepted(text) => {
+                            Notes.change-context(note.id, text);
+                        }
+                    }
+
+                    file-picker-button := ImageButton {
+                        width: root.columns_width[0];
+                        source: @image-url("../assets/icons/file_picker.svg");
+                        clicked => {
+                            file-picker.current_note_id = note.id;
+                            if (FilePickerAdapter.contains-model-context(note.context)) {
+                                file-picker.selected_file = note.context;
+                            }
+                            file-picker.initial_x = root.width - file-picker.width;
+                            file-picker.initial_y = listview.y + idx * text-input.height + (idx + 2) * Style.spacing + file-picker-button.height;
+                            file-picker.open();
+                        }
+                    }
+
+                    ImageButton {
+                        width: root.columns_width[0];
+                        source: @image-url("../assets/icons/delete.svg");
+                        clicked => {
+                            Notes.delete-note(note.id)
+                        }
                     }
                 }
             }
