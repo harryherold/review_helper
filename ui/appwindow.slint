@@ -11,6 +11,7 @@ import { DiffConfigView } from "diff_config_view.slint";
 import { OverallStatistics } from "overall_statistics.slint";
 
 import { Repository, CommitPickerAdapter, OverallDiffStats, AppConfig, StringUtils, Diff, DiffFileItem, Notes, NoteItem, Project, FilePickerAdapter  } from "globals.slint";
+import { SubSectionText } from "sub_section_text.slint";
 
 export { AppConfig, FilePickerAdapter, CommitPickerAdapter, Notes, NoteItem, Diff, DiffFileItem, Repository, StringUtils, OverallDiffStats, Project }
 
@@ -88,10 +89,20 @@ export component AppWindow inherits Window {
                     }
                 }
 
-                if Project.has_modifications: VerticalBox {
-                    Image {
+                if Project.has_modifications: Rectangle {
+                    width: Style.control_small_width;
+                    border-radius: Style.border_radius;
+                    border-width: Style.border_width;
+                    states [
+                        is_active when ta.has-hover: {
+                            background: Palette.control-background;
+                        }
+                    ]
+                    image := Image {
                         source: @image-url("../assets/icons/save.svg");
-                        padding: 10px;
+                        vertical-alignment: center;
+                        horizontal-alignment: center;
+                        colorize: Palette.foreground;
 
                         ta := TouchArea {
                             clicked => {
@@ -111,14 +122,25 @@ export component AppWindow inherits Window {
                     background: Palette.control-background;
 
                     VerticalBox {
-                        DiffConfigView {
-                            height: 100px;
-                            vertical-stretch: 0;
+                        spacing: Style.spacing;
+                        SubSectionText {
+                            text: "Repository:";
                         }
 
-                        if Repository.is_loaded: OverallStatistics {
-                            vertical-stretch: 0;
+                        DiffConfigView { }
+
+                        SubSectionText {
+                            visible: Repository.is_loaded;
+                            text: "Statistics:";
                         }
+
+                        if Repository.is_loaded: OverallStatistics { }
+
+                        SubSectionText {
+                            visible: Repository.is_loaded;
+                            text: "Differences:";
+                        }
+
                         if Repository.is_loaded: FileDiffView { }
                     }
                 }

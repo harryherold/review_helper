@@ -5,7 +5,7 @@ import { ChangeTypeUtils, SortCriteria, Diff, Notes, NoteItem } from "globals.sl
 import { FileNoteDelegate } from "file_note_delegate.slint";
 import { ImageButton } from "image_button.slint";
 
-export component FileDiffView inherits VerticalBox {
+export component FileDiffView inherits VerticalLayout {
     private property <int> selected_id: -1;
     private property <int> extended_file_id: -1;
     private property <int> model_count: Diff.diff_model.length;

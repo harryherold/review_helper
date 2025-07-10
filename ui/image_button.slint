@@ -7,9 +7,15 @@ export component ImageButton inherits Rectangle {
     in property <image> source;
     callback clicked();
     width: image.width + 2 * Style.big_spacing;
-    background: ta.pressed ? Palette.alternate-background : Palette.control-background;
+    background: Palette.control-background;
     border-radius: Style.border_radius;
     border-width: Style.border_width;
+    states [
+        is_pressed when ta.pressed: {
+            background: Palette.alternate-background;
+            border-color: Palette.border;
+        }
+    ]
     image := Image {
         vertical-alignment: center;
         horizontal-alignment: center;

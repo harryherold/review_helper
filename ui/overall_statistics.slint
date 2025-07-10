@@ -1,49 +1,44 @@
-import { GroupBox } from "std-widgets.slint";
+import { GroupBox, HorizontalBox } from "std-widgets.slint";
 
 import { Style } from "style.slint";
 import { ChangeTypeUtils, ChangeType, OverallDiffStats } from "globals.slint";
 
-export component OverallStatistics inherits GroupBox {
-    title: "Statistics";
-
-    HorizontalLayout {
-        height: 50px;
-
-        for data in OverallDiffStats.model: VerticalLayout {
-            width: 40px;
-            Image {
-                source: ChangeTypeUtils.to_icon(data.change_type);
-            }
-
-            Text {
-                text: "\{data.count}";
-                horizontal-alignment: center;
-            }
-        }
-        VerticalLayout {
-            width: 40px;
-            Image {
-                source: @image-url("../assets/icons/add.svg");
-                colorize: #5e8262;
-            }
-
-            Text {
-                text: OverallDiffStats.added_lines > 0 ? "\{OverallDiffStats.added_lines}" : "??";
-                horizontal-alignment: center;
-            }
+export component OverallStatistics inherits HorizontalLayout {
+    alignment: start;
+    for data in OverallDiffStats.model: VerticalLayout {
+        Image {
+            source: ChangeTypeUtils.to_icon(data.change_type);
+            height: Style.control_height;
         }
 
-        VerticalLayout {
-            width: 40px;
-            Image {
-                source: @image-url("../assets/icons/remove.svg");
-                colorize: #B06161;
-            }
+        Text {
+            text: "\{data.count}";
+            horizontal-alignment: center;
+        }
+    }
+    VerticalLayout {
+        Image {
+            source: @image-url("../assets/icons/add.svg");
+            colorize: Style.palette.lines-added;
+            height: Style.control_height;
+        }
 
-            Text {
-                text: OverallDiffStats.removed_lines > 0 ? "\{OverallDiffStats.removed_lines}" : "??";
-                horizontal-alignment: center;
-            }
+        Text {
+            text: OverallDiffStats.added_lines > 0 ? "\{OverallDiffStats.added_lines}" : "??";
+            horizontal-alignment: center;
+        }
+    }
+
+    VerticalLayout {
+        Image {
+            source: @image-url("../assets/icons/remove.svg");
+            colorize: Style.palette.lines-removed;
+            height: Style.control_height;
+        }
+
+        Text {
+            text: OverallDiffStats.removed_lines > 0 ? "\{OverallDiffStats.removed_lines}" : "??";
+            horizontal-alignment: center;
         }
     }
 }

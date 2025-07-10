@@ -83,11 +83,10 @@ export component NotesView inherits Rectangle {
             text: "New Note:";
         }
 
-        HorizontalBox {
+        HorizontalLayout {
             property <string> new_note_text <=> new-note-edit.text;
             property <string> new_context <=> new-context-edit.text;
             spacing: Style.spacing;
-            padding-left: 0px;
             new-note-edit := LineEdit {
                 placeholder-text: "Add comment here...";
             }
@@ -125,8 +124,7 @@ export component NotesView inherits Rectangle {
             text: "All Notes:";
         }
 
-        VerticalBox {
-            padding-left: 0px;
+        VerticalLayout {
 
             HorizontalLayout {
                 spacing: Style.spacing;
