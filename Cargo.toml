@@ -15,7 +15,7 @@ slint = { version = "1.11.0", default-features = false, features = [
     "std",
     "backend-winit",
     "compat-1-2",
-    "renderer-femtovg",
+    "renderer-skia",
     "renderer-software",
     "backend-qt",
 ] }
