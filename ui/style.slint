@@ -1,3 +1,11 @@
+export struct ColorPalette {
+    disabled: color,
+}
+
+export struct Font {
+    menu_size: length,
+}
+
 export global Style {
     out property <length> spacing: 4px;
     out property <length> big_spacing: 6px;
@@ -15,4 +23,8 @@ export global Style {
     out property <color> input_background_color: #292929;
     out property <color> highlight_color: #60cdff;
     out property <color> foreground_disabled_color: #767373;
+
+    out property <length> menu_border_radius: 5px;
+    out property <ColorPalette> palette: { disabled: #767373 };
+    out property <Font> font: { menu_size: 16px };
 }

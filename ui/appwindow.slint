@@ -34,7 +34,6 @@ export component AppWindow inherits Window {
 
     VerticalLayout {
         menu-rect := Rectangle {
-            background: #262525;
             height: 40px;
 
             HorizontalLayout {
@@ -108,16 +107,20 @@ export component AppWindow inherits Window {
             Tab {
                 title: "File Diff";
 
-                VerticalBox {
-                    DiffConfigView {
-                        height: 100px;
-                        vertical-stretch: 0;
-                    }
+                Rectangle {
+                    background: Palette.control-background;
 
-                    if Repository.is_loaded: OverallStatistics {
-                        vertical-stretch: 0;
+                    VerticalBox {
+                        DiffConfigView {
+                            height: 100px;
+                            vertical-stretch: 0;
+                        }
+
+                        if Repository.is_loaded: OverallStatistics {
+                            vertical-stretch: 0;
+                        }
+                        if Repository.is_loaded: FileDiffView { }
                     }
-                    if Repository.is_loaded: FileDiffView { }
                 }
             }
 

@@ -1,4 +1,5 @@
 import { Palette } from "std-widgets.slint";
+import { Style } from "style.slint";
 
 export component Menu inherits Rectangle {
     in property <string> text <=> button-text.text;
@@ -6,29 +7,35 @@ export component Menu inherits Rectangle {
 
     popup := PopupWindow {
         y: root.height;
-        opacity: 0;
 
         Rectangle {
-            background: #333232;
+            background: Palette.background;
+            border-color: Palette.border;
+            border-width: Style.border_width;
+            border-radius: Style.menu_border_radius;
 
             layout := VerticalLayout {
+                padding: 5px;
                 @children
             }
         }
     }
 
-    background: click-area.has-hover ? Colors.black : #262525;
+    background: click-area.has-hover ? Palette.control-background : Palette.background;
     min-width: button-text.width + 15px;
 
     button-text := Text {
         vertical-alignment: center;
         horizontal-alignment: left;
-        font-size: 16px;
-        color: root.enabled ? Palette.control-foreground : Colors.grey;
+        font-size: Style.font.menu-size;
+        color: root.enabled ? Palette.control-foreground : Style.palette.disabled;
     }
+
     click-area := TouchArea {
         enabled: root.enabled;
-        clicked => { popup.show() }
+        clicked => {
+            popup.show()
+        }
     }
 }
 
@@ -37,9 +44,9 @@ export component MenuItem inherits Rectangle {
 
     in property <string> text <=> button-text.text;
     in-out property <bool> enabled: true;
-    in-out property <color> background-color: #333232;
 
-    background: click-area.has-hover ? Colors.black : background-color;
+    background: click-area.has-hover ? Palette.control-background : Palette.background;
+    border-radius: Style.menu_border_radius;
     min-height: 40px;
 
     HorizontalLayout {
@@ -48,12 +55,15 @@ export component MenuItem inherits Rectangle {
         button-text := Text {
             vertical-alignment: center;
             horizontal-alignment: left;
-            font-size: 16px;
-            color: root.enabled ? Palette.control-foreground : Colors.grey;
+            font-size: Style.font.menu-size;
+            color: root.enabled ? Palette.control-foreground : Style.palette.disabled;
         }
     }
+
     click-area := TouchArea {
         enabled: root.enabled;
-        clicked => { root.clicked() }
+        clicked => {
+            root.clicked()
+        }
     }
 }
