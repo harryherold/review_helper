@@ -10,10 +10,10 @@ export component ImageButton inherits Rectangle {
     background: Palette.control-background;
     border-radius: Style.size.border_radius;
     border-width: Style.size.border_width;
+    border-color: Palette.border;
     states [
         is_pressed when ta.pressed: {
             background: Palette.alternate-background;
-            border-color: Palette.border;
         }
     ]
     image := Image {
