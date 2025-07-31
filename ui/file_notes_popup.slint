@@ -19,7 +19,7 @@ export component FileNotesPopup inherits Popup {
 
     VerticalBox {
         LineEdit {
-            height: Style.control_height;
+            height: Style.size.control_height;
             placeholder-text: "Add comment here...";
             accepted => {
                 Notes.add-note(self.text, root.file);

@@ -12,25 +12,20 @@ export struct Font {
     sub_section_size: length,
 }
 
-export global Style {
-    out property <length> spacing: 4px;
-    out property <length> big_spacing: 6px;
-    out property <length> image_width: 20px;
-    out property <length> delegate_height: 32px;
-    out property <length> control_height: 30px;
-    out property <length> control_width: 80px;
-    out property <length> control_small_width: 50px;
-    out property <length> border_width: 1px;
-    out property <length> border_radius: 5px;
-    out property <color> popup_background: #262525;
-    out property <color> popup_border_color: #333232;
-    out property <color> foreground_color: #333232;
-    out property <color> background_color: #262525;
-    out property <color> input_background_color: #292929;
-    out property <color> highlight_color: #60cdff;
-    out property <color> foreground_disabled_color: #767373;
+export struct Size {
+    menu_border_radius: length,
+    border_radius: length,
+    border_width: length,
+    control_small_width: length,
+    control_width: length,
+    control_height: length,
+    delegate_height: length,
+    image_width: length,
+    spacing: length,
+    big_spacing: length,
+}
 
-    out property <length> menu_border_radius: 5px;
+export global Style {
     out property <ColorPalette> palette: {
         disabled: #767373,
         selected: Palette.color-scheme == ColorScheme.dark ? #373737 : #e8e8e8,
@@ -38,4 +33,16 @@ export global Style {
         lines_removed: #B06161,
     };
     out property <Font> font: { menu_size: 16px, sub_section_size: 12px };
+    out property <Size> size: {
+        menu_border_radius: 5px,
+        border_radius: 5px,
+        border_width: 1px,
+        control_small_width: 50px,
+        control_width: 80px,
+        control_height: 30px,
+        delegate_height: 32px,
+        image_width: 20px,
+        spacing: 4px,
+        big_spacing: 6px,
+    };
 }

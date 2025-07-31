@@ -26,7 +26,7 @@ export component FilePicker inherits Popup {
                         background: Style.palette.selected;
                     }
                 ]
-                height: Style.control_height;
+                height: Style.size.control_height;
                 width: parent.width;
                 HorizontalLayout {
                     alignment: start;
@@ -36,7 +36,7 @@ export component FilePicker inherits Popup {
                     }
 
                     Rectangle {
-                        width: Style.spacing * 2;
+                        width: Style.size.spacing * 2;
                     }
 
                     Text {
@@ -54,18 +54,18 @@ export component FilePicker inherits Popup {
         }
 
         HorizontalLayout {
-            spacing: Style.big_spacing;
+            spacing: Style.size.big_spacing;
             alignment: end;
             Button {
                 text: "Cancel";
-                width: Style.control_width;
+                width: Style.size.control_width;
                 clicked => {
                     root.close();
                 }
             }
 
             Button {
-                width: Style.control_width;
+                width: Style.size.control_width;
                 text: "Take";
                 enabled: root.selected_file != "";
                 clicked => {

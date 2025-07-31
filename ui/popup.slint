@@ -20,8 +20,8 @@ export component Popup inherits Rectangle {
     height: 400px;
     background: Palette.background;
     border-color: Palette.border;
-    border-width: Style.border_width;
-    border-radius: Style.menu_border_radius;
+    border-width: Style.size.border_width;
+    border-radius: Style.size.menu_border_radius;
     x: self.initial_x;
     y: self.initial_y;
     z: 1000;
@@ -37,10 +37,10 @@ export component Popup inherits Rectangle {
         padding-top: 1px;
         padding-left: 1px;
         padding-right: 1px;
-        spacing: Style.spacing;
+        spacing: Style.size.spacing;
         Rectangle {
 //            background: #333232;
-            height: Style.control_height;
+            height: Style.size.control_height;
             border-top-left-radius: 10px;
             border-top-right-radius: 10px;
 
@@ -52,7 +52,7 @@ export component Popup inherits Rectangle {
                 }
 
                 if root.enable_close_button: Button {
-                    height: Style.control_height;
+                    height: Style.size.control_height;
                     width: 45px;
                     icon: @image-url("../assets/icons/close.svg");
                     clicked => {

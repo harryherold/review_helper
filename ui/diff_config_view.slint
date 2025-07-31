@@ -8,18 +8,18 @@ import { Diff, Repository } from "globals.slint";
 import { ImageButton } from "image_button.slint";
 
 export component DiffConfigView inherits VerticalLayout {
-    spacing: Style.spacing;
+    spacing: Style.size.spacing;
 
     HorizontalLayout {
-        spacing: Style.spacing;
+        spacing: Style.size.spacing;
         LineEdit {
             read-only: true;
             text: Repository.path;
         }
 
         ImageButton {
-            width: Style.control_small_width;
-            height: Style.control_height + Style.border_width * 2;
+            width: Style.size.control_small_width;
+            height: Style.size.control_height + Style.size.border_width * 2;
             source: @image-url("../assets/icons/folder_open.svg");
             clicked => {
                 Repository.open();
@@ -29,19 +29,19 @@ export component DiffConfigView inherits VerticalLayout {
 
     HorizontalLayout {
         visible: Repository.path != "";
-        spacing: Style.spacing;
+        spacing: Style.size.spacing;
 
         start-commit-editor := CommitEditor {
             picker-position: CommitPickerPosition.Left;
             commit: Diff.start_commit;
-            height: Style.control_height + Style.border_width * 2;
+            height: Style.size.control_height + Style.size.border_width * 2;
             placeholder-text: "Start Commit SHA";
         }
 
         ImageButton {
             source: @image-url("../assets/icons/compare.svg");
-            width: Style.control_small_width;
-            height: Style.control_height + Style.border_width * 2;
+            width: Style.size.control_small_width;
+            height: Style.size.control_height + Style.size.border_width * 2;
             clicked => {
                 Diff.diff-start-end(start-commit-editor.commit, end-commit-editor.commit);
             }
@@ -50,7 +50,7 @@ export component DiffConfigView inherits VerticalLayout {
         end-commit-editor := CommitEditor {
             picker-position: CommitPickerPosition.Right;
             commit: Diff.end_commit;
-            height: Style.control_height + Style.border_width * 2;
+            height: Style.size.control_height + Style.size.border_width * 2;
             placeholder-text: "End Commit SHA";
         }
     }

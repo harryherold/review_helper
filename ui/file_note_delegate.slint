@@ -7,7 +7,7 @@ import { LineEdit } from "std-widgets.slint";
 export component FileNoteDelegate inherits HorizontalLayout {
     in property <NoteItem> note;
 
-    spacing: Style.big_spacing;
+    spacing: Style.size.big_spacing;
 
     CheckBox {
         checked: note.is_fixed;
@@ -22,7 +22,7 @@ export component FileNoteDelegate inherits HorizontalLayout {
         changed note_text => {
             self.text = note_text;
         }
-        height: Style.control_height;
+        height: Style.size.control_height;
         text: note.text;
         accepted => {
             Notes.change-text(note.id, self.text)

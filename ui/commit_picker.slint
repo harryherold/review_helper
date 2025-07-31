@@ -22,12 +22,12 @@ export component CommitPicker inherits PopupWindow {
         width: 100%;
         background: Palette.background;
         border-color: Palette.border;
-        border-width: Style.border_width;
-        border-radius: Style.menu_border_radius;
+        border-width: Style.size.border_width;
+        border-radius: Style.size.menu_border_radius;
 
         VerticalBox {
             HorizontalLayout {
-                spacing: Style.spacing;
+                spacing: Style.size.spacing;
 
                 LineEdit {
                     placeholder-text: "text filter";
@@ -67,7 +67,7 @@ export component CommitPicker inherits PopupWindow {
             HorizontalBox {
                 alignment: end;
                 Button {
-                    height: Style.control_height;
+                    height: Style.size.control_height;
                     text: "Cancel";
                     clicked => {
                         root.close()
@@ -75,7 +75,7 @@ export component CommitPicker inherits PopupWindow {
                 }
 
                 Button {
-                    height: Style.control_height;
+                    height: Style.size.control_height;
                     text: "Apply";
                     clicked => {
                         root.accepted(text);

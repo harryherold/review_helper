@@ -12,9 +12,9 @@ component HeaderColumn inherits Rectangle {
     private property <bool> is_selected: Notes.sort_criteria == root.sort_criteria;
 
     background: ta.pressed ? Palette.alternate-background : Palette.control-background;
-    border-radius: Style.border_radius;
-    border-width: Style.border_width;
-    height: Style.control_height;
+    border-radius: Style.size.border_radius;
+    border-width: Style.size.border_width;
+    height: Style.size.control_height;
     HorizontalLayout {
         alignment: space-between;
         Rectangle { }
@@ -47,7 +47,7 @@ component HeaderColumn inherits Rectangle {
 
 export component NotesView inherits Rectangle {
     private property <bool> is_filter_active: false;
-    private property <[length]> columns_width: [Style.image_width + 2 * Style.big_spacing, 600px];
+    private property <[length]> columns_width: [Style.size.image_width + 2 * Style.size.big_spacing, 600px];
     changed is_filter_active => {
         if (!is_filter_active) {
             Notes.set-notes-text-filter("");
@@ -77,7 +77,7 @@ export component NotesView inherits Rectangle {
     }
 
     vertical-box := VerticalBox {
-        spacing: Style.spacing;
+        spacing: Style.size.spacing;
 
         SubSectionText {
             text: "New Note:";
@@ -86,7 +86,7 @@ export component NotesView inherits Rectangle {
         HorizontalLayout {
             property <string> new_note_text <=> new-note-edit.text;
             property <string> new_context <=> new-context-edit.text;
-            spacing: Style.spacing;
+            spacing: Style.size.spacing;
             new-note-edit := LineEdit {
                 placeholder-text: "Add comment here...";
             }
@@ -101,7 +101,7 @@ export component NotesView inherits Rectangle {
                 clicked => {
                     file-picker.current_note_id = -1;
                     file-picker.initial_x = root.width - file-picker.width;
-                    file-picker.initial_y = vertical-box.y + Style.spacing * 3 + self.height;
+                    file-picker.initial_y = vertical-box.y + Style.size.spacing * 3 + self.height;
                     if (FilePickerAdapter.contains-model-context(new_context)) {
                         file-picker.selected_file = new_context;
                     }
@@ -127,7 +127,7 @@ export component NotesView inherits Rectangle {
         VerticalLayout {
 
             HorizontalLayout {
-                spacing: Style.spacing;
+                spacing: Style.size.spacing;
 
                 Rectangle {
                     width: columns_width[0];
@@ -136,7 +136,7 @@ export component NotesView inherits Rectangle {
                         source: @image-url("../assets/icons/checklist.svg");
                         vertical-alignment: center;
                         horizontal-alignment: center;
-                        width: Style.image_width;
+                        width: Style.size.image_width;
                         colorize: Palette.foreground;
                     }
                 }
@@ -166,10 +166,10 @@ export component NotesView inherits Rectangle {
             }
 
             if root.is_filter_active: Rectangle {
-                height: Style.spacing;
+                height: Style.size.spacing;
             }
             if root.is_filter_active: HorizontalLayout {
-                spacing: Style.spacing;
+                spacing: Style.size.spacing;
                 Rectangle {
                     width: columns_width[0];
                 }
@@ -190,15 +190,15 @@ export component NotesView inherits Rectangle {
                 }
 
                 Rectangle {
-                    width: columns_width[0] * 2 + Style.spacing;
+                    width: columns_width[0] * 2 + Style.size.spacing;
                 }
             }
             listview := ListView {
                 padding-right: 0;
                 padding-left: 0;
                 for note[idx] in Notes.notes_model: HorizontalLayout {
-                    spacing: Style.spacing;
-                    padding-top: Style.spacing;
+                    spacing: Style.size.spacing;
+                    padding-top: Style.size.spacing;
 
                     ImageButton {
                         width: root.columns_width[0];
@@ -237,7 +237,7 @@ export component NotesView inherits Rectangle {
                                 file-picker.selected_file = note.context;
                             }
                             file-picker.initial_x = root.width - file-picker.width;
-                            file-picker.initial_y = listview.y + idx * text-input.height + (idx + 2) * Style.spacing + file-picker-button.height;
+                            file-picker.initial_y = listview.y + idx * text-input.height + (idx + 2) * Style.size.spacing + file-picker-button.height;
                             file-picker.open();
                         }
                     }

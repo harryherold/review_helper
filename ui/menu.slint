@@ -11,8 +11,8 @@ export component Menu inherits Rectangle {
         Rectangle {
             background: Palette.background;
             border-color: Palette.border;
-            border-width: Style.border_width;
-            border-radius: Style.menu_border_radius;
+            border-width: Style.size.border_width;
+            border-radius: Style.size.menu_border_radius;
 
             layout := VerticalLayout {
                 padding: 5px;
@@ -46,7 +46,7 @@ export component MenuItem inherits Rectangle {
     in-out property <bool> enabled: true;
 
     background: click-area.has-hover ? Style.palette.selected : Palette.background;
-    border-radius: Style.menu_border_radius;
+    border-radius: Style.size.menu_border_radius;
     min-height: 40px;
 
     HorizontalLayout {

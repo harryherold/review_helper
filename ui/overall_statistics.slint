@@ -8,7 +8,7 @@ export component OverallStatistics inherits HorizontalLayout {
     for data in OverallDiffStats.model: VerticalLayout {
         Image {
             source: ChangeTypeUtils.to_icon(data.change_type);
-            height: Style.control_height;
+            height: Style.size.control_height;
             colorize: Palette.foreground;
         }
 
@@ -21,7 +21,7 @@ export component OverallStatistics inherits HorizontalLayout {
         Image {
             source: @image-url("../assets/icons/add.svg");
             colorize: Style.palette.lines-added;
-            height: Style.control_height;
+            height: Style.size.control_height;
         }
 
         Text {
@@ -34,7 +34,7 @@ export component OverallStatistics inherits HorizontalLayout {
         Image {
             source: @image-url("../assets/icons/remove.svg");
             colorize: Style.palette.lines-removed;
-            height: Style.control_height;
+            height: Style.size.control_height;
         }
 
         Text {

@@ -33,9 +33,9 @@ export component FileDiffView inherits VerticalLayout {
             selected_id = id;
         }
     }
-    spacing: Style.spacing;
+    spacing: Style.size.spacing;
     HorizontalLayout {
-        spacing: Style.spacing;
+        spacing: Style.size.spacing;
         LineEdit {
             horizontal-alignment: left;
             placeholder-text: "Filter paths";
@@ -70,8 +70,8 @@ export component FileDiffView inherits VerticalLayout {
             states [
                 selected when selected_id == data.id: {
                     background: Style.palette.selected;
-                    border-width: Style.border_width;
-                    border-radius: Style.border_radius;
+                    border-width: Style.size.border_width;
+                    border-radius: Style.size.border_radius;
                 }
             ]
             TouchArea {
@@ -82,11 +82,11 @@ export component FileDiffView inherits VerticalLayout {
                     Diff.open-file-diff(data.id)
                 }
                 VerticalLayout {
-                    padding-left: Style.spacing;
-                    padding-right: Style.spacing / 2;
-                    spacing: Style.spacing;
+                    padding-left: Style.size.spacing;
+                    padding-right: Style.size.spacing / 2;
+                    spacing: Style.size.spacing;
                     HorizontalLayout {
-                        height: Style.delegate_height;
+                        height: Style.size.delegate_height;
                         alignment: space-between;
                         spacing: 2px;
                         file-text := Text {
@@ -105,9 +105,9 @@ export component FileDiffView inherits VerticalLayout {
                             }
 
                             HorizontalLayout {
-                                padding-top: Style.spacing / 2;
-                                padding-bottom: Style.spacing / 2;
-                                spacing: Style.spacing;
+                                padding-top: Style.size.spacing / 2;
+                                padding-bottom: Style.size.spacing / 2;
+                                spacing: Style.size.spacing;
                                 Rectangle {
                                     background: Style.palette.lines-added;
                                     border-radius: 5px;
@@ -162,7 +162,7 @@ export component FileDiffView inherits VerticalLayout {
 
                     if root.extended_file_id == data.id: VerticalBox {
                         LineEdit {
-                            height: Style.control_height;
+                            height: Style.size.control_height;
                             placeholder-text: "Add comment here...";
                             accepted => {
                                 Notes.add-note(self.text, data.text);

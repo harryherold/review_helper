@@ -17,8 +17,8 @@ export component CommitEditor inherits Rectangle {
     }
 
     picker-button := ImageButton {
-        width: Style.control_small_width;
-        x: root.picker-position == CommitPickerPosition.Left ? 0px : commit-edit.width + Style.spacing;
+        width: Style.size.control_small_width;
+        x: root.picker-position == CommitPickerPosition.Left ? 0px : commit-edit.width + Style.size.spacing;
         source: @image-url("../assets/icons/tree.svg");
         clicked => {
             commit_picker.show();
@@ -26,8 +26,8 @@ export component CommitEditor inherits Rectangle {
     }
 
     commit-edit := LineEdit {
-        width: root.width - picker-button.width - Style.spacing;
-        x: root.picker-position == CommitPickerPosition.Left ? picker-button.width + Style.spacing : 0px;
+        width: root.width - picker-button.width - Style.size.spacing;
+        x: root.picker-position == CommitPickerPosition.Left ? picker-button.width + Style.size.spacing : 0px;
         placeholder-text: root.placeholder-text;
         text <=> root.commit;
     }

@@ -12,7 +12,7 @@ export component AppConfigPopup inherits Popup {
         alignment: space-between;
 
         GridLayout {
-            spacing: Style.spacing;
+            spacing: Style.size.spacing;
 
             Row {
                 Text {
@@ -22,7 +22,7 @@ export component AppConfigPopup inherits Popup {
                 }
 
                 diff_tool_edit := LineEdit {
-                    height: Style.control_height;
+                    height: Style.size.control_height;
                     text <=> AppConfig.diff_tool;
                 }
             }
@@ -35,7 +35,7 @@ export component AppConfigPopup inherits Popup {
                 }
 
                 editor_edit := LineEdit {
-                    height: Style.control_height;
+                    height: Style.size.control_height;
                     text <=> AppConfig.editor;
                 }
             }
@@ -48,14 +48,14 @@ export component AppConfigPopup inherits Popup {
                 }
 
                 editor_args_edit := LineEdit {
-                    height: Style.control_height;
+                    height: Style.size.control_height;
                     text <=> AppConfig.editor_args;
                 }
             }
         }
 
         HorizontalLayout {
-            spacing: Style.spacing;
+            spacing: Style.size.spacing;
 
             Button {
                 text: "Cancel";

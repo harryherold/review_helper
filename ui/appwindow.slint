@@ -39,10 +39,10 @@ export component AppWindow inherits Window {
 
             HorizontalLayout {
                 alignment: space-between;
-                spacing: Style.spacing;
+                spacing: Style.size.spacing;
 
                 HorizontalLayout {
-                    spacing: Style.spacing;
+                    spacing: Style.size.spacing;
 
                     Menu {
                         text: "File";
@@ -90,9 +90,9 @@ export component AppWindow inherits Window {
                 }
 
                 if Project.has_modifications: Rectangle {
-                    width: Style.control_small_width;
-                    border-radius: Style.border_radius;
-                    border-width: Style.border_width;
+                    width: Style.size.control_small_width;
+                    border-radius: Style.size.border_radius;
+                    border-width: Style.size.border_width;
                     states [
                         is_active when ta.has-hover: {
                             background: Palette.control-background;
@@ -122,7 +122,7 @@ export component AppWindow inherits Window {
                     background: Palette.control-background;
 
                     VerticalBox {
-                        spacing: Style.spacing;
+                        spacing: Style.size.spacing;
                         SubSectionText {
                             text: "Repository:";
                         }

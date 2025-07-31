@@ -2,7 +2,7 @@ import { Style } from "style.slint";
 
 export component SubSectionText inherits Rectangle {
     in property <string> text <=> text-label.text;
-    height: Style.control_height + 2 * Style.spacing;
+    height: Style.size.control_height + 2 * Style.size.spacing;
 
     text-label := Text {
         x: 0;

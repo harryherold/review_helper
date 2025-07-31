@@ -6,10 +6,10 @@ export component ImageButton inherits Rectangle {
     in-out property <bool> enabled <=> ta.enabled;
     in property <image> source;
     callback clicked();
-    width: image.width + 2 * Style.big_spacing;
+    width: image.width + 2 * Style.size.big_spacing;
     background: Palette.control-background;
-    border-radius: Style.border_radius;
-    border-width: Style.border_width;
+    border-radius: Style.size.border_radius;
+    border-width: Style.size.border_width;
     states [
         is_pressed when ta.pressed: {
             background: Palette.alternate-background;
@@ -19,7 +19,7 @@ export component ImageButton inherits Rectangle {
     image := Image {
         vertical-alignment: center;
         horizontal-alignment: center;
-        width: Style.image_width;
+        width: Style.size.image_width;
         source: root.source;
         colorize: root.enabled ? Palette.foreground : Style.palette.disabled;
     }
