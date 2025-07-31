@@ -16,8 +16,8 @@ export component Popup inherits Rectangle {
         self.visible = false;
     }
 
-    width: 400px;
-    height: 400px;
+    width: layout.preferred-width;
+    height: layout.preferred-height;
     background: Palette.background;
     border-color: Palette.border;
     border-width: Style.size.border_width;
@@ -33,13 +33,14 @@ export component Popup inherits Rectangle {
         }
     }
 
-    VerticalLayout {
+    layout := VerticalLayout {
+        horizontal-stretch: 0;
+        vertical-stretch: 0;
         padding-top: 1px;
         padding-left: 1px;
         padding-right: 1px;
         spacing: Style.size.spacing;
         Rectangle {
-//            background: #333232;
             height: Style.size.control_height;
             border-top-left-radius: 10px;
             border-top-right-radius: 10px;

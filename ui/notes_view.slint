@@ -61,8 +61,6 @@ export component NotesView inherits Rectangle {
         property <int> current_note_id: -1;
         initial_x: 0;
         initial_y: 0;
-        preferred-height: 300px;
-        preferred-width: 300px;
         accepted(new_context) => {
             if (self.current_note_id > -1) {
                 Notes.change-context(self.current_note_id, new-context);
@@ -80,7 +78,7 @@ export component NotesView inherits Rectangle {
     vertical-box := VerticalBox {
         spacing: Style.size.spacing;
 
-        SubSectionText {
+        sub-section-text := SubSectionText {
             text: "New Note:";
         }
 
@@ -102,7 +100,7 @@ export component NotesView inherits Rectangle {
                 clicked => {
                     file-picker.current_note_id = -1;
                     file-picker.initial_x = root.width - file-picker.width;
-                    file-picker.initial_y = vertical-box.y + Style.size.spacing * 3 + self.height;
+                    file-picker.initial_y = vertical-box.y + self.height + sub-section-text.height + Style.size.spacing * 3;
                     if (FilePickerAdapter.contains-model-context(new_context)) {
                         file-picker.selected_file = new_context;
                     }
@@ -125,8 +123,7 @@ export component NotesView inherits Rectangle {
             text: "All Notes:";
         }
 
-        VerticalLayout {
-
+        notes-vertical-layout := VerticalLayout {
             HorizontalLayout {
                 spacing: Style.size.spacing;
 
@@ -238,7 +235,7 @@ export component NotesView inherits Rectangle {
                                 file-picker.selected_file = note.context;
                             }
                             file-picker.initial_x = root.width - file-picker.width;
-                            file-picker.initial_y = listview.y + idx * text-input.height + (idx + 2) * Style.size.spacing + file-picker-button.height;
+                            file-picker.initial_y = notes-vertical-layout.y + listview.y + idx * text-input.height + (idx + 2) * Style.size.spacing + file-picker-button.height;
                             file-picker.open();
                         }
                     }

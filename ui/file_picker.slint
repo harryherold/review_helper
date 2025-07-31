@@ -12,6 +12,7 @@ export component FilePicker inherits Popup {
 
     VerticalBox {
         LineEdit {
+            preferred-width: 300px;
             placeholder-text: "filter file";
             enabled: FilePickerAdapter.files_model.length > 0;
             edited(text) => {
@@ -20,6 +21,7 @@ export component FilePicker inherits Popup {
         }
 
         ListView {
+            preferred-height: Math.min(FilePickerAdapter.files_model.length * Style.size.image-width, 300px);
             for file in FilePickerAdapter.files_model: Rectangle {
                 states [
                     is_selected_file when file == root.selected_file: {
