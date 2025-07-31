@@ -1,6 +1,6 @@
 use crate::app_state::AppState;
 use crate::ui;
-use slint::{ComponentHandle, SharedString};
+use slint::{ComponentHandle, SharedString, };
 
 pub fn setup_app_config(app_state: &AppState) {
     app_state.app_window.global::<ui::AppConfig>().on_save({
@@ -15,7 +15,7 @@ pub fn setup_app_config(app_state: &AppState) {
             app_config.config.diff_tool = ui_app_config.get_diff_tool().to_string();
             app_config.config.editor = ui_app_config.get_editor().to_string();
             app_config.config.editor_args = ui_app_config.get_editor_args().split(",").map(|s| s.to_string()).collect();
-
+            app_config.config.color_scheme = ui_app_config.get_color_scheme().to_string();
             if let Err(e) = app_config.save() {
                 eprintln!("Errors occurred during app config save: {}", e.to_string());
             }
@@ -34,4 +34,10 @@ pub fn setup_app_config(app_state: &AppState) {
 
     let editor_args = app_state.app_config.borrow().config.editor_args.join(",");
     app_state.app_window.global::<ui::AppConfig>().set_editor_args(SharedString::from(editor_args));
+    
+    let color_scheme = SharedString::from(app_state.app_config.borrow().config.color_scheme.clone());
+    
+    app_state.app_window.global::<ui::AppConfig>().set_color_scheme(color_scheme.clone());
+
+    app_state.app_window.set_config_color_scheme(color_scheme);
 }

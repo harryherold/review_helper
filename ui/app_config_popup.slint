@@ -2,7 +2,7 @@ import { Popup } from "popup.slint";
 import { Style } from "style.slint";
 import { AppConfig } from "globals.slint";
 
-import { VerticalBox, LineEdit, Button } from "std-widgets.slint";
+import { VerticalBox, LineEdit, Button, ComboBox, Palette } from "std-widgets.slint";
 
 
 export component AppConfigPopup inherits Popup {
@@ -16,7 +16,7 @@ export component AppConfigPopup inherits Popup {
 
             Row {
                 Text {
-                    font-size: 14px;
+                    font-size: Style.font.config-edit;
                     vertical-alignment: center;
                     text: "diff tool";
                 }
@@ -29,7 +29,7 @@ export component AppConfigPopup inherits Popup {
 
             Row {
                 Text {
-                    font-size: 14px;
+                    font-size: Style.font.config-edit;
                     vertical-alignment: center;
                     text: "editor";
                 }
@@ -42,7 +42,7 @@ export component AppConfigPopup inherits Popup {
 
             Row {
                 Text {
-                    font-size: 14px;
+                    font-size: Style.font.config-edit;
                     vertical-alignment: center;
                     text: "editor args";
                 }
@@ -52,10 +52,36 @@ export component AppConfigPopup inherits Popup {
                     text <=> AppConfig.editor_args;
                 }
             }
+
+            Row {
+                Text {
+                    font-size: Style.font.config-edit;
+                    vertical-alignment: center;
+                    text: "color theme";
+                }
+
+                ComboBox {
+                    function to_string(color_scheme: ColorScheme) -> string {
+                        return color_scheme == ColorScheme.dark ? "Dark" : "Light";
+                    }
+                    function to_theme(color_scheme_string: string) -> ColorScheme {
+                        return color_scheme_string == to_string(ColorScheme.dark) ? ColorScheme.dark : ColorScheme.light;
+                    }
+
+                    model: [to_string(ColorScheme.dark), to_string(ColorScheme.light)];
+                    current-index: to_theme(AppConfig.color_scheme) == ColorScheme.dark ? 0 : 1;
+                    current-value: AppConfig.color_scheme;
+                    selected(current-value) => {
+                        AppConfig.color_scheme = current-value;
+                        Palette.color-scheme = to_theme(current-value);
+                    }
+                }
+            }
         }
 
         HorizontalLayout {
             spacing: Style.size.spacing;
+            alignment: end;
 
             Button {
                 text: "Cancel";

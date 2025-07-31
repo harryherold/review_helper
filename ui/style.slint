@@ -10,6 +10,7 @@ export struct ColorPalette {
 export struct Font {
     menu_size: length,
     sub_section_size: length,
+    config_edit: length,
 }
 
 export struct Size {
@@ -32,7 +33,11 @@ export global Style {
         lines_added: #5e8262,
         lines_removed: #B06161,
     };
-    out property <Font> font: { menu_size: 16px, sub_section_size: 12px };
+    out property <Font> font: {
+        menu_size: 16px,
+        sub_section_size: 12px,
+        config_edit: 14px,
+    };
     out property <Size> size: {
         menu_border_radius: 5px,
         border_radius: 5px,

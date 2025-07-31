@@ -1,6 +1,7 @@
 import { LineEdit, Button, VerticalBox, HorizontalBox, Palette, StandardTableView } from "std-widgets.slint";
 import { Style } from "style.slint";
 import { CommitPickerAdapter } from "globals.slint";
+import { ImageButton } from "image_button.slint";
 
 export component CommitPicker inherits PopupWindow {
     private property <int> sort_index: 3;
@@ -36,8 +37,8 @@ export component CommitPicker inherits PopupWindow {
                     }
                 }
 
-                Button {
-                    icon: @image-url("../assets/icons/refresh.svg");
+                ImageButton {
+                    source: @image-url("../assets/icons/refresh.svg");
                     clicked => {
                         CommitPickerAdapter.refresh()
                     }

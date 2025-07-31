@@ -11,6 +11,7 @@ pub struct Config {
     pub diff_tool: String,
     pub editor: String,
     pub editor_args: Vec<String>,
+    pub color_scheme: String,
 }
 
 pub struct AppConfig {
@@ -24,6 +25,7 @@ impl Default for Config {
             diff_tool: "meld".to_string(),
             editor: "code".to_string(),
             editor_args: vec!["-n".to_string(), "{file}".to_string()],
+            color_scheme: "Dark".to_string(),
         }
     }
 }

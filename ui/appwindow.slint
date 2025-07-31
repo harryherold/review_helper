@@ -16,7 +16,12 @@ import { SubSectionText } from "sub_section_text.slint";
 export { AppConfig, FilePickerAdapter, CommitPickerAdapter, Notes, NoteItem, Diff, DiffFileItem, Repository, StringUtils, OverallDiffStats, Project }
 
 export component AppWindow inherits Window {
+    in property <string> config_color_scheme;
     callback close;
+
+    changed config_color_scheme => {
+        Palette.color-scheme = config_color_scheme == "Dark" ? ColorScheme.dark : ColorScheme.light;
+    }
 
     preferred-width: 1600px;
     preferred-height: 1200px;
@@ -156,6 +161,7 @@ export component AppWindow inherits Window {
             alignment: center;
             Image {
                 source: @image-url("../assets/icons/warning.svg");
+                colorize: Palette.foreground;
             }
 
             Text {
