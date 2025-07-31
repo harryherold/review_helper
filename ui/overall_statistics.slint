@@ -1,4 +1,4 @@
-import { GroupBox, HorizontalBox } from "std-widgets.slint";
+import { GroupBox, HorizontalBox, Palette } from "std-widgets.slint";
 
 import { Style } from "style.slint";
 import { ChangeTypeUtils, ChangeType, OverallDiffStats } from "globals.slint";
@@ -9,6 +9,7 @@ export component OverallStatistics inherits HorizontalLayout {
         Image {
             source: ChangeTypeUtils.to_icon(data.change_type);
             height: Style.control_height;
+            colorize: Palette.foreground;
         }
 
         Text {

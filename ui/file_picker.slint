@@ -1,4 +1,4 @@
-import { VerticalBox, LineEdit, ListView, HorizontalBox, Button } from "std-widgets.slint";
+import { VerticalBox, LineEdit, ListView, HorizontalBox, Button, Palette } from "std-widgets.slint";
 
 import { Style } from "style.slint";
 import { FilePickerAdapter } from "globals.slint";
@@ -32,6 +32,7 @@ export component FilePicker inherits Popup {
                     alignment: start;
                     Image {
                         source: @image-url("../assets/icons/file_picker.svg");
+                        colorize: Palette.foreground;
                     }
 
                     Rectangle {

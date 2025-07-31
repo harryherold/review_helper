@@ -1,3 +1,5 @@
+import {Palette} from "std-widgets.slint";
+
 export struct ColorPalette {
     disabled: color,
     selected: color,
@@ -31,7 +33,7 @@ export global Style {
     out property <length> menu_border_radius: 5px;
     out property <ColorPalette> palette: {
         disabled: #767373,
-        selected: #373737,
+        selected: Palette.color-scheme == ColorScheme.dark ? #373737 : #e8e8e8,
         lines_added: #5e8262,
         lines_removed: #B06161,
     };

@@ -101,6 +101,7 @@ export component FileDiffView inherits VerticalLayout {
                             Image {
                                 source: ChangeTypeUtils.to_icon(data.change_type);
                                 horizontal-alignment: center;
+                                colorize: Palette.foreground;
                             }
 
                             HorizontalLayout {
