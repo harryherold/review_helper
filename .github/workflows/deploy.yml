@@ -30,8 +30,13 @@ jobs:
         steps:
             - name: Checkout repository
               uses: actions/checkout@v4
+            - name: Install Linux dependencies
+              if: runner.os == 'Linux'
+              run: sudo apt-get update && sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libxkbcommon-x11-dev libudev-dev libinput-dev libfontconfig-dev
             - name: Build release
               uses: houseabsolute/actions-rust-cross@v1
+              env:
+                SLINT_BACKEND: "winit-skia"
               with:
                 command: build
                 target: ${{ matrix.platform.target }}
