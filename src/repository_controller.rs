@@ -36,6 +36,17 @@ pub fn setup_repository(app_state: &AppState) {
             m.set_filter_text(pattern);
         }
     });
+    app_state.app_window.global::<ui::Diff>().on_set_filter_review_state({
+        let file_diff_model_ctx = app_state.file_diff_proxy_models.clone();
+        let ui_weak = app_state.app_window.as_weak();
+        move |filter_review_state| {
+            let mut m = file_diff_model_ctx.borrow_mut();
+            m.set_filter_review_state(filter_review_state);
+            
+            let ui = ui_weak.unwrap();
+            ui.global::<ui::Diff>().set_current_filter_review_state(filter_review_state);
+        }
+    });
     app_state.app_window.global::<ui::Diff>().on_diff_start_end({
         let ui_weak = app_state.app_window.as_weak();
         let project_ref = app_state.project.clone();

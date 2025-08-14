@@ -1,7 +1,7 @@
 import { GroupBox, ListView, CheckBox, Button, Palette, LineEdit, VerticalBox, HorizontalBox, ComboBox } from "std-widgets.slint";
 
 import { Style } from "style.slint";
-import { ChangeTypeUtils, SortCriteria, Diff, Notes, NoteItem } from "globals.slint";
+import { ChangeTypeUtils, SortCriteria, Diff, Notes, NoteItem, FilterReviewState } from "globals.slint";
 import { FileNoteDelegate } from "file_note_delegate.slint";
 import { ImageButton } from "image_button.slint";
 
@@ -36,6 +36,12 @@ export component FileDiffView inherits VerticalLayout {
     spacing: Style.size.spacing;
     HorizontalLayout {
         spacing: Style.size.spacing;
+
+        Image {
+            source: @image-url("../assets/icons/filter_on.svg");
+            colorize: Palette.foreground;
+            width: Style.size.image_width;
+        }
         LineEdit {
             horizontal-alignment: left;
             placeholder-text: "Filter paths";
@@ -43,9 +49,40 @@ export component FileDiffView inherits VerticalLayout {
                 Diff.filter-file-diff(self.text);
             }
         }
-
         ComboBox {
-            width: 220px;
+            horizontal-stretch: 0;
+            model: ["Unfiltered", "Done", "Open"];
+            current-value: {
+                if Diff.current_filter_review_state == FilterReviewState.Unfiltered {
+                    return "Unfiltered";
+                }
+                if Diff.current_filter_review_state == FilterReviewState.Done {
+                    return "Done";
+                }
+                if Diff.current_filter_review_state == FilterReviewState.Open {
+                    return "Open";
+                }
+                return "invalid";
+            }
+            selected(current-filter-review-state) => {
+                if current-filter-review-state == "Unfiltered" {
+                    Diff.set-filter-review-state(FilterReviewState.Unfiltered);
+                }
+                if current-filter-review-state == "Done" {
+                    Diff.set-filter-review-state(FilterReviewState.Done);
+                }
+                if current-filter-review-state == "Open" {
+                    Diff.set-filter-review-state(FilterReviewState.Open);
+                }
+            }
+        }
+        Image {
+            source: @image-url("../assets/icons/sort.svg");
+            colorize: Palette.foreground;
+            width: Style.size.image_width;
+        }
+        ComboBox {
+            horizontal-stretch: 0;
             model: ["Name", "Extension"];
             current-value: {
                 if Diff.current_sort_criteria == SortCriteria.Name {

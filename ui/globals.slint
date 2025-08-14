@@ -74,17 +74,25 @@ export struct DiffFileItem {
     change_type: ChangeType,
 }
 
+export enum FilterReviewState {
+    Unfiltered,
+    Done,
+    Open
+}
+
 export global Diff {
     in property <string> start_commit;
     in property <string> end_commit;
     in property <[DiffFileItem]> diff_model;
     in property <SortCriteria> current_sort_criteria: SortCriteria.Name;
+    in property <FilterReviewState> current_filter_review_state: FilterReviewState.Unfiltered;
     callback diff-start-end(string, string);
     callback open-file-diff(int);
     callback open-file(string);
     callback toggle-is-reviewed(int);
     callback set-sort-criteria(SortCriteria);
     callback filter-file-diff(string);
+    callback set-filter-review-state(FilterReviewState);
     callback diff-model-contains-id(int) -> bool;
 }
 

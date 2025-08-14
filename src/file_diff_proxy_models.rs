@@ -13,6 +13,7 @@ type FileDiffSortModel = Rc<SortModel<FileDiffFilterModel, fn(&ui::DiffFileItem,
 pub struct FileDiffProxyModels {
     filter_model: FileDiffFilterModel,
     filter_text: Rc<RefCell<SharedString>>,
+    filter_review_state: Rc<RefCell<ui::FilterReviewState>>,
     sort_model: FileDiffSortModel,
 }
 
@@ -41,11 +42,21 @@ impl FileDiffProxyModels {
 
     pub fn new(model: ModelRc<ui::DiffFileItem>) -> Self {
         let filter_text = Rc::new(RefCell::new(SharedString::new()));
+        let filter_review_state = Rc::new(RefCell::new(ui::FilterReviewState::Unfiltered)); 
         let clone_filter_text = filter_text.clone();
+        let clone_filter_review_state = filter_review_state.clone();
 
         let fm: FileDiffFilterModel = Rc::new(FilterModel::new(
             model,
             Box::new(move |item: &ui::DiffFileItem| -> bool {
+                let filter_review_state = filter_review_state.clone();
+                let filter_review_state = *filter_review_state.borrow();
+                if filter_review_state == ui::FilterReviewState::Done && !item.is_reviewed {
+                    return false;
+                }
+                if filter_review_state == ui::FilterReviewState::Open && item.is_reviewed {
+                    return false;
+                }
                 let filter_text = filter_text.clone();
                 let pattern = filter_text.borrow();
                 if pattern.is_empty() {
@@ -59,6 +70,7 @@ impl FileDiffProxyModels {
         FileDiffProxyModels {
             filter_model: fm.clone(),
             filter_text: clone_filter_text,
+            filter_review_state: clone_filter_review_state,
             sort_model: Rc::new(fm.sort_by(Self::sort_by_name)),
         }
     }
@@ -75,6 +87,11 @@ impl FileDiffProxyModels {
         *self.filter_text.borrow_mut() = filter_text;
         self.filter_model.reset();
     }
+    
+    pub fn set_filter_review_state(&mut self, filter_review_state: ui::FilterReviewState) {
+        *self.filter_review_state.borrow_mut() = filter_review_state;
+        self.filter_model.reset();
+    }
 
     pub fn sort_model(&self) -> ModelRc<ui::DiffFileItem> {
         self.sort_model.clone().into()
@@ -88,6 +105,7 @@ impl Default for FileDiffProxyModels {
         FileDiffProxyModels {
             filter_model: fm.clone(),
             filter_text: Rc::new(RefCell::new(SharedString::new())),
+            filter_review_state: Rc::new(RefCell::new(ui::FilterReviewState::Unfiltered)),
             sort_model: Rc::new(fm.sort_by(Self::sort_by_name)),
         }
     }
