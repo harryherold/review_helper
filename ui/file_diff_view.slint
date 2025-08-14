@@ -83,19 +83,26 @@ export component FileDiffView inherits VerticalLayout {
         }
         ComboBox {
             horizontal-stretch: 0;
-            model: ["Name", "Extension"];
+            model: ["Name", "Extension", "IsDone"];
             current-value: {
                 if Diff.current_sort_criteria == SortCriteria.Name {
                     return "Name";
+                }
+                if Diff.current_sort_criteria == SortCriteria.IsDone {
+                    return "IsDone";
                 }
                 return "Extension";
             }
             selected(current-criteria) => {
                 if current-criteria == "Name" {
                     Diff.set-sort-criteria(SortCriteria.Name);
-                } else {
-                    Diff.set-sort-criteria(SortCriteria.Extension);
                 }
+                if current-criteria == "IsDone" {
+                    Diff.set-sort-criteria(SortCriteria.IsDone);
+                }
+                if current-criteria == "Extension" {
+                    Diff.set-sort-criteria(SortCriteria.Extension);
+                } 
             }
         }
     }

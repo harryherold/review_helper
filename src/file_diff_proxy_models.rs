@@ -39,6 +39,18 @@ impl FileDiffProxyModels {
             lhs.text.to_lowercase().cmp(&rhs.text.to_lowercase())
         }
     }
+    fn sort_by_is_done(lhs: &ui::DiffFileItem, rhs: &ui::DiffFileItem) -> Ordering {
+        let lhs_is_done = lhs.is_reviewed;
+        let rhs_is_done = rhs.is_reviewed;
+        
+        if lhs_is_done && !rhs_is_done {
+            return Ordering::Less;
+        } else if !lhs_is_done && rhs_is_done {
+            return Ordering::Greater;
+        } else {
+            lhs.text.to_lowercase().cmp(&rhs.text.to_lowercase())
+        }
+    }
 
     pub fn new(model: ModelRc<ui::DiffFileItem>) -> Self {
         let filter_text = Rc::new(RefCell::new(SharedString::new()));
@@ -76,11 +88,11 @@ impl FileDiffProxyModels {
     }
 
     pub fn sort_by(&mut self, sort_criteria: ui::SortCriteria) {
-        if sort_criteria == ui::SortCriteria::Name {
-            self.sort_model = Rc::new(self.filter_model.clone().sort_by(Self::sort_by_name));
-        } else {
-            self.sort_model = Rc::new(self.filter_model.clone().sort_by(Self::sort_by_extension));
-        }
+        self.sort_model = match sort_criteria {
+            ui::SortCriteria::Name =>  Rc::new(self.filter_model.clone().sort_by(Self::sort_by_name)),
+            ui::SortCriteria::Extension =>  Rc::new(self.filter_model.clone().sort_by(Self::sort_by_extension)),
+            ui::SortCriteria::IsDone =>  Rc::new(self.filter_model.clone().sort_by(Self::sort_by_is_done)),
+        };
     }
 
     pub fn set_filter_text(&mut self, filter_text: SharedString) {
