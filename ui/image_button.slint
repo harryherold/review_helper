@@ -5,12 +5,13 @@ export component ImageButton inherits Rectangle {
     out property <bool> pressed: ta.pressed;
     in-out property <bool> enabled <=> ta.enabled;
     in property <image> source;
+    in property <bool> highlighted: false;
     callback clicked();
     width: image.width + 2 * Style.size.big_spacing;
     background: Palette.control-background;
     border-radius: Style.size.border_radius;
     border-width: Style.size.border_width;
-    border-color: Palette.border;
+    border-color: root.highlighted ? Palette.selection-background : Palette.border;
     states [
         is_pressed when ta.pressed: {
             background: Palette.alternate-background;
@@ -21,7 +22,12 @@ export component ImageButton inherits Rectangle {
         horizontal-alignment: center;
         width: Style.size.image_width;
         source: root.source;
-        colorize: root.enabled ? Palette.foreground : Style.palette.disabled;
+        colorize: {
+            if root.highlighted {
+                return Palette.selection-background;
+            }
+            return root.enabled ? Palette.foreground : Style.palette.disabled;
+        }
     }
 
     ta := TouchArea {

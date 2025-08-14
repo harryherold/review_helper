@@ -66,7 +66,6 @@ export component FileDiffView inherits VerticalLayout {
     ListView {
         for data[idx] in Diff.diff_model: Rectangle {
             property <[NoteItem]> notes: Notes.file-notes-model(data.text);
-
             states [
                 selected when selected_id == data.id: {
                     background: Style.palette.selected;
@@ -152,6 +151,7 @@ export component FileDiffView inherits VerticalLayout {
                                 ImageButton {
                                     source: root.extended_file_id == data.id ? @image-url("../assets/icons/drop_up.svg") : @image-url("../assets/icons/drop_down.svg");
                                     enabled: root.selected_id == data.id;
+                                    highlighted: notes.length > 0;
                                     clicked => {
                                         root.extended_file_id = root.extended_file_id == data.id ? -1 : data.id;
                                     }
