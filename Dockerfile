@@ -11,4 +11,4 @@ RUN curl https://sh.rustup.rs -sSf | bash -s -- -y
 
 RUN echo 'source $HOME/.cargo/env' >> $HOME/.bashrc
 
-WORKDIR /review_todo
+WORKDIR /review_helper

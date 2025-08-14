@@ -45,5 +45,5 @@ jobs:
             - name: Publish artifacts and release
               uses: houseabsolute/actions-rust-release@v0
               with:
-                executable-name: review-todo
+                executable-name: review-helper
                 target: ${{ matrix.platform.target }}
