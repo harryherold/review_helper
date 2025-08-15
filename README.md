@@ -34,10 +34,3 @@ Frist checkout the source from GitHub and execute the following commands:
 
 The binary can be found in the target folder.
 In order to improve the font rendering set following enviroment variable `SLINT_BACKEND=winit-skia`.
-
-## Motivations
-
-In my job we did not use big source code management software(like GitLab) therefore we had no fancy tooling for code reviews.
-So I did all the required steps of the review by hand which always takes a little more time. Thats why I created this project.
-
-Further, I have always wanted to use and test the Slint UI Framework.
