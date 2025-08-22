@@ -26,3 +26,4 @@ chrono = { version = "0.4", features = ["unstable-locales"] }
 
 [build-dependencies]
 slint-build = "1.11.0"
+winresource = "0.1.23"
