@@ -36,19 +36,20 @@ export component FileDiffView inherits VerticalLayout {
     spacing: Style.size.spacing;
     HorizontalLayout {
         spacing: Style.size.spacing;
-
         Image {
             source: @image-url("../assets/icons/filter_on.svg");
             colorize: Palette.foreground;
             width: Style.size.image_width;
         }
+
         LineEdit {
             horizontal-alignment: left;
-            placeholder-text: "Filter paths";
+            placeholder-text: "Filter paths using wildcards";
             changed text => {
                 Diff.filter-file-diff(self.text);
             }
         }
+
         ComboBox {
             horizontal-stretch: 0;
             model: ["Unfiltered", "Done", "Open"];
@@ -76,11 +77,13 @@ export component FileDiffView inherits VerticalLayout {
                 }
             }
         }
+
         Image {
             source: @image-url("../assets/icons/sort.svg");
             colorize: Palette.foreground;
             width: Style.size.image_width;
         }
+
         ComboBox {
             horizontal-stretch: 0;
             model: ["Name", "Extension", "IsDone"];
@@ -102,7 +105,7 @@ export component FileDiffView inherits VerticalLayout {
                 }
                 if current-criteria == "Extension" {
                     Diff.set-sort-criteria(SortCriteria.Extension);
-                } 
+                }
             }
         }
     }

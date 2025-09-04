@@ -7,6 +7,8 @@ use std::ffi::OsStr;
 use std::path::Path;
 use std::rc::Rc;
 
+use wildcard::Wildcard;
+
 type FileDiffFilterModel = Rc<FilterModel<ModelRc<ui::DiffFileItem>, Box<dyn Fn(&ui::DiffFileItem) -> bool>>>;
 type FileDiffSortModel = Rc<SortModel<FileDiffFilterModel, fn(&ui::DiffFileItem, &ui::DiffFileItem) -> Ordering>>;
 
@@ -42,7 +44,7 @@ impl FileDiffProxyModels {
     fn sort_by_is_done(lhs: &ui::DiffFileItem, rhs: &ui::DiffFileItem) -> Ordering {
         let lhs_is_done = lhs.is_reviewed;
         let rhs_is_done = rhs.is_reviewed;
-        
+
         if lhs_is_done && !rhs_is_done {
             return Ordering::Less;
         } else if !lhs_is_done && rhs_is_done {
@@ -54,7 +56,7 @@ impl FileDiffProxyModels {
 
     pub fn new(model: ModelRc<ui::DiffFileItem>) -> Self {
         let filter_text = Rc::new(RefCell::new(SharedString::new()));
-        let filter_review_state = Rc::new(RefCell::new(ui::FilterReviewState::Unfiltered)); 
+        let filter_review_state = Rc::new(RefCell::new(ui::FilterReviewState::Unfiltered));
         let clone_filter_text = filter_text.clone();
         let clone_filter_review_state = filter_review_state.clone();
 
@@ -74,7 +76,10 @@ impl FileDiffProxyModels {
                 if pattern.is_empty() {
                     return true;
                 } else {
-                    item.text.to_lowercase().contains(&pattern.as_str().to_lowercase())
+                    let pattern_text = pattern.as_str().to_lowercase();
+                    let pattern = Wildcard::new(pattern_text.as_bytes()).expect("Could not build wildcard!");
+                    let text = item.text.to_lowercase();
+                    pattern.is_match(text.as_bytes())
                 }
             }),
         ));
@@ -99,7 +104,7 @@ impl FileDiffProxyModels {
         *self.filter_text.borrow_mut() = filter_text;
         self.filter_model.reset();
     }
-    
+
     pub fn set_filter_review_state(&mut self, filter_review_state: ui::FilterReviewState) {
         *self.filter_review_state.borrow_mut() = filter_review_state;
         self.filter_model.reset();

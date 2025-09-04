@@ -8,6 +8,7 @@ build = "build.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+wildcard = "=0.3.0"
 toml = "0.8.19"
 serde = "1.0.215"
 serde_derive = "1.0.215"
