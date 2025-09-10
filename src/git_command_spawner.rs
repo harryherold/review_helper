@@ -21,5 +21,19 @@ pub fn async_query_commits(project: Rc<RefCell<Project>>) {
         let mut p = project.borrow_mut();
         p.repository.set_commit_history(commits);
     })
-    .expect("spawn_local failed!");
+    .expect("async_query_commits: spawn_local failed!");
+}
+
+pub fn async_diff_file(repo_path: &PathBuf, start_commit: &str, end_commit: &str, file: &str, diff_tool: &str) -> anyhow::Result<()> {
+    let path = repo_path.clone();
+    let start = start_commit.to_string();
+    let end = end_commit.to_string();
+    let file = file.to_string();
+    let tool = diff_tool.to_string();
+    slint::spawn_local(async move {
+        tokio::spawn(async move {
+            git_utils::diff_file(&path, &start, &end, &file, &tool).expect("Could not diff files!");
+        }).await.expect("tokio spawn diff_file failed!");
+    }).expect("async_diff_file: spawn_local failed!");
+    Ok(())
 }

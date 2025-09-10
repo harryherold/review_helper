@@ -4,6 +4,7 @@ use std::{path::PathBuf, rc::Rc};
 
 use slint::{Model, ModelRc, StandardListViewItem, VecModel};
 
+use crate::git_command_spawner;
 use crate::git_utils::{ChangeType, Commit};
 use crate::id_model::{IdModel, IdModelChange};
 use crate::ui::OverallStat;
@@ -267,13 +268,12 @@ impl Repository {
 
     pub fn diff_file(&self, id: i32, diff_tool: &str) -> anyhow::Result<()> {
         if self.path.is_none() {
-            // TODO: Return error
-            return Ok(());
+            return Err(anyhow::format_err!("Repository path not set!"));
         }
         let path = self.path.as_ref().unwrap();
         match self.current_diff.file_diff_model.get(id as usize) {
-            None => Err(anyhow::format_err!("Could not found file in model!")),
-            Some(file_item) => git_utils::diff_file(
+            None => panic!("Could not found file in model!"),
+            Some(file_item) => git_command_spawner::async_diff_file(
                 &path,
                 &self.current_diff.start_commit,
                 &self.current_diff.end_commit,
