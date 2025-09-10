@@ -136,17 +136,7 @@ impl Repository {
         // self.initialize_commits()
     }
 
-    pub fn diff_repository(&mut self, start_commit: &str, end_commit: &str) -> anyhow::Result<()> {
-        self.current_diff.start_commit = start_commit.to_string();
-        self.current_diff.end_commit = end_commit.to_string();
-
-        if self.path.is_none() {
-            // TODO: Return error
-            return Ok(());
-        }
-        let path = self.path.as_ref().unwrap();
-        let files_stats = git_utils::diff_git_repo(path, &start_commit, &end_commit)?;
-
+    pub fn merge_file_diff_map(&mut self, file_diff_map: git_utils::FileDiffMap) {
         let mut old_files: HashSet<String> = HashSet::new();
         let mut file_index_map: HashMap<String, usize> = HashMap::new();
 
@@ -159,7 +149,7 @@ impl Repository {
                 old_files.insert(file);
             });
 
-        let diff_files: HashSet<String> = files_stats.keys().cloned().collect();
+        let diff_files: HashSet<String> = file_diff_map.keys().cloned().collect();
 
         let change_type_to_ui = |change_type: &ChangeType| match change_type {
             git_utils::ChangeType::Added => ui::ChangeType::Added,
@@ -176,7 +166,7 @@ impl Repository {
 
         self.current_diff.statistics.clear();
         let mut change_type_map = BTreeMap::<ChangeType, u32>::new();
-        for file_stat in files_stats.values() {
+        for file_stat in file_diff_map.values() {
             self.current_diff.statistics.added_lines += file_stat.added_lines;
             self.current_diff.statistics.removed_lines += file_stat.removed_lines;
 
@@ -193,7 +183,7 @@ impl Repository {
         }
 
         let update_item = |mut item: ui::DiffFileItem| {
-            let file_stat_opt = files_stats.get(item.text.as_str());
+            let file_stat_opt = file_diff_map.get(item.text.as_str());
             match file_stat_opt {
                 Some(file_stat) => {
                     if item.added_lines != file_stat.added_lines as i32 || item.removed_lines != file_stat.removed_lines as i32 {
@@ -207,7 +197,7 @@ impl Repository {
             }
         };
         let add_item = |file: &String| {
-            let file_stat = files_stats.get(file).unwrap();
+            let file_stat = file_diff_map.get(file).unwrap();
             let id = diff_file_id();
             self.current_diff.file_diff_model.add(
                 id,
@@ -226,7 +216,7 @@ impl Repository {
             for item in self.current_diff.file_diff_model.iter() {
                 update_item(item);
             }
-            return Ok(());
+            return;
         } else if diff_files.is_disjoint(&old_files) {
             self.current_diff.file_diff_model.clear();
             diff_files.iter().for_each(add_item);
@@ -255,8 +245,6 @@ impl Repository {
             let new_files: HashSet<&String> = diff_files.difference(&old_files).collect();
             new_files.into_iter().for_each(add_item);
         }
-
-        Ok(())
     }
 
     pub fn toggle_file_is_reviewed(&mut self, id: usize) {
@@ -289,6 +277,12 @@ impl Repository {
 
     pub fn observe_file_diff_model<Observer: Fn(IdModelChange) + 'static>(&self, observer: Observer) {
         self.current_diff.file_diff_model.set_observer(observer);
+    }
+
+    pub fn set_diff_range(&mut self, range: (&str, &str)) {
+        let (start, end) = range;
+        self.current_diff.start_commit = start.to_string();
+        self.current_diff.end_commit = end.to_string();
     }
 
     pub fn diff_range(&self) -> (&str, &str) {

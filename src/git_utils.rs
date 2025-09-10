@@ -32,11 +32,13 @@ impl ChangeType {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct FileStat {
+pub struct DiffStatus {
     pub added_lines: u32,
     pub removed_lines: u32,
     pub change_type: ChangeType,
 }
+
+pub type FileDiffMap = HashMap<String, DiffStatus>;
 
 use chrono::DateTime;
 #[cfg(windows)]
@@ -69,7 +71,7 @@ pub fn repo_contains_commit(path: &PathBuf, commit: &str) -> anyhow::Result<bool
     Ok(msg.contains("commit"))
 }
 
-pub fn diff_git_repo(repo_path: &PathBuf, start_commit: &str, end_commit: &str) -> anyhow::Result<HashMap<String, FileStat>> {
+pub fn diff_git_repo(repo_path: &PathBuf, start_commit: &str, end_commit: &str) -> anyhow::Result<FileDiffMap> {
     let files_change_type = diff_name_status(repo_path, start_commit, end_commit)?;
     let files_stats = query_file_stats(repo_path, start_commit, end_commit, files_change_type)?;
     Ok(files_stats)
@@ -112,7 +114,7 @@ fn query_file_stats(
     start_commit: &str,
     end_commit: &str,
     mut files_change_type: HashMap<String, ChangeType>,
-) -> anyhow::Result<HashMap<String, FileStat>> {
+) -> anyhow::Result<HashMap<String, DiffStatus>> {
     let mut args = vec!["diff", "-z", "--numstat"];
 
     if false == start_commit.is_empty() {
@@ -125,7 +127,7 @@ fn query_file_stats(
     let output = git_command!(repo_path, args).output()?;
     let string_output = String::from_utf8(output.stdout.trim_ascii().to_vec())?;
 
-    let mut files_stats: HashMap<String, FileStat> = HashMap::new();
+    let mut files_stats: HashMap<String, DiffStatus> = HashMap::new();
     let parse_line_number = |number_str: &str| -> anyhow::Result<u32> {
         if number_str.contains("-") {
             Ok(0)
@@ -151,7 +153,7 @@ fn query_file_stats(
             };
             files_stats.insert(
                 file,
-                FileStat {
+                DiffStatus {
                     added_lines: parse_line_number(infos[0])?,
                     removed_lines: parse_line_number(infos[1])?,
                     change_type,
@@ -170,7 +172,7 @@ fn query_file_stats(
             };
             files_stats.insert(
                 new_file.to_string(),
-                FileStat {
+                DiffStatus {
                     added_lines,
                     removed_lines,
                     change_type,
@@ -248,7 +250,7 @@ pub fn query_commits(repo_path: &PathBuf) -> anyhow::Result<Vec<Commit>> {
 mod tests {
     use std::{collections::HashMap, path::PathBuf};
 
-    use crate::git_utils::{diff_git_repo, first_commit, is_git_repo, query_commits, repo_contains_commit, ChangeType, FileStat};
+    use crate::git_utils::{diff_git_repo, first_commit, is_git_repo, query_commits, repo_contains_commit, ChangeType, DiffStatus};
 
     struct TestContext {
         path: PathBuf,
@@ -292,7 +294,7 @@ mod tests {
         let expected_stats = HashMap::from([
             (
                 "src/lib.rs".to_string(),
-                FileStat {
+                DiffStatus {
                     added_lines: 137,
                     removed_lines: 0,
                     change_type: ChangeType::Added,
@@ -300,7 +302,7 @@ mod tests {
             ),
             (
                 "src/main.rs".to_string(),
-                FileStat {
+                DiffStatus {
                     added_lines: 22,
                     removed_lines: 94,
                     change_type: ChangeType::Modified,
@@ -308,7 +310,7 @@ mod tests {
             ),
             (
                 "rustfmt.toml".to_string(),
-                FileStat {
+                DiffStatus {
                     added_lines: 6,
                     removed_lines: 0,
                     change_type: ChangeType::Added,

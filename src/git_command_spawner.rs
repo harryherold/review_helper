@@ -1,9 +1,9 @@
 use std::cell::RefCell;
-use std::rc::Rc;
 use std::path::PathBuf;
+use std::rc::Rc;
 
-use crate::project::Project;
 use crate::git_utils;
+use crate::project::Project;
 
 pub fn async_query_commits(project: Rc<RefCell<Project>>) {
     if project.borrow().repository.repository_path().is_none() {
@@ -12,7 +12,7 @@ pub fn async_query_commits(project: Rc<RefCell<Project>>) {
     slint::spawn_local(async move {
         let path = {
             let p = project.borrow();
-            let path_str = p.repository.repository_path().expect("No repository path available!");
+            let path_str = p.repository.repository_path().unwrap();
             PathBuf::from(path_str)
         };
         let commits = tokio::spawn(async move { git_utils::query_commits(&path).expect("Could not query commits!") })
@@ -33,7 +33,38 @@ pub fn async_diff_file(repo_path: &PathBuf, start_commit: &str, end_commit: &str
     slint::spawn_local(async move {
         tokio::spawn(async move {
             git_utils::diff_file(&path, &start, &end, &file, &tool).expect("Could not diff files!");
-        }).await.expect("tokio spawn diff_file failed!");
-    }).expect("async_diff_file: spawn_local failed!");
+        })
+        .await
+        .expect("tokio spawn diff_file failed!");
+    })
+    .expect("async_diff_file: spawn_local failed!");
     Ok(())
+}
+
+pub fn async_diff_repository(project: Rc<RefCell<Project>>) {
+    if project.borrow().repository.repository_path().is_none() {
+        return;
+    }
+    slint::spawn_local(async move {
+        let path = {
+            let p = project.borrow();
+            let path_str = p.repository.repository_path().unwrap();
+            PathBuf::from(path_str)
+        };
+        let (start, end) = {
+            let p = project.borrow();
+            let (s, e) = p.repository.diff_range();
+            (s.to_string(), e.to_string())
+        };
+
+        let result = tokio::spawn(async move { git_utils::diff_git_repo(&path, &start, &end) })
+            .await
+            .expect("tokio spawn diff_git_repo failed!");
+        if let Err(error) = result {
+            eprintln!("Error on diffing repo: {}", error.to_string());
+            return;
+        }
+        project.borrow_mut().repository.merge_file_diff_map(result.unwrap());
+    })
+    .expect("async_diff_repository: spawn_local failed!");
 }

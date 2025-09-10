@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use crate::app_state::AppState;
 use crate::command_utils::run_command;
-use crate::git_command_spawner::async_query_commits;
+use crate::git_command_spawner::{self, async_query_commits};
 use crate::ui;
 
 pub fn setup_repository(app_state: &AppState) {
@@ -46,7 +46,7 @@ pub fn setup_repository(app_state: &AppState) {
         move |filter_review_state| {
             let mut m = file_diff_model_ctx.borrow_mut();
             m.set_filter_review_state(filter_review_state);
-            
+
             let ui = ui_weak.unwrap();
             ui.global::<ui::Diff>().set_current_filter_review_state(filter_review_state);
         }
@@ -60,11 +60,11 @@ pub fn setup_repository(app_state: &AppState) {
                 let (old_start, old_end) = project.repository.diff_range();
                 (SharedString::from(old_start), SharedString::from(old_end))
             };
-            let result = project_ref.borrow_mut().repository.diff_repository(&start_commit, &end_commit);
-            if let Err(error) = result {
-                eprintln!("Error on diffing repo: {}", error.to_string());
-                return;
+            {
+                let mut project = project_ref.borrow_mut();
+                project.repository.set_diff_range((&start_commit, &end_commit));
             }
+            git_command_spawner::async_diff_repository(project_ref.clone());
 
             let ui = ui_weak.unwrap();
             if old_start_commit != start_commit || old_end_commit != end_commit {
@@ -129,8 +129,6 @@ pub fn setup_repository(app_state: &AppState) {
     });
     app_state.app_window.global::<ui::Diff>().on_diff_model_contains_id({
         let file_diff_model_ctx = app_state.file_diff_proxy_models.clone();
-        move |id| -> bool {
-            file_diff_model_ctx.borrow().sort_model().iter().any(|item| item.id == id)
-        }
+        move |id| -> bool { file_diff_model_ctx.borrow().sort_model().iter().any(|item| item.id == id) }
     })
 }
