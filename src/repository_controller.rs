@@ -64,7 +64,8 @@ pub fn setup_repository(app_state: &AppState) {
                 let mut project = project_ref.borrow_mut();
                 project.repository.set_diff_range((&start_commit, &end_commit));
             }
-            git_command_spawner::async_diff_repository(project_ref.clone());
+
+            git_command_spawner::async_diff_repository(project_ref.clone(), ui_weak.clone());
 
             let ui = ui_weak.unwrap();
             if old_start_commit != start_commit || old_end_commit != end_commit {
@@ -72,11 +73,6 @@ pub fn setup_repository(app_state: &AppState) {
             }
             ui.global::<ui::Diff>().set_start_commit(start_commit);
             ui.global::<ui::Diff>().set_end_commit(end_commit);
-            let project = project_ref.borrow();
-            let statistics = project.repository.statistics();
-
-            ui.global::<ui::OverallDiffStats>().set_added_lines(statistics.added_lines as i32);
-            ui.global::<ui::OverallDiffStats>().set_removed_lines(statistics.removed_lines as i32);
         }
     });
     app_state.app_window.global::<ui::Diff>().on_open_file_diff({

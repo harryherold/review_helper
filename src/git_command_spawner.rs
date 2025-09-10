@@ -2,8 +2,11 @@ use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
 
+use slint::{ComponentHandle, Weak};
+
 use crate::git_utils;
 use crate::project::Project;
+use crate::ui;
 
 pub fn async_query_commits(project: Rc<RefCell<Project>>) {
     if project.borrow().repository.repository_path().is_none() {
@@ -41,7 +44,7 @@ pub fn async_diff_file(repo_path: &PathBuf, start_commit: &str, end_commit: &str
     Ok(())
 }
 
-pub fn async_diff_repository(project: Rc<RefCell<Project>>) {
+pub fn async_diff_repository(project: Rc<RefCell<Project>>, ui_weak: Weak<ui::AppWindow>) {
     if project.borrow().repository.repository_path().is_none() {
         return;
     }
@@ -64,7 +67,14 @@ pub fn async_diff_repository(project: Rc<RefCell<Project>>) {
             eprintln!("Error on diffing repo: {}", error.to_string());
             return;
         }
-        project.borrow_mut().repository.merge_file_diff_map(result.unwrap());
+        let mut project = project.borrow_mut();
+        project.repository.merge_file_diff_map(result.unwrap());
+
+        let ui = ui_weak.unwrap();
+        let statistics = project.repository.statistics();
+
+        ui.global::<ui::OverallDiffStats>().set_added_lines(statistics.added_lines as i32);
+        ui.global::<ui::OverallDiffStats>().set_removed_lines(statistics.removed_lines as i32);
     })
     .expect("async_diff_repository: spawn_local failed!");
 }
