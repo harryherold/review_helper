@@ -23,6 +23,7 @@ mod project_config;
 mod project_controller;
 mod repository;
 mod repository_controller;
+mod git_command_spawner;
 
 mod utils_controller;
 

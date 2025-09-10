@@ -4,7 +4,7 @@ use std::{path::PathBuf, rc::Rc};
 
 use slint::{Model, ModelRc, StandardListViewItem, VecModel};
 
-use crate::git_utils::{query_commits, ChangeType, Commit};
+use crate::git_utils::{ChangeType, Commit};
 use crate::id_model::{IdModel, IdModelChange};
 use crate::ui::OverallStat;
 use crate::{git_utils, project_config::ProjectConfig, ui};
@@ -114,23 +114,6 @@ impl Repository {
         match self.path.as_ref() {
             Some(p) => p.to_str(),
             None => None,
-        }
-    }
-
-    pub fn initialize_commits(&mut self) {
-        self.commits.clear();
-        // TODO: Return error
-        if let Some(path) = self.path.as_ref() {
-            let commits = query_commits(path).expect("Could not query commits!");
-            for commit in commits {
-                let items = Rc::new(VecModel::<StandardListViewItem>::default());
-                items.push(slint::SharedString::from(commit.hash).into());
-                items.push(slint::SharedString::from(commit.message).into());
-                items.push(slint::SharedString::from(commit.author).into());
-                items.push(slint::SharedString::from(commit.date).into());
-
-                self.commits.push(items.into());
-            }
         }
     }
 

@@ -1,19 +1,22 @@
-use crate::app_state::AppState;
-use crate::command_utils::run_command;
-use crate::ui;
 use native_dialog::FileDialog;
 use slint::{ComponentHandle, Model, SharedString};
 use std::path::PathBuf;
 
+use crate::app_state::AppState;
+use crate::command_utils::run_command;
+use crate::git_command_spawner::async_query_commits;
+use crate::ui;
+
 pub fn setup_repository(app_state: &AppState) {
     app_state.app_window.global::<ui::Repository>().on_open({
         let ui_weak = app_state.app_window.as_weak();
-        let project_ref = app_state.project.clone();
+        let project = app_state.project.clone();
         move || {
             let ui = ui_weak.unwrap();
-            let mut project_ref = project_ref.borrow_mut();
+            let cloned_project = project.clone();
             match FileDialog::new().set_location("~").show_open_single_dir().unwrap() {
                 Some(repo_path) => {
+                    let mut project_ref = project.borrow_mut();
                     if let Some(old_path) = project_ref.repository.repository_path() {
                         if old_path == repo_path.to_str().expect("Could not convert path to string!") {
                             return;
@@ -27,6 +30,7 @@ pub fn setup_repository(app_state: &AppState) {
                 }
                 None => {}
             }
+            async_query_commits(cloned_project);
         }
     });
     app_state.app_window.global::<ui::Diff>().on_filter_file_diff({

@@ -1,3 +1,10 @@
+use native_dialog::FileDialog;
+use slint::{ComponentHandle, Model, SharedString, Weak};
+use std::cell::RefCell;
+use std::env;
+use std::path::PathBuf;
+use std::rc::Rc;
+
 use crate::app_state::AppState;
 use crate::commit_proxy_model::CommitProxyModel;
 use crate::file_diff_proxy_models::FileDiffProxyModels;
@@ -6,13 +13,8 @@ use crate::id_model::IdModelChange;
 use crate::notes_proxy_models::NotesProxyModels;
 use crate::project::Project;
 use crate::project_config::ProjectConfig;
+use crate::git_command_spawner::*;
 use crate::ui;
-use native_dialog::FileDialog;
-use slint::{ComponentHandle, Model, SharedString, Weak};
-use std::cell::RefCell;
-use std::env;
-use std::path::PathBuf;
-use std::rc::Rc;
 
 pub fn setup_project(app_state: &mut AppState) {
     let read_project = |path| -> anyhow::Result<Project> {
@@ -72,6 +74,8 @@ pub fn setup_project(app_state: &mut AppState) {
             eprintln!("Could not read config: {}", error.to_string());
         } else {
             app_state.project = Rc::new(RefCell::new(project_result.unwrap()));
+            async_query_commits(app_state.project.clone());
+
             init_ui(
                 app_state.project.clone(),
                 app_state.app_window.as_weak(),
@@ -96,7 +100,10 @@ pub fn setup_project(app_state: &mut AppState) {
                 return;
             }
             if let Ok(new_project) = read_project(path_option.unwrap()) {
-                *project_ref.borrow_mut() = new_project;
+                {
+                    *project_ref.borrow_mut() = new_project;
+                }
+                async_query_commits(project_ref.clone());
                 init_ui(
                     project_ref.clone(),
                     ui_weak.clone(),
