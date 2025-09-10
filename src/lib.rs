@@ -1,6 +1,8 @@
 use slint::ComponentHandle;
 use std::process;
 
+use tokio::runtime::Runtime;
+
 use crate::app_state::AppState;
 
 mod app_config;
@@ -10,6 +12,7 @@ mod command_utils;
 mod commit_picker_controller;
 mod commit_proxy_model;
 mod file_diff_proxy_models;
+mod files_proxy_model;
 mod git_utils;
 mod id_model;
 mod notes;
@@ -20,13 +23,16 @@ mod project_config;
 mod project_controller;
 mod repository;
 mod repository_controller;
-mod files_proxy_model;
 
 mod utils_controller;
 
 pub mod ui;
 
 pub fn main() -> Result<(), slint::PlatformError> {
+    let rt = Runtime::new().unwrap();
+
+    let _guard = rt.enter();
+
     let mut app_state = AppState::new();
 
     app_state.app_window.on_close(move || process::exit(0));

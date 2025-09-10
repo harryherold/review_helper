@@ -1,14 +1,38 @@
-use slint::{ComponentHandle};
+use std::cell::RefCell;
+use std::future::Future;
+use std::path::PathBuf;
+use std::rc::Rc;
+
+use crate::project::Project;
+
+use slint::ComponentHandle;
 
 use crate::app_state::AppState;
+use crate::git_utils;
 use crate::ui;
+
+fn spawn_query_commits_task(project: Rc<RefCell<Project>>) {
+    slint::spawn_local(async move {
+        let path = {
+            let p = project.borrow();
+            let path_str = p.repository.repository_path().expect("No repository path available!");
+            PathBuf::from(path_str)
+        };
+        let commits = tokio::spawn(async move { git_utils::query_commits(&path).expect("Could not query commits!") })
+            .await
+            .expect("tokio spawn query_commits failed!");
+        let mut p = project.borrow_mut();
+        p.repository.set_commit_history(commits);
+    })
+    .expect("spawn_local failed!");
+}
 
 pub fn setup_commit_picker(app_state: &AppState) {
     app_state.app_window.global::<ui::CommitPickerAdapter>().on_refresh({
         let project = app_state.project.clone();
         move || {
-            let mut project = project.borrow_mut();
-            project.repository.initialize_commits();
+            let project = project.clone();
+            spawn_query_commits_task(project);
         }
     });
     app_state.app_window.global::<ui::CommitPickerAdapter>().on_filter_commits({

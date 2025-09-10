@@ -4,7 +4,7 @@ use std::{path::PathBuf, rc::Rc};
 
 use slint::{Model, ModelRc, StandardListViewItem, VecModel};
 
-use crate::git_utils::{query_commits, ChangeType};
+use crate::git_utils::{query_commits, ChangeType, Commit};
 use crate::id_model::{IdModel, IdModelChange};
 use crate::ui::OverallStat;
 use crate::{git_utils, project_config::ProjectConfig, ui};
@@ -134,9 +134,22 @@ impl Repository {
         }
     }
 
+    pub fn set_commit_history(&mut self, commits: Vec<Commit>) {
+        self.commits.clear();
+        for commit in commits {
+            let items = Rc::new(VecModel::<StandardListViewItem>::default());
+            items.push(slint::SharedString::from(commit.hash).into());
+            items.push(slint::SharedString::from(commit.message).into());
+            items.push(slint::SharedString::from(commit.author).into());
+            items.push(slint::SharedString::from(commit.date).into());
+
+            self.commits.push(items.into());
+        }
+    }
+
     pub fn set_path(&mut self, path: PathBuf) {
         self.path = Some(path);
-        self.initialize_commits()
+        // self.initialize_commits()
     }
 
     pub fn diff_repository(&mut self, start_commit: &str, end_commit: &str) -> anyhow::Result<()> {
