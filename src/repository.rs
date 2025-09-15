@@ -2,18 +2,17 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::atomic::AtomicUsize;
 use std::{path::PathBuf, rc::Rc};
 
-use slint::{Model, ModelRc, StandardListViewItem, VecModel};
+use slint::{Model, ModelRc, VecModel};
 
 use crate::git_command_spawner;
-use crate::git_utils::{ChangeType, Commit};
+use crate::git_utils::ChangeType;
 use crate::id_model::{IdModel, IdModelChange};
 use crate::ui::OverallStat;
 use crate::{git_utils, project_config::ProjectConfig, ui};
 
 pub struct Repository {
-    path: Option<PathBuf>,
+    pub path: Option<PathBuf>,
     current_diff: Diff,
-    commits: Rc<VecModel<slint::ModelRc<StandardListViewItem>>>,
 }
 
 fn diff_file_id() -> usize {
@@ -67,7 +66,6 @@ impl Default for Repository {
         Repository {
             path: None,
             current_diff: Diff::new(),
-            commits: Rc::new(VecModel::<ModelRc<StandardListViewItem>>::default()),
         }
     }
 }
@@ -111,29 +109,8 @@ impl Repository {
         }
     }
 
-    pub fn repository_path(&self) -> Option<&str> {
-        match self.path.as_ref() {
-            Some(p) => p.to_str(),
-            None => None,
-        }
-    }
-
-    pub fn set_commit_history(&mut self, commits: Vec<Commit>) {
-        self.commits.clear();
-        for commit in commits {
-            let items = Rc::new(VecModel::<StandardListViewItem>::default());
-            items.push(slint::SharedString::from(commit.hash).into());
-            items.push(slint::SharedString::from(commit.message).into());
-            items.push(slint::SharedString::from(commit.author).into());
-            items.push(slint::SharedString::from(commit.date).into());
-
-            self.commits.push(items.into());
-        }
-    }
-
     pub fn set_path(&mut self, path: PathBuf) {
         self.path = Some(path);
-        // self.initialize_commits()
     }
 
     pub fn merge_file_diff_map(&mut self, file_diff_map: git_utils::FileDiffMap) {
@@ -291,9 +268,5 @@ impl Repository {
 
     pub fn statistics(&self) -> &DiffStatistics {
         &self.current_diff.statistics
-    }
-
-    pub fn commits_model(&self) -> ModelRc<ModelRc<StandardListViewItem>> {
-        self.commits.clone().into()
     }
 }

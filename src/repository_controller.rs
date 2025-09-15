@@ -11,14 +11,17 @@ pub fn setup_repository(app_state: &AppState) {
     app_state.app_window.global::<ui::Repository>().on_open({
         let ui_weak = app_state.app_window.as_weak();
         let project = app_state.project.clone();
+        let commits_model = app_state.commit_proxy_model.clone();
         move || {
             let ui = ui_weak.unwrap();
-            let cloned_project = project.clone();
+            let project = project.clone();
+            let commits_model = commits_model.clone();
+
+            let mut project_ref = project.borrow_mut();
             match FileDialog::new().set_location("~").show_open_single_dir().unwrap() {
                 Some(repo_path) => {
-                    let mut project_ref = project.borrow_mut();
-                    if let Some(old_path) = project_ref.repository.repository_path() {
-                        if old_path == repo_path.to_str().expect("Could not convert path to string!") {
+                    if let Some(old_path) = project_ref.repository.path.as_ref() {
+                        if old_path == &repo_path {
                             return;
                         }
                     }
@@ -30,7 +33,9 @@ pub fn setup_repository(app_state: &AppState) {
                 }
                 None => {}
             }
-            async_query_commits(cloned_project);
+            if let Some(path) = project_ref.repository.path.as_ref() {
+                async_query_commits(path, commits_model);
+            }
         }
     });
     app_state.app_window.global::<ui::Diff>().on_filter_file_diff({
@@ -89,7 +94,7 @@ pub fn setup_repository(app_state: &AppState) {
         let app_config = app_state.app_config.clone();
         move |file_path| {
             let project = project_ref.borrow();
-            let repo_path = project.repository.repository_path().expect("Repository path is not set!");
+            let repo_path = project.repository.path.as_ref().expect("Repository path is not set!");
             let app_config = app_config.borrow();
             let args = app_config
                 .config

@@ -9,11 +9,11 @@ use crate::app_state::AppState;
 use crate::commit_proxy_model::CommitProxyModel;
 use crate::file_diff_proxy_models::FileDiffProxyModels;
 use crate::files_proxy_model::FilesProxyModel;
+use crate::git_command_spawner::*;
 use crate::id_model::IdModelChange;
 use crate::notes_proxy_models::NotesProxyModels;
 use crate::project::Project;
 use crate::project_config::ProjectConfig;
-use crate::git_command_spawner::*;
 use crate::ui;
 
 pub fn setup_project(app_state: &mut AppState) {
@@ -26,15 +26,15 @@ pub fn setup_project(app_state: &mut AppState) {
                    file_diff_model_ctx: Rc<RefCell<FileDiffProxyModels>>,
                    commit_proxy_model: Rc<RefCell<CommitProxyModel>>,
                    files_proxy_model: Rc<RefCell<FilesProxyModel>>,
-                   notes_proxy_model: Rc<RefCell<NotesProxyModels>>,| {
+                   notes_proxy_model: Rc<RefCell<NotesProxyModels>>| {
         let ui = ui_weak.unwrap();
         let project = project.borrow();
 
         ui.global::<ui::Project>().set_path(SharedString::from(project.path.to_str().unwrap()));
-        if let Some(repo_path) = project.repository.repository_path() {
-            ui.global::<ui::Repository>().set_path(SharedString::from(repo_path));
-        }
-        else {
+        if let Some(repo_path) = project.repository.path.as_ref() {
+            ui.global::<ui::Repository>()
+                .set_path(SharedString::from(repo_path.to_str().unwrap_or_default()));
+        } else {
             ui.global::<ui::Repository>().set_path(SharedString::new());
         }
 
@@ -58,7 +58,7 @@ pub fn setup_project(app_state: &mut AppState) {
         ui.global::<ui::Diff>().set_diff_model(m.sort_model());
 
         let commit_proxy_model = commit_proxy_model.clone();
-        *commit_proxy_model.borrow_mut() = CommitProxyModel::new(project.repository.commits_model());
+        *commit_proxy_model.borrow_mut() = CommitProxyModel::new();
         let p = commit_proxy_model.borrow();
         ui.global::<ui::CommitPickerAdapter>().set_commit_model(p.sort_model());
 
@@ -74,16 +74,19 @@ pub fn setup_project(app_state: &mut AppState) {
             eprintln!("Could not read config: {}", error.to_string());
         } else {
             app_state.project = Rc::new(RefCell::new(project_result.unwrap()));
-            async_query_commits(app_state.project.clone());
 
-            init_ui(
-                app_state.project.clone(),
-                app_state.app_window.as_weak(),
-                app_state.file_diff_proxy_models.clone(),
-                app_state.commit_proxy_model.clone(),
-                app_state.files_proxy_model.clone(),
-                app_state.notes_proxy_models.clone(),
-            );
+            if let Some(path) = app_state.project.borrow().repository.path.as_ref() {
+                async_query_commits(path, app_state.commit_proxy_model.clone());
+
+                init_ui(
+                    app_state.project.clone(),
+                    app_state.app_window.as_weak(),
+                    app_state.file_diff_proxy_models.clone(),
+                    app_state.commit_proxy_model.clone(),
+                    app_state.files_proxy_model.clone(),
+                    app_state.notes_proxy_models.clone(),
+                );
+            }
         }
     }
 
@@ -103,15 +106,17 @@ pub fn setup_project(app_state: &mut AppState) {
                 {
                     *project_ref.borrow_mut() = new_project;
                 }
-                async_query_commits(project_ref.clone());
-                init_ui(
-                    project_ref.clone(),
-                    ui_weak.clone(),
-                    file_diff_model_ctx.clone(),
-                    commit_proxy_model.clone(),
-                    files_proxy_model.clone(),
-                    notes_proxy_model.clone(),
-                );
+                if let Some(path) = project_ref.borrow().repository.path.as_ref() {
+                    async_query_commits(path, commit_proxy_model.clone());
+                    init_ui(
+                        project_ref.clone(),
+                        ui_weak.clone(),
+                        file_diff_model_ctx.clone(),
+                        commit_proxy_model.clone(),
+                        files_proxy_model.clone(),
+                        notes_proxy_model.clone(),
+                    );
+                }
             } else {
                 eprintln!("Error occurred while loading config!");
             }

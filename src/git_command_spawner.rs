@@ -4,25 +4,21 @@ use std::rc::Rc;
 
 use slint::{ComponentHandle, Weak};
 
+use crate::commit_proxy_model::CommitProxyModel;
 use crate::git_utils;
 use crate::project::Project;
 use crate::ui;
 
-pub fn async_query_commits(project: Rc<RefCell<Project>>) {
-    if project.borrow().repository.repository_path().is_none() {
+pub fn async_query_commits(repo_path: &PathBuf, commit_proxy_model: Rc<RefCell<CommitProxyModel>>) {
+    if !repo_path.exists() {
         return;
     }
+    let path = repo_path.clone();
     slint::spawn_local(async move {
-        let path = {
-            let p = project.borrow();
-            let path_str = p.repository.repository_path().unwrap();
-            PathBuf::from(path_str)
-        };
         let commits = tokio::spawn(async move { git_utils::query_commits(&path).expect("Could not query commits!") })
             .await
             .expect("tokio spawn query_commits failed!");
-        let mut p = project.borrow_mut();
-        p.repository.set_commit_history(commits);
+        commit_proxy_model.borrow_mut().set_commits(commits);
     })
     .expect("async_query_commits: spawn_local failed!");
 }
@@ -45,22 +41,24 @@ pub fn async_diff_file(repo_path: &PathBuf, start_commit: &str, end_commit: &str
 }
 
 pub fn async_diff_repository(project: Rc<RefCell<Project>>, ui_weak: Weak<ui::AppWindow>) {
-    if project.borrow().repository.repository_path().is_none() {
+    let path_option = {
+        let p = project.borrow();
+        match p.repository.path.as_ref() {
+            None => None,
+            Some(path) => Some(path.clone()),
+        }
+    };
+    if path_option.is_none() {
         return;
     }
     slint::spawn_local(async move {
-        let path = {
-            let p = project.borrow();
-            let path_str = p.repository.repository_path().unwrap();
-            PathBuf::from(path_str)
-        };
         let (start, end) = {
             let p = project.borrow();
             let (s, e) = p.repository.diff_range();
             (s.to_string(), e.to_string())
         };
 
-        let result = tokio::spawn(async move { git_utils::diff_git_repo(&path, &start, &end) })
+        let result = tokio::spawn(async move { git_utils::diff_git_repo(&path_option.expect("Path not available!"), &start, &end) })
             .await
             .expect("tokio spawn diff_git_repo failed!");
         if let Err(error) = result {
