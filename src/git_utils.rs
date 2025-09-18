@@ -1,4 +1,14 @@
-use std::{collections::HashMap, path::PathBuf, process::Command};
+use std::{
+    collections::{HashMap, HashSet},
+    path::PathBuf,
+    process::Command,
+};
+
+use itertools::Itertools;
+
+use which::which;
+
+extern crate dirs;
 
 #[derive(Debug, Eq, Ord, PartialEq, PartialOrd, Clone)]
 pub enum ChangeType {
@@ -246,11 +256,72 @@ pub fn query_commits(repo_path: &PathBuf) -> anyhow::Result<Vec<Commit>> {
     Ok(commits)
 }
 
+fn query_diff_tools_from_config() -> anyhow::Result<HashSet<String>> {
+    let args = vec!["config", "get", "--all", "--show-names", "--regexp", "difftool\\..*\\.(cmd|path)"];
+    let output = git_command!(dirs::home_dir().expect("Platform does not support dirs!"), args).output()?;
+    let output_string = String::from_utf8(output.stdout.trim_ascii().to_vec())?;
+
+    let mut diff_tools = HashSet::new();
+
+    for line in output_string.split("\n") {
+        if let Some((diff_desc, _)) = line.split_once(char::is_whitespace) {
+            if let Some((_, diff_tool, _)) = diff_desc.split(".").into_iter().collect_tuple() {
+                diff_tools.insert(diff_tool.to_string());
+            }
+        }
+    }
+
+    Ok(diff_tools)
+}
+
+fn query_diff_tools_from_path() -> anyhow::Result<HashSet<String>> {
+    let tools = vec![
+        "araxis",
+        "kdiff3",
+        "meld",
+        "smerge",
+        "bc",
+        "bc3",
+        "bc4",
+        "codecompare",
+        "deltawalker",
+        "diffmerge",
+        "diffuse",
+        "ecmerge",
+        "emerge",
+        "examdiff",
+        "guiffy",
+        "gvimdiff",
+        "kompare",
+        "nvimdiff",
+        "opendiff",
+        "p4merge",
+        "tkdiff",
+        "vimdiff",
+        "winmerge",
+        "xxdiff",
+    ];
+    let mut diff_tools = HashSet::new();
+    for tool in tools {
+        if let Ok(_) = which(tool) {
+            diff_tools.insert(tool.to_string());
+        }
+    }
+    Ok(diff_tools)
+}
+
+pub fn query_diff_tools() -> anyhow::Result<Vec<String>> {
+    let mut tools_from_config = query_diff_tools_from_config()?;
+    let tools_from_path = query_diff_tools_from_path()?;
+    tools_from_config.extend(tools_from_path);
+    Ok(tools_from_config.iter().cloned().sorted().collect_vec())
+}
+
 #[cfg(test)]
 mod tests {
     use std::{collections::HashMap, path::PathBuf};
 
-    use crate::git_utils::{diff_git_repo, first_commit, is_git_repo, query_commits, repo_contains_commit, ChangeType, DiffStatus};
+    use crate::git_utils::*;
 
     struct TestContext {
         path: PathBuf,
@@ -335,4 +406,26 @@ mod tests {
         assert_eq!(first_commit.author, "Christian von Wascinski");
         assert_eq!(first_commit.date, "2023-10-14 10:05:19 +02:00");
     }
+
+    // #[test]
+    // fn test_query_diff_tools() {
+    //     mock("git")
+    //         .with_arg("config")
+    //         .with_arg("get")
+    //         .with_arg("--all")
+    //         .with_arg("--show-names")
+    //         .with_arg("--regexp")
+    //         .with_arg("difftool.*.cmd")
+    //         .with_stdout("difftool.meld.cmd code --new-window --wait --diff $LOCAL $REMOTE")
+    //         .with_status(0)
+    //         .register();
+
+    //     let diff_tools_result = query_diff_tools();
+    //     assert!(diff_tools_result.is_ok());
+
+    //     let diff_tools = diff_tools_result.unwrap();
+    //     assert_eq!(diff_tools.len(), 1);
+    //     assert_eq!(diff_tools[0].name, "vscode");
+    //     assert_eq!(diff_tools[0].cmd, "code --new-window --wait --diff $LOCAL $REMOTE");
+    // }
 }

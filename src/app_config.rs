@@ -1,4 +1,6 @@
-use std::{fs, path::PathBuf};
+use std::{fs, path::PathBuf, rc::Rc};
+
+use slint::{SharedString, VecModel};
 
 use serde_derive::{Deserialize, Serialize};
 
@@ -14,9 +16,12 @@ pub struct Config {
     pub color_scheme: String,
 }
 
+type DiffToolModel = Rc<VecModel<SharedString>>;
+
 pub struct AppConfig {
     pub config: Config,
     path: PathBuf,
+    pub diff_tool_model: DiffToolModel,
 }
 
 impl Default for Config {
@@ -35,25 +40,26 @@ impl Default for AppConfig {
         Self {
             config: Config::default(),
             path: PathBuf::new(),
+            diff_tool_model: Rc::new(VecModel::default()),
         }
     }
 }
 
 impl AppConfig {
     pub fn new(mut path: PathBuf) -> anyhow::Result<Self> {
+        let mut app_config = AppConfig::default();
+
         path.push(std::env!("CARGO_CRATE_NAME")); // directory
         path.push(APP_CONFIG_FILENAME);
+
+        app_config.path = path.clone();
 
         if path.exists() && path.is_file() {
             let file_content = fs::read_to_string(&path).map_err(|e| anyhow::format_err!("Could not read app config: {}", e.to_string()))?;
             let config: Config = toml::from_str(&file_content).map_err(|e| anyhow::format_err!("Could not convert file content to toml: {}", e.to_string()))?;
-            Ok(AppConfig { config, path })
-        } else {
-            Ok(AppConfig {
-                config: Config::default(),
-                path,
-            })
+            app_config.config = config;
         }
+        Ok(app_config)
     }
     pub fn save(&self) -> anyhow::Result<()> {
         if self.path.as_os_str().is_empty() {
@@ -67,6 +73,10 @@ impl AppConfig {
 
         let contents = toml::to_string(&self.config).expect("Could not convert AppConfig struct to toml string!");
         fs::write(&self.path, contents).map_err(|e| anyhow::format_err!("Could not write app config file: {}", e.to_string()))
+    }
+    pub fn set_diff_tools(&mut self, diff_tools: &Vec<String>) {
+        self.diff_tool_model
+            .set_vec(diff_tools.iter().map(|s| SharedString::from(s)).collect::<Vec<_>>());
     }
 }
 

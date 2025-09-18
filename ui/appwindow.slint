@@ -10,10 +10,10 @@ import { AppConfigPopup } from "app_config_popup.slint";
 import { DiffConfigView } from "diff_config_view.slint";
 import { OverallStatistics } from "overall_statistics.slint";
 
-import { Repository, CommitPickerAdapter, OverallDiffStats, AppConfig, StringUtils, Diff, DiffFileItem, Notes, NoteItem, Project, FilePickerAdapter  } from "globals.slint";
+import { Repository, CommitPickerAdapter, OverallDiffStats, AppConfig, StringUtils, Diff, DiffFileItem, Notes, NoteItem, Project, FilePickerAdapter, ModelUtils  } from "globals.slint";
 import { SubSectionText } from "sub_section_text.slint";
 
-export { AppConfig, FilePickerAdapter, CommitPickerAdapter, Notes, NoteItem, Diff, DiffFileItem, Repository, StringUtils, OverallDiffStats, Project }
+export { AppConfig, FilePickerAdapter, CommitPickerAdapter, Notes, NoteItem, Diff, DiffFileItem, Repository, StringUtils, OverallDiffStats, Project, ModelUtils }
 
 export component AppWindow inherits Window {
     in property <string> config_color_scheme;

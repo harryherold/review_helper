@@ -5,9 +5,9 @@ use std::rc::Rc;
 use slint::{ComponentHandle, Weak};
 
 use crate::commit_proxy_model::CommitProxyModel;
-use crate::git_utils;
 use crate::project::Project;
 use crate::ui;
+use crate::{app_config, git_utils};
 
 pub fn async_query_commits(repo_path: &PathBuf, commit_proxy_model: Rc<RefCell<CommitProxyModel>>) {
     if !repo_path.exists() {
@@ -75,4 +75,28 @@ pub fn async_diff_repository(project: Rc<RefCell<Project>>, ui_weak: Weak<ui::Ap
         ui.global::<ui::OverallDiffStats>().set_removed_lines(statistics.removed_lines as i32);
     })
     .expect("async_diff_repository: spawn_local failed!");
+}
+
+pub fn async_query_diff_tools(app_config: Rc<RefCell<app_config::AppConfig>>, ui_weak: Weak<ui::AppWindow>) {
+    slint::spawn_local(async move {
+        let result = tokio::spawn(async move { git_utils::query_diff_tools() })
+            .await
+            .expect("tokio spawn query_diff_tools failed!");
+        match result {
+            Err(e) => eprintln!("Error on quering diff tools: {}", e.to_string()),
+            Ok(diff_tools) => {
+                let mut app_config = app_config.borrow_mut();
+                app_config.set_diff_tools(&diff_tools);
+
+                let ui = ui_weak.unwrap();
+
+                let diff_tool = ui.global::<ui::AppConfig>().get_diff_tool().to_string();
+
+                if let Some(index) = diff_tools.iter().position(|v| *v == diff_tool) {
+                    ui.global::<ui::AppConfig>().set_difftool_index(index as i32);
+                }
+            }
+        }
+    })
+    .expect("async_query_diff_tools: spawn_local failed!");
 }
