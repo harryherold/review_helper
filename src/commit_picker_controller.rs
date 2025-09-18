@@ -1,14 +1,19 @@
-use slint::{ComponentHandle};
+use slint::ComponentHandle;
 
 use crate::app_state::AppState;
+use crate::git_command_spawner::*;
 use crate::ui;
 
 pub fn setup_commit_picker(app_state: &AppState) {
     app_state.app_window.global::<ui::CommitPickerAdapter>().on_refresh({
         let project = app_state.project.clone();
+        let commit_proxy_model = app_state.commit_proxy_model.clone();
         move || {
-            let mut project = project.borrow_mut();
-            project.repository.initialize_commits();
+            let project = project.borrow();
+            if project.repository.path.is_none() {
+                return;
+            }
+            async_query_commits(project.repository.path.as_ref().unwrap(), commit_proxy_model.clone());
         }
     });
     app_state.app_window.global::<ui::CommitPickerAdapter>().on_filter_commits({

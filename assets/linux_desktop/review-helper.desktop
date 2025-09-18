@@ -1,0 +1,16 @@
+[Desktop Entry]
+Categories=Development;
+Comment[en_US]=Code Review Tool
+Comment=Code Review Tool
+Exec="$HOME/Apps/review-helper/review-helper"
+Icon=$HOME/Apps/review-helper/review_helper.png
+MimeType=application/toml;
+Name[en_US]=review-helper
+Name=review-helper
+Path=
+StartupNotify=true
+Terminal=false
+TerminalOptions=
+Type=Application
+X-KDE-SubstituteUID=false
+X-KDE-Username=

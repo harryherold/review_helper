@@ -41,9 +41,9 @@ impl Project {
     }
     pub fn save(&self) -> anyhow::Result<()> {
         let mut config = ProjectConfig::new();
-        if let Some(repo_path) = self.repository.repository_path() {
-            config.repo_path = repo_path.to_string();
-            config.first_commit = git_utils::first_commit(&PathBuf::from(repo_path))?;
+        if let Some(repo_path) = self.repository.path.as_ref() {
+            config.repo_path = repo_path.to_str().unwrap_or_default().to_string();
+            config.first_commit = git_utils::first_commit(repo_path)?;
         }
         let (start_commit, end_commit) = self.repository.diff_range();
         config.start_diff = start_commit.to_string();
