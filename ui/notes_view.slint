@@ -192,8 +192,6 @@ export component NotesView inherits Rectangle {
                 }
             }
             listview := ListView {
-                padding-right: 0;
-                padding-left: 0;
                 for note[idx] in Notes.notes_model: HorizontalLayout {
                     spacing: Style.size.spacing;
                     padding-top: Style.size.spacing;

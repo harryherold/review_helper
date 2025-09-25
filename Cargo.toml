@@ -13,12 +13,11 @@ wildcard = "=0.3.0"
 toml = "0.8.19"
 serde = "1.0.215"
 serde_derive = "1.0.215"
-slint = { version = "1.11.0", default-features = false, features = [
+slint = { version = "1.13.1", default-features = false, features = [
     "std",
     "backend-winit",
     "compat-1-2",
     "renderer-skia",
-    "renderer-software",
     "backend-qt",
 ] }
 native-dialog = "0.7.0"
@@ -32,5 +31,5 @@ which = "8.0.0"
 serial_test = "3.2.0"
 
 [build-dependencies]
-slint-build = "1.11.0"
+slint-build = "1.13.1"
 winresource = "0.1.23"
