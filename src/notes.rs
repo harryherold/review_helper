@@ -184,6 +184,7 @@ impl Notes {
 
 #[cfg(test)]
 mod tests {
+    use serial_test::serial;
     use slint::{Model, SharedString};
     use std::{env, fs, path::PathBuf};
 
@@ -245,6 +246,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_add_notes() {
         {
             let ctx = setup(false);
@@ -275,6 +277,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_read_markdown() {
         let mut path = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
         path.push("docs");
@@ -333,6 +336,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_write_markdown() {
         let mut path = test_dir_path();
         if !path.exists() {
