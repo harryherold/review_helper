@@ -1,8 +1,12 @@
+#[cfg(windows)]
+use std::process::Command;
 use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
-    process::Command,
 };
+
+#[cfg(not(windows))]
+use mockcmd::Command;
 
 use itertools::Itertools;
 
@@ -210,7 +214,11 @@ pub fn diff_file(repo_path: &PathBuf, start_commit: &str, end_commit: &str, file
     args.push("--");
     args.push(file);
 
-    git_command!(repo_path, args).spawn()?;
+    {
+        use std::process::Command;
+        git_command!(repo_path, args).spawn()?;
+    }
+
     Ok(())
 }
 
@@ -258,7 +266,7 @@ pub fn query_commits(repo_path: &PathBuf) -> anyhow::Result<Vec<Commit>> {
 
 fn query_diff_tools_from_config() -> anyhow::Result<HashSet<String>> {
     let args = vec!["config", "get", "--all", "--show-names", "--regexp", "difftool\\..*\\.(cmd|path)"];
-    let output = git_command!(dirs::home_dir().expect("Platform does not support dirs!"), args).output()?;
+    let output = git_command!(dirs::home_dir().unwrap_or_default(), args).output()?;
     let output_string = String::from_utf8(output.stdout.trim_ascii().to_vec())?;
 
     let mut diff_tools = HashSet::new();
@@ -318,8 +326,11 @@ pub fn query_diff_tools() -> anyhow::Result<Vec<String>> {
 }
 
 #[cfg(test)]
+#[cfg(not(windows))]
 mod tests {
     use std::{collections::HashMap, path::PathBuf};
+
+    use mockcmd::{mock, was_command_executed, CommandMockBuilder};
 
     use crate::git_utils::*;
 
@@ -337,10 +348,25 @@ mod tests {
     #[test]
     fn test_first_commit() {
         let ctx = setup();
+
+        let args = ["rev-list", "--max-parents=0", "HEAD"];
+
+        mock("git")
+            .current_dir(&ctx.path)
+            .with_args(&args)
+            .with_stdout("9f89049b7f99682c48474d421ac126316adaed15")
+            .register();
+
         let result = first_commit(&ctx.path);
+
+        let expected_cmd = [&["git"], &args[..]].concat();
+
+        assert!(was_command_executed(&expected_cmd, Some(ctx.path.to_str().unwrap_or_default())));
+
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "9f89049b7f99682c48474d421ac126316adaed15".to_string());
     }
+
     #[test]
     fn test_is_git_repo() {
         let ctx = setup();
@@ -350,17 +376,53 @@ mod tests {
     #[test]
     fn test_repo_contains_commit() {
         let ctx = setup();
-        let result = repo_contains_commit(&ctx.path, "9f89049b7f99682c48474d421ac126316adaed15");
+        let commit = "9f89049b7f99682c48474d421ac126316adaed15";
+        let args = ["cat-file", "-t", commit];
+
+        mock("git").current_dir(&ctx.path).with_args(&args).with_stdout("commit").register();
+
+        let expected_cmd = [&["git"], &args[..]].concat();
+
+        let result = repo_contains_commit(&ctx.path, commit);
+
+        assert!(was_command_executed(&expected_cmd, Some(ctx.path.to_str().unwrap_or_default())));
+
         assert!(result.is_ok());
         assert!(result.unwrap());
     }
+
+    fn git_mock(ctx: &TestContext) -> CommandMockBuilder {
+        mock("git").current_dir(&ctx.path)
+    }
+
     #[test]
     fn test_diff_git_repo() {
         let ctx = setup();
 
         let start_commit = "70989e0fbda7919d357c0183e62294423f3d9425";
         let end_commit = "68c5f4631d6e6b040d7887f7445cf1ad4006e1a5";
+        let git_status_args = ["diff", "--name-status", start_commit, end_commit];
+
+        git_mock(&ctx)
+            .with_args(git_status_args)
+            .with_stdout("A       rustfmt.toml\nA       src/lib.rs\nM       src/main.rs\n")
+            .register();
+
+        let git_file_status_args = ["diff", "-z", "--numstat", start_commit, end_commit];
+
+        git_mock(&ctx)
+            .with_args(git_file_status_args)
+            .with_stdout("6       0       rustfmt.toml\0137       0       src/lib.rs\022  94      src/main.rs\0")
+            .register();
+
         let result = diff_git_repo(&ctx.path, start_commit, end_commit);
+
+        let expected_git_status_cmd = [&["git"], &git_status_args[..]].concat();
+        assert!(was_command_executed(&expected_git_status_cmd, Some(ctx.path.to_str().unwrap_or_default())));
+
+        let expected_git_file_status_cmd = [&["git"], &git_file_status_args[..]].concat();
+        assert!(was_command_executed(&expected_git_file_status_cmd, Some(ctx.path.to_str().unwrap_or_default())));
+
         assert!(result.is_ok());
         let expected_stats = HashMap::from([
             (
@@ -394,11 +456,23 @@ mod tests {
     #[test]
     fn test_query_commits() {
         let ctx = setup();
+
+        let args = ["--no-pager", "log", "--first-parent", "--pretty=format:\"%h¦%an¦%aI¦%s\""];
+        let output = "70989e0¦Christian von Wascinski¦2023-10-16T22:34:17+02:00¦feature: add open comments.\n\
+                                    dd02a7c¦Christian von Wascinski¦2023-10-15T16:25:02+02:00¦feature: Add saving notes as todo.txt\n\
+                                    9f89049¦Christian von Wascinski¦2023-10-14T10:05:19+02:00¦Initial commit\n";
+
+        git_mock(&ctx).with_args(args).with_stdout(output).register();
+
         let commits = query_commits(&ctx.path);
+
+        let expected_git_cmd = [&["git"], &args[..]].concat();
+        assert!(was_command_executed(&expected_git_cmd, Some(ctx.path.to_str().unwrap_or_default())));
+
         assert!(commits.is_ok());
         let commits = commits.unwrap();
 
-        assert!(commits.len() > 75);
+        assert_eq!(commits.len(), 3);
         let first_commit = commits.last().unwrap();
 
         assert_eq!(first_commit.hash, "9f89049");
@@ -407,25 +481,28 @@ mod tests {
         assert_eq!(first_commit.date, "2023-10-14 10:05:19 +02:00");
     }
 
-    // #[test]
-    // fn test_query_diff_tools() {
-    //     mock("git")
-    //         .with_arg("config")
-    //         .with_arg("get")
-    //         .with_arg("--all")
-    //         .with_arg("--show-names")
-    //         .with_arg("--regexp")
-    //         .with_arg("difftool.*.cmd")
-    //         .with_stdout("difftool.meld.cmd code --new-window --wait --diff $LOCAL $REMOTE")
-    //         .with_status(0)
-    //         .register();
+    #[test]
+    fn test_query_diff_tools() {
+        let args = ["config", "get", "--all", "--show-names", "--regexp", "difftool\\..*\\.(cmd|path)"];
 
-    //     let diff_tools_result = query_diff_tools();
-    //     assert!(diff_tools_result.is_ok());
+        let path = dirs::home_dir().unwrap_or_default();
 
-    //     let diff_tools = diff_tools_result.unwrap();
-    //     assert_eq!(diff_tools.len(), 1);
-    //     assert_eq!(diff_tools[0].name, "vscode");
-    //     assert_eq!(diff_tools[0].cmd, "code --new-window --wait --diff $LOCAL $REMOTE");
-    // }
+        mock("git")
+            .current_dir(&path)
+            .with_args(args)
+            .with_stdout("difftool.vscode.cmd code --new-window --wait --diff $LOCAL $REMOTE")
+            .register();
+
+        let diff_tools_result = query_diff_tools();
+
+        let expected_git_cmd = [&["git"], &args[..]].concat();
+        assert!(was_command_executed(&expected_git_cmd, Some(path.to_str().unwrap_or_default())));
+
+        assert!(diff_tools_result.is_ok());
+
+        let diff_tools = diff_tools_result.unwrap();
+        assert!(diff_tools.len() > 0);
+
+        assert!(diff_tools.contains(&"vscode".to_string()));
+    }
 }

@@ -2610,6 +2610,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "mockcmd"
+version = "0.0.1"
+source = "git+https://github.com/harryherold/mockcmd.git?rev=0e2d6aaf8787f90071fade81585910b84dfd69c9#0e2d6aaf8787f90071fade81585910b84dfd69c9"
+
+[[package]]
 name = "moxcms"
 version = "0.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3722,6 +3727,7 @@ dependencies = [
  "chrono",
  "dirs",
  "itertools 0.14.0",
+ "mockcmd",
  "native-dialog",
  "serde",
  "serde_derive",

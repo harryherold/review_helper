@@ -26,9 +26,11 @@ dirs = "6.0.0"
 chrono = { version = "0.4", features = ["unstable-locales"] }
 itertools = "0.14.0"
 which = "8.0.0"
+mockcmd = { git = "https://github.com/harryherold/mockcmd.git", rev = "0e2d6aaf8787f90071fade81585910b84dfd69c9" }
 
 [dev-dependencies]
 serial_test = "3.2.0"
+mockcmd = { git = "https://github.com/harryherold/mockcmd.git", features = ["test"], rev = "0e2d6aaf8787f90071fade81585910b84dfd69c9" }
 
 [build-dependencies]
 slint-build = "1.13.1"
