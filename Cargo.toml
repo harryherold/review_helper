@@ -8,23 +8,30 @@ build = "build.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+tokio = { version = "1.47.1", features = ["full"] }
 wildcard = "=0.3.0"
 toml = "0.8.19"
 serde = "1.0.215"
 serde_derive = "1.0.215"
-slint = { version = "1.11.0", default-features = false, features = [
+slint = { version = "1.13.1", default-features = false, features = [
     "std",
     "backend-winit",
     "compat-1-2",
     "renderer-skia",
-    "renderer-software",
     "backend-qt",
 ] }
 native-dialog = "0.7.0"
 anyhow = "1.0.89"
 dirs = "6.0.0"
 chrono = { version = "0.4", features = ["unstable-locales"] }
+itertools = "0.14.0"
+which = "8.0.0"
+mockcmd = { git = "https://github.com/harryherold/mockcmd.git", rev = "0e2d6aaf8787f90071fade81585910b84dfd69c9" }
+
+[dev-dependencies]
+serial_test = "3.2.0"
+mockcmd = { git = "https://github.com/harryherold/mockcmd.git", features = ["test"], rev = "0e2d6aaf8787f90071fade81585910b84dfd69c9" }
 
 [build-dependencies]
-slint-build = "1.11.0"
+slint-build = "1.13.1"
 winresource = "0.1.23"

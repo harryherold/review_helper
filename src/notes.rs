@@ -1,11 +1,11 @@
+use slint::ModelRc;
+use slint::{Model, SharedString};
+use std::collections::BTreeMap;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{fs, path::PathBuf, rc::Rc};
-use std::collections::BTreeMap;
-use slint::ModelRc;
-use slint::{Model, SharedString};
 
 use crate::id_model::{IdModel, IdModelChange};
 
@@ -64,9 +64,7 @@ fn write_notes_to_file(model: &IdModel<ui::NoteItem>, path: &PathBuf) -> anyhow:
     let mut general_notes = Vec::<String>::new();
     let mut file_notes = BTreeMap::<String, Vec<String>>::new();
 
-    let note_item_to_string = |item: &ui::NoteItem| -> String {
-        format!("* [{}] {}", if item.is_fixed { "x" } else { "" }, item.text)
-    };
+    let note_item_to_string = |item: &ui::NoteItem| -> String { format!("* [{}] {}", if item.is_fixed { "x" } else { "" }, item.text) };
 
     for item in model.iter() {
         let notes: &mut Vec<String> = if item.context.is_empty() {
@@ -186,8 +184,9 @@ impl Notes {
 
 #[cfg(test)]
 mod tests {
-    use std::{env, fs, path::PathBuf};
+    use serial_test::serial;
     use slint::{Model, SharedString};
+    use std::{env, fs, path::PathBuf};
 
     use crate::{id_model::IdModel, ui};
 
@@ -247,6 +246,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_add_notes() {
         {
             let ctx = setup(false);
@@ -277,6 +277,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_read_markdown() {
         let mut path = PathBuf::from(std::env!("CARGO_MANIFEST_DIR"));
         path.push("docs");
@@ -286,40 +287,56 @@ mod tests {
         let notes = notes.unwrap();
         assert_eq!(notes.row_count(), 5);
         let expected_notes = IdModel::<ui::NoteItem>::default();
-        expected_notes.add(1, ui::NoteItem{
-            id: 1,
-            is_fixed: false,
-            text: "foo".into(),
-            context: "".into(),
-        });
-        expected_notes.add(2, ui::NoteItem{
-            id: 2,
-            is_fixed: false,
-            text: "dasdas".into(),
-            context: "".into(),
-        });
-        expected_notes.add(3, ui::NoteItem{
-            id: 3,
-            is_fixed: true,
-            text: "foo bar".into(),
-            context: "/tmp/foo.c".into(),
-        });
-        expected_notes.add(4, ui::NoteItem{
-            id: 4,
-            is_fixed: true,
-            text: "flupp bubb".into(),
-            context: "/tmp/foo.c".into(),
-        });
-        expected_notes.add(5, ui::NoteItem{
-            id: 5,
-            is_fixed: true,
-            text: "schupp".into(),
-            context: "C:\\blubb\\bar.cpp".into(),
-        });
+        expected_notes.add(
+            1,
+            ui::NoteItem {
+                id: 1,
+                is_fixed: false,
+                text: "foo".into(),
+                context: "".into(),
+            },
+        );
+        expected_notes.add(
+            2,
+            ui::NoteItem {
+                id: 2,
+                is_fixed: false,
+                text: "dasdas".into(),
+                context: "".into(),
+            },
+        );
+        expected_notes.add(
+            3,
+            ui::NoteItem {
+                id: 3,
+                is_fixed: true,
+                text: "foo bar".into(),
+                context: "/tmp/foo.c".into(),
+            },
+        );
+        expected_notes.add(
+            4,
+            ui::NoteItem {
+                id: 4,
+                is_fixed: true,
+                text: "flupp bubb".into(),
+                context: "/tmp/foo.c".into(),
+            },
+        );
+        expected_notes.add(
+            5,
+            ui::NoteItem {
+                id: 5,
+                is_fixed: true,
+                text: "schupp".into(),
+                context: "C:\\blubb\\bar.cpp".into(),
+            },
+        );
         assert_eq_notes(&notes, &expected_notes);
     }
 
     #[test]
+    #[serial]
     fn test_write_markdown() {
         let mut path = test_dir_path();
         if !path.exists() {
@@ -328,36 +345,51 @@ mod tests {
         path.push("foo.md");
 
         let expected_notes = IdModel::<ui::NoteItem>::default();
-        expected_notes.add(1, ui::NoteItem{
-            id: 1,
-            is_fixed: false,
-            text: "foo".into(),
-            context: "".into(),
-        });
-        expected_notes.add(2, ui::NoteItem{
-            id: 2,
-            is_fixed: false,
-            text: "dasdas".into(),
-            context: "".into(),
-        });
-        expected_notes.add(3, ui::NoteItem{
-            id: 3,
-            is_fixed: true,
-            text: "schupp".into(),
-            context: "C:\\blubb\\bar.cpp".into(),
-        });
-        expected_notes.add(4, ui::NoteItem{
-            id: 4,
-            is_fixed: true,
-            text: "foo bar".into(),
-            context: "C:\\blubb\\foo.cpp".into(),
-        });
-        expected_notes.add(5, ui::NoteItem{
-            id: 5,
-            is_fixed: false,
-            text: "flupp bubb".into(),
-            context: "C:\\blubb\\foo.cpp".into(),
-        });
+        expected_notes.add(
+            1,
+            ui::NoteItem {
+                id: 1,
+                is_fixed: false,
+                text: "foo".into(),
+                context: "".into(),
+            },
+        );
+        expected_notes.add(
+            2,
+            ui::NoteItem {
+                id: 2,
+                is_fixed: false,
+                text: "dasdas".into(),
+                context: "".into(),
+            },
+        );
+        expected_notes.add(
+            3,
+            ui::NoteItem {
+                id: 3,
+                is_fixed: true,
+                text: "schupp".into(),
+                context: "C:\\blubb\\bar.cpp".into(),
+            },
+        );
+        expected_notes.add(
+            4,
+            ui::NoteItem {
+                id: 4,
+                is_fixed: true,
+                text: "foo bar".into(),
+                context: "C:\\blubb\\foo.cpp".into(),
+            },
+        );
+        expected_notes.add(
+            5,
+            ui::NoteItem {
+                id: 5,
+                is_fixed: false,
+                text: "flupp bubb".into(),
+                context: "C:\\blubb\\foo.cpp".into(),
+            },
+        );
         assert!(write_notes_to_file(&expected_notes, &path).is_ok());
 
         let read_notes = read_notes_from_file(&path);
@@ -365,7 +397,7 @@ mod tests {
         let read_notes = read_notes.unwrap();
 
         assert_eq_notes(&read_notes, &expected_notes);
-        
+
         if path.exists() {
             assert!(fs::remove_file(&path).is_ok());
         }

@@ -1,6 +1,7 @@
 use crate::app_state::AppState;
+use crate::git_command_spawner::async_query_diff_tools;
 use crate::ui;
-use slint::{ComponentHandle, SharedString, };
+use slint::{ComponentHandle, SharedString};
 
 pub fn setup_app_config(app_state: &AppState) {
     app_state.app_window.global::<ui::AppConfig>().on_save({
@@ -34,10 +35,25 @@ pub fn setup_app_config(app_state: &AppState) {
 
     let editor_args = app_state.app_config.borrow().config.editor_args.join(",");
     app_state.app_window.global::<ui::AppConfig>().set_editor_args(SharedString::from(editor_args));
-    
+
     let color_scheme = SharedString::from(app_state.app_config.borrow().config.color_scheme.clone());
-    
+
     app_state.app_window.global::<ui::AppConfig>().set_color_scheme(color_scheme.clone());
 
     app_state.app_window.set_config_color_scheme(color_scheme);
+
+    app_state
+        .app_window
+        .global::<ui::AppConfig>()
+        .set_diff_tool_model(app_state.app_config.borrow().diff_tool_model.clone().into());
+
+    app_state.app_window.global::<ui::AppConfig>().on_refresh_diff_tool_model({
+        let app_config = app_state.app_config.clone();
+        let ui_weak = app_state.app_window.as_weak();
+        move || {
+            async_query_diff_tools(app_config.clone(), ui_weak.clone());
+        }
+    });
+
+    async_query_diff_tools(app_state.app_config.clone(), app_state.app_window.as_weak());
 }

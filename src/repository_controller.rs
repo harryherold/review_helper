@@ -1,21 +1,27 @@
-use crate::app_state::AppState;
-use crate::command_utils::run_command;
-use crate::ui;
 use native_dialog::FileDialog;
 use slint::{ComponentHandle, Model, SharedString};
 use std::path::PathBuf;
 
+use crate::app_state::AppState;
+use crate::command_utils::run_command;
+use crate::git_command_spawner::{self, async_query_commits};
+use crate::ui;
+
 pub fn setup_repository(app_state: &AppState) {
     app_state.app_window.global::<ui::Repository>().on_open({
         let ui_weak = app_state.app_window.as_weak();
-        let project_ref = app_state.project.clone();
+        let project = app_state.project.clone();
+        let commits_model = app_state.commit_proxy_model.clone();
         move || {
             let ui = ui_weak.unwrap();
-            let mut project_ref = project_ref.borrow_mut();
+            let project = project.clone();
+            let commits_model = commits_model.clone();
+
+            let mut project_ref = project.borrow_mut();
             match FileDialog::new().set_location("~").show_open_single_dir().unwrap() {
                 Some(repo_path) => {
-                    if let Some(old_path) = project_ref.repository.repository_path() {
-                        if old_path == repo_path.to_str().expect("Could not convert path to string!") {
+                    if let Some(old_path) = project_ref.repository.path.as_ref() {
+                        if old_path == &repo_path {
                             return;
                         }
                     }
@@ -26,6 +32,9 @@ pub fn setup_repository(app_state: &AppState) {
                     project_ref.repository.set_path(repo_path);
                 }
                 None => {}
+            }
+            if let Some(path) = project_ref.repository.path.as_ref() {
+                async_query_commits(path, commits_model);
             }
         }
     });
@@ -42,7 +51,7 @@ pub fn setup_repository(app_state: &AppState) {
         move |filter_review_state| {
             let mut m = file_diff_model_ctx.borrow_mut();
             m.set_filter_review_state(filter_review_state);
-            
+
             let ui = ui_weak.unwrap();
             ui.global::<ui::Diff>().set_current_filter_review_state(filter_review_state);
         }
@@ -56,11 +65,12 @@ pub fn setup_repository(app_state: &AppState) {
                 let (old_start, old_end) = project.repository.diff_range();
                 (SharedString::from(old_start), SharedString::from(old_end))
             };
-            let result = project_ref.borrow_mut().repository.diff_repository(&start_commit, &end_commit);
-            if let Err(error) = result {
-                eprintln!("Error on diffing repo: {}", error.to_string());
-                return;
+            {
+                let mut project = project_ref.borrow_mut();
+                project.repository.set_diff_range((&start_commit, &end_commit));
             }
+
+            git_command_spawner::async_diff_repository(project_ref.clone(), ui_weak.clone());
 
             let ui = ui_weak.unwrap();
             if old_start_commit != start_commit || old_end_commit != end_commit {
@@ -68,11 +78,6 @@ pub fn setup_repository(app_state: &AppState) {
             }
             ui.global::<ui::Diff>().set_start_commit(start_commit);
             ui.global::<ui::Diff>().set_end_commit(end_commit);
-            let project = project_ref.borrow();
-            let statistics = project.repository.statistics();
-
-            ui.global::<ui::OverallDiffStats>().set_added_lines(statistics.added_lines as i32);
-            ui.global::<ui::OverallDiffStats>().set_removed_lines(statistics.removed_lines as i32);
         }
     });
     app_state.app_window.global::<ui::Diff>().on_open_file_diff({
@@ -89,7 +94,7 @@ pub fn setup_repository(app_state: &AppState) {
         let app_config = app_state.app_config.clone();
         move |file_path| {
             let project = project_ref.borrow();
-            let repo_path = project.repository.repository_path().expect("Repository path is not set!");
+            let repo_path = project.repository.path.as_ref().expect("Repository path is not set!");
             let app_config = app_config.borrow();
             let args = app_config
                 .config
@@ -125,8 +130,6 @@ pub fn setup_repository(app_state: &AppState) {
     });
     app_state.app_window.global::<ui::Diff>().on_diff_model_contains_id({
         let file_diff_model_ctx = app_state.file_diff_proxy_models.clone();
-        move |id| -> bool {
-            file_diff_model_ctx.borrow().sort_model().iter().any(|item| item.id == id)
-        }
+        move |id| -> bool { file_diff_model_ctx.borrow().sort_model().iter().any(|item| item.id == id) }
     })
 }

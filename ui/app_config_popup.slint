@@ -1,6 +1,6 @@
 import { Popup } from "popup.slint";
 import { Style } from "style.slint";
-import { AppConfig } from "globals.slint";
+import { AppConfig, ModelUtils } from "globals.slint";
 
 import { VerticalBox, LineEdit, Button, ComboBox, Palette } from "std-widgets.slint";
 
@@ -21,9 +21,21 @@ export component AppConfigPopup inherits Popup {
                     text: "diff tool";
                 }
 
-                diff_tool_edit := LineEdit {
-                    height: Style.size.control_height;
-                    text <=> AppConfig.diff_tool;
+                ComboBox {
+                    private property <int> difftool_idx: AppConfig.difftool_index;
+                    changed difftool_idx => { self.current-index = difftool_idx }
+                    
+                    current-value: AppConfig.diff_tool;
+                    model: AppConfig.diff_tool_model;
+                    
+                    selected(current-value) => { 
+                        AppConfig.difftool_index = ModelUtils.index_of_string(AppConfig.diff_tool_model, current-value);
+                        AppConfig.diff_tool = current-value;
+                    }
+                }
+                Button {
+                    icon: @image-url("../assets/icons/refresh.svg");
+                    clicked => { AppConfig.refresh_diff_tool_model() }
                 }
             }
 

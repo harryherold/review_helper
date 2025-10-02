@@ -4,11 +4,7 @@ import { CommitPickerAdapter } from "globals.slint";
 import { ImageButton } from "image_button.slint";
 
 export component CommitPicker inherits PopupWindow {
-    private property <int> sort_index: 3;
     private property <bool> is_sort_ascending: true;
-    private property <string> text: item.text;
-    private property <StandardListViewItem> item: selected_commit[0];
-    private property <[StandardListViewItem]> selected_commit: CommitPickerAdapter.commit_model[commit_table_view.current-row];
 
     x: 20px;
     y: 20px;
@@ -79,7 +75,7 @@ export component CommitPicker inherits PopupWindow {
                     height: Style.size.control_height;
                     text: "Apply";
                     clicked => {
-                        root.accepted(text);
+                        root.accepted(CommitPickerAdapter.commit_model[commit_table_view.current-row][0].text);
                         root.close();
                     }
                 }

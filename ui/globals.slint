@@ -1,10 +1,13 @@
 export global AppConfig {
     in-out property <string> diff_tool;
+    in-out property <[string]> diff_tool_model;
     in-out property <string> editor;
     in-out property <string> editor_args;
     in-out property <string> color_scheme;
+    in property <int> difftool_index;
 
     callback save();
+    callback refresh_diff_tool_model();
 }
 
 export global Project {
@@ -150,6 +153,10 @@ export global Notes {
 
 export global StringUtils {
     pure callback filename(string) -> string;
+}
+
+export global ModelUtils {
+    pure callback index_of_string([string], string) -> int;
 }
 
 export global FilePickerAdapter {
