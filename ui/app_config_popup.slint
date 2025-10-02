@@ -1,6 +1,7 @@
 import { Popup } from "popup.slint";
 import { Style } from "style.slint";
 import { AppConfig, ModelUtils } from "globals.slint";
+import { ImageButton } from "image_button.slint";
 
 import { VerticalBox, LineEdit, Button, ComboBox, Palette } from "std-widgets.slint";
 
@@ -33,8 +34,8 @@ export component AppConfigPopup inherits Popup {
                         AppConfig.diff_tool = current-value;
                     }
                 }
-                Button {
-                    icon: @image-url("../assets/icons/refresh.svg");
+                ImageButton {
+                    source: @image-url("../assets/icons/refresh.svg");
                     clicked => { AppConfig.refresh_diff_tool_model() }
                 }
             }

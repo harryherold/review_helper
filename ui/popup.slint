@@ -1,5 +1,6 @@
 import { Button, VerticalBox, LineEdit, ListView, CheckBox, Palette } from "std-widgets.slint";
 
+import { ImageButton } from "image_button.slint";
 import { Style } from "style.slint";
 
 export component Popup inherits Rectangle {
@@ -52,10 +53,10 @@ export component Popup inherits Rectangle {
                     text: root.title;
                 }
 
-                if root.enable_close_button: Button {
+                if root.enable_close_button: ImageButton {
                     height: Style.size.control_height;
                     width: 45px;
-                    icon: @image-url("../assets/icons/close.svg");
+                    source: @image-url("../assets/icons/close.svg");
                     clicked => {
                         root.close()
                     }
