@@ -283,7 +283,7 @@ fn query_diff_tools_from_config() -> anyhow::Result<HashSet<String>> {
 }
 
 fn query_diff_tools_from_path() -> anyhow::Result<HashSet<String>> {
-    let tools = vec![
+    let tools = [
         "araxis",
         "kdiff3",
         "meld",
