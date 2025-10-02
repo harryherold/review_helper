@@ -26,6 +26,23 @@ export component CommitPicker inherits PopupWindow {
             HorizontalLayout {
                 spacing: Style.size.spacing;
 
+                base_branch_edit := LineEdit {
+                    placeholder-text: "base branch";
+                }
+
+                ImageButton {
+                    source: @image-url("../assets/icons/location.svg");
+                    enabled: !base_branch_edit.text.is-empty;
+                    text: "Merge-Branch";
+                    clicked => {
+                        commit_table_view.set-current-row(CommitPickerAdapter.branch_merge_base(base_branch_edit.text));
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: Style.size.spacing;
+
                 LineEdit {
                     placeholder-text: "text filter";
                     edited(text) => {

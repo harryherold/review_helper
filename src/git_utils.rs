@@ -325,6 +325,18 @@ pub fn query_diff_tools() -> anyhow::Result<Vec<String>> {
     Ok(tools_from_config.iter().cloned().sorted().collect_vec())
 }
 
+pub fn branch_merge_base(repo_path: &PathBuf, base_branch: &str, feature_branch: &str) -> anyhow::Result<String> {
+    let args = ["merge-base", base_branch, feature_branch];
+    let output = git_command!(repo_path, args).output()?;
+    Ok(String::from_utf8(output.stdout.trim_ascii().to_vec())?)
+}
+
+pub fn current_branch(repo_path: &PathBuf) -> anyhow::Result<String> {
+    let args = ["branch", "--show-current"];
+    let output = git_command!(repo_path, args).output()?;
+    Ok(String::from_utf8(output.stdout.trim_ascii().to_vec())?)
+}
+
 #[cfg(test)]
 #[cfg(not(windows))]
 mod tests {
@@ -504,5 +516,38 @@ mod tests {
         assert!(diff_tools.len() > 0);
 
         assert!(diff_tools.contains(&"vscode".to_string()));
+    }
+
+    #[test]
+    fn test_current_branch() {
+        let ctx = setup();
+        let args = ["branch", "--show-current"];
+
+        git_mock(&ctx).with_args(args).with_stdout("main").register();
+
+        let current_branch_result = current_branch(&ctx.path);
+
+        let expected_git_cmd = [&["git"], &args[..]].concat();
+        assert!(was_command_executed(&expected_git_cmd, Some(ctx.path.to_str().unwrap_or_default())));
+
+        assert!(current_branch_result.is_ok());
+        assert_eq!(&current_branch_result.unwrap_or_default(), "main");
+    }
+
+    #[test]
+    fn test_branch_merge_base() {
+        let ctx = setup();
+
+        let base = "main";
+        let feature = "feature";
+        let args = ["merge-base", base, feature];
+        let expected_commit = "0x2ac";
+
+        git_mock(&ctx).with_args(args).with_stdout(expected_commit).register();
+
+        let commit_result = branch_merge_base(&ctx.path, base, feature);
+
+        assert!(commit_result.is_ok());
+        assert_eq!(commit_result.unwrap_or_default(), expected_commit);
     }
 }

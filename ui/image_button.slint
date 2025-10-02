@@ -6,8 +6,9 @@ export component ImageButton inherits Rectangle {
     in-out property <bool> enabled <=> ta.enabled;
     in property <image> source;
     in property <bool> highlighted: false;
+    in property <string> text: "";
     callback clicked();
-    width: image.width + 2 * Style.size.big_spacing;
+
     background: Palette.control-background;
     border-radius: Style.size.border_radius;
     border-width: Style.size.border_width;
@@ -17,16 +18,29 @@ export component ImageButton inherits Rectangle {
             background: Palette.alternate-background;
         }
     ]
-    image := Image {
-        vertical-alignment: center;
-        horizontal-alignment: center;
-        width: Style.size.image_width;
-        source: root.source;
-        colorize: {
-            if root.highlighted {
-                return Palette.selection-background;
+    HorizontalLayout {
+        padding-left: Style.size.big_spacing;
+        padding-right: Style.size.big_spacing;
+        spacing: Style.size.spacing;
+        alignment: center;
+        image := Image {
+            vertical-alignment: center;
+            width: Style.size.image_width;
+            source: root.source;
+            colorize: {
+                if root.highlighted {
+                    return Palette.selection-background;
+                }
+                return root.enabled ? Palette.foreground : Style.palette.disabled;
             }
-            return root.enabled ? Palette.foreground : Style.palette.disabled;
+        }
+
+        if !root.text.is-empty: Text {
+            text: root.text;
+            vertical-alignment: center;
+            color: {
+                return root.enabled ? Palette.foreground : Style.palette.disabled;
+            }
         }
     }
 
