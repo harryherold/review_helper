@@ -35,7 +35,7 @@ export component CommitPicker inherits PopupWindow {
                     enabled: !base_branch_edit.text.is-empty;
                     text: "Merge-Branch";
                     clicked => {
-                        commit_table_view.set-current-row(CommitPickerAdapter.branch_merge_base(base_branch_edit.text));
+                        commit_table_view.set-current-row(CommitPickerAdapter.index_of_merge_base(base_branch_edit.text));
                     }
                 }
             }

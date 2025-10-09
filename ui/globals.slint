@@ -117,7 +117,7 @@ export global CommitPickerAdapter {
     callback filter_commits(string);
     callback sort_commits(int, bool);
     callback refresh();
-    callback branch_merge_base(string) -> int;
+    callback index_of_merge_base(string) -> int;
 }
 
 export struct NoteItem  {

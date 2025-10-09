@@ -34,12 +34,15 @@ pub fn setup_commit_picker(app_state: &AppState) {
             ui.global::<ui::CommitPickerAdapter>().set_commit_model(m.sort_model());
         }
     });
-    app_state.app_window.global::<ui::CommitPickerAdapter>().on_branch_merge_base({
+    app_state.app_window.global::<ui::CommitPickerAdapter>().on_index_of_merge_base({
         let project = app_state.project.clone();
         let commit_proxy_model = app_state.commit_proxy_model.clone();
         move |base_branch| -> i32 {
             let project = project.borrow();
             if project.repository.path.is_none() {
+                return -1;
+            }
+            if commit_proxy_model.borrow().sort_model().row_count() == 0 {
                 return -1;
             }
             let path = project.repository.path.as_ref().unwrap();
@@ -56,8 +59,10 @@ pub fn setup_commit_picker(app_state: &AppState) {
                 }
                 Ok(commit) => {
                     let c = SharedString::from(commit);
-                    let m = commit_proxy_model.borrow().sort_model();
-                    m.iter()
+                    let model = commit_proxy_model.borrow().sort_model();
+
+                    model
+                        .iter()
                         .position(|item| c.contains(item.row_data(0).unwrap_or_default().text.as_str()))
                         .unwrap_or_default() as i32
                 }
