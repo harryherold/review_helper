@@ -1,7 +1,7 @@
 import { Style } from "style.slint";
 import { Palette } from "std-widgets.slint";
 
-export component ImageButton inherits Rectangle {
+export component ToolButton inherits Rectangle {
     out property <bool> pressed: ta.pressed;
     in-out property <bool> enabled <=> ta.enabled;
     in property <image> source;

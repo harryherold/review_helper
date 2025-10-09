@@ -3,7 +3,7 @@ import { GroupBox, ListView, CheckBox, Button, Palette, LineEdit, VerticalBox, H
 import { Style } from "style.slint";
 import { ChangeTypeUtils, SortCriteria, Diff, Notes, NoteItem, FilterReviewState } from "globals.slint";
 import { FileNoteDelegate } from "file_note_delegate.slint";
-import { ImageButton } from "image_button.slint";
+import { ToolButton } from "tool_button.slint";
 
 export component FileDiffView inherits VerticalLayout {
     private property <int> selected_id: -1;
@@ -178,7 +178,7 @@ export component FileDiffView inherits VerticalLayout {
                                     }
                                 }
 
-                                ImageButton {
+                                ToolButton {
                                     source: data.is_reviewed ? @image-url("../assets/icons/checked.svg") : @image-url("../assets/icons/unchecked.svg");
                                     enabled: root.selected_id == data.id;
                                     clicked => {
@@ -187,7 +187,7 @@ export component FileDiffView inherits VerticalLayout {
                                 }
 
                                 property <Point> p: { x: (root.width - bb.width) - 280px, y: bb.height };
-                                bb := ImageButton {
+                                bb := ToolButton {
                                     source: @image-url("../assets/icons/open_editor.svg");
                                     enabled: root.selected_id == data.id;
                                     clicked => {
@@ -195,7 +195,7 @@ export component FileDiffView inherits VerticalLayout {
                                     }
                                 }
 
-                                ImageButton {
+                                ToolButton {
                                     source: root.extended_file_id == data.id ? @image-url("../assets/icons/drop_up.svg") : @image-url("../assets/icons/drop_down.svg");
                                     enabled: root.selected_id == data.id;
                                     highlighted: notes.length > 0;

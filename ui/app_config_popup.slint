@@ -1,7 +1,7 @@
 import { Popup } from "popup.slint";
 import { Style } from "style.slint";
 import { AppConfig, ModelUtils } from "globals.slint";
-import { ImageButton } from "image_button.slint";
+import { ToolButton } from "tool_button.slint";
 
 import { VerticalBox, LineEdit, Button, ComboBox, Palette } from "std-widgets.slint";
 
@@ -24,19 +24,22 @@ export component AppConfigPopup inherits Popup {
 
                 ComboBox {
                     private property <int> difftool_idx: AppConfig.difftool_index;
-                    changed difftool_idx => { self.current-index = difftool_idx }
-                    
+                    changed difftool_idx => {
+                        self.current-index = difftool_idx
+                    }
                     current-value: AppConfig.diff_tool;
                     model: AppConfig.diff_tool_model;
-                    
-                    selected(current-value) => { 
+                    selected(current-value) => {
                         AppConfig.difftool_index = ModelUtils.index_of_string(AppConfig.diff_tool_model, current-value);
                         AppConfig.diff_tool = current-value;
                     }
                 }
-                ImageButton {
+
+                ToolButton {
                     source: @image-url("../assets/icons/refresh.svg");
-                    clicked => { AppConfig.refresh_diff_tool_model() }
+                    clicked => {
+                        AppConfig.refresh_diff_tool_model()
+                    }
                 }
             }
 

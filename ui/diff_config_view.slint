@@ -5,7 +5,7 @@ import { Style } from "style.slint";
 import { CommitPicker } from "commit_picker.slint";
 import { CommitEditor, CommitPickerPosition } from "commit_editor.slint";
 import { Diff, Repository } from "globals.slint";
-import { ImageButton } from "image_button.slint";
+import { ToolButton } from "tool_button.slint";
 
 export component DiffConfigView inherits VerticalLayout {
     spacing: Style.size.spacing;
@@ -17,7 +17,7 @@ export component DiffConfigView inherits VerticalLayout {
             text: Repository.path;
         }
 
-        ImageButton {
+        ToolButton {
             width: Style.size.control_small_width;
             height: Style.size.control_height + Style.size.border_width * 2;
             source: @image-url("../assets/icons/folder_open.svg");
@@ -38,7 +38,7 @@ export component DiffConfigView inherits VerticalLayout {
             placeholder-text: "Start Commit SHA";
         }
 
-        ImageButton {
+        ToolButton {
             source: @image-url("../assets/icons/compare.svg");
             width: Style.size.control_small_width;
             height: Style.size.control_height + Style.size.border_width * 2;

@@ -1,7 +1,7 @@
 import { LineEdit, Button, VerticalBox, HorizontalBox, Palette, StandardTableView } from "std-widgets.slint";
 import { Style } from "style.slint";
 import { CommitPickerAdapter } from "globals.slint";
-import { ImageButton } from "image_button.slint";
+import { ToolButton } from "tool_button.slint";
 
 export component CommitPicker inherits PopupWindow {
     private property <bool> is_sort_ascending: true;
@@ -30,7 +30,7 @@ export component CommitPicker inherits PopupWindow {
                     placeholder-text: "base branch";
                 }
 
-                ImageButton {
+                ToolButton {
                     source: @image-url("../assets/icons/location.svg");
                     enabled: !base_branch_edit.text.is-empty;
                     text: "Merge-Branch";
@@ -50,7 +50,7 @@ export component CommitPicker inherits PopupWindow {
                     }
                 }
 
-                ImageButton {
+                ToolButton {
                     source: @image-url("../assets/icons/refresh.svg");
                     clicked => {
                         CommitPickerAdapter.refresh()

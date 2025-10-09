@@ -1,7 +1,7 @@
 import { LineEdit, Button, VerticalBox, HorizontalBox, StandardTableView } from "std-widgets.slint";
 import { CommitPicker } from "commit_picker.slint";
 import { Style } from "style.slint";
-import { ImageButton } from "image_button.slint";
+import { ToolButton } from "tool_button.slint";
 
 export enum CommitPickerPosition { Left, Right }
 
@@ -16,7 +16,7 @@ export component CommitEditor inherits Rectangle {
         }
     }
 
-    picker-button := ImageButton {
+    picker-button := ToolButton {
         width: Style.size.control_small_width;
         x: root.picker-position == CommitPickerPosition.Left ? 0px : commit-edit.width + Style.size.spacing;
         source: @image-url("../assets/icons/tree.svg");
