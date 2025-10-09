@@ -3,7 +3,7 @@ import { GroupBox, LineEdit, Button, ListView, CheckBox, ComboBox, HorizontalBox
 import { Style } from "style.slint";
 import { Repository, Notes, FilePickerAdapter, SortOrder, NoteSortCriteria } from "globals.slint";
 import { FilePicker } from "file_picker.slint";
-import { ImageButton } from "image_button.slint";
+import { ToolButton } from "tool_button.slint";
 import { SubSectionText } from "sub_section_text.slint";
 
 component HeaderColumn inherits Rectangle {
@@ -95,7 +95,7 @@ export component NotesView inherits Rectangle {
                 placeholder-text: "Add context here...";
             }
 
-            new-file-picker-button := ImageButton {
+            new-file-picker-button := ToolButton {
                 source: @image-url("../assets/icons/file_picker.svg");
                 clicked => {
                     file-picker.current_note_id = -1;
@@ -108,7 +108,7 @@ export component NotesView inherits Rectangle {
                 }
             }
 
-            ImageButton {
+            ToolButton {
                 source: @image-url("../assets/icons/add.svg");
                 enabled: new_note_text != "";
                 clicked => {
@@ -154,7 +154,7 @@ export component NotesView inherits Rectangle {
                     width: columns_width[0];
                 }
 
-                filter-button := ImageButton {
+                filter-button := ToolButton {
                     width: columns_width[0];
                     source: root.is_filter_active ? @image-url("../assets/icons/filter_on.svg") : @image-url("../assets/icons/filter_off.svg");
                     clicked => {
@@ -196,7 +196,7 @@ export component NotesView inherits Rectangle {
                     spacing: Style.size.spacing;
                     padding-top: Style.size.spacing;
 
-                    ImageButton {
+                    ToolButton {
                         width: root.columns_width[0];
                         source: note.is_fixed ? @image-url("../assets/icons/checked.svg") : @image-url("../assets/icons/unchecked.svg");
                         clicked => {
@@ -224,7 +224,7 @@ export component NotesView inherits Rectangle {
                         }
                     }
 
-                    file-picker-button := ImageButton {
+                    file-picker-button := ToolButton {
                         width: root.columns_width[0];
                         source: @image-url("../assets/icons/file_picker.svg");
                         clicked => {
@@ -238,7 +238,7 @@ export component NotesView inherits Rectangle {
                         }
                     }
 
-                    ImageButton {
+                    ToolButton {
                         width: root.columns_width[0];
                         source: @image-url("../assets/icons/delete.svg");
                         clicked => {

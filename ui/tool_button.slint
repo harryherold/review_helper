@@ -1,0 +1,52 @@
+import { Style } from "style.slint";
+import { Palette } from "std-widgets.slint";
+
+export component ToolButton inherits Rectangle {
+    out property <bool> pressed: ta.pressed;
+    in-out property <bool> enabled <=> ta.enabled;
+    in property <image> source;
+    in property <bool> highlighted: false;
+    in property <string> text: "";
+    callback clicked();
+
+    background: Palette.control-background;
+    border-radius: Style.size.border_radius;
+    border-width: Style.size.border_width;
+    border-color: root.highlighted ? Palette.selection-background : Palette.border;
+    states [
+        is_pressed when ta.pressed: {
+            background: Palette.alternate-background;
+        }
+    ]
+    HorizontalLayout {
+        padding-left: Style.size.big_spacing;
+        padding-right: Style.size.big_spacing;
+        spacing: Style.size.spacing;
+        alignment: center;
+        Image {
+            vertical-alignment: center;
+            width: Style.size.image_width;
+            source: root.source;
+            colorize: {
+                if root.highlighted {
+                    return Palette.selection-background;
+                }
+                return root.enabled ? Palette.foreground : Style.palette.disabled;
+            }
+        }
+
+        if !root.text.is-empty: Text {
+            text: root.text;
+            vertical-alignment: center;
+            color: {
+                return root.enabled ? Palette.foreground : Style.palette.disabled;
+            }
+        }
+    }
+
+    ta := TouchArea {
+        clicked => {
+            root.clicked()
+        }
+    }
+}

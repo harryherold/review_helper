@@ -3,7 +3,7 @@ import { LineEdit, CheckBox, Button } from "std-widgets.slint";
 import { NoteItem, Notes } from "globals.slint";
 import { Style } from "style.slint";
 import { LineEdit } from "std-widgets.slint";
-import { ImageButton } from "image_button.slint";
+import { ToolButton } from "tool_button.slint";
 
 export component FileNoteDelegate inherits HorizontalLayout {
     in property <NoteItem> note;
@@ -30,7 +30,7 @@ export component FileNoteDelegate inherits HorizontalLayout {
         }
     }
 
-    ImageButton {
+    ToolButton {
         source: @image-url("../assets/icons/delete.svg");
         clicked => {
             Notes.delete-note(note.id)
