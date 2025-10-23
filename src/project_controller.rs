@@ -178,10 +178,10 @@ pub fn setup_project(app_state: &mut AppState) {
     // })
 }
 
-fn modification_observer(ui_weak: Weak<ui::AppWindow>) -> Box<dyn Fn(IdModelChange)> {
-    let ui = ui_weak.clone().unwrap();
-    Box::new(move |_: IdModelChange| ui.global::<ui::Project>().set_has_modifications(true))
-}
+// fn modification_observer(ui_weak: Weak<ui::AppWindow>) -> Box<dyn Fn(IdModelChange)> {
+//     let ui = ui_weak.clone().unwrap();
+//     Box::new(move |_: IdModelChange| ui.global::<ui::Project>().set_has_modifications(true))
+// }
 
 fn parse_commandline_args() -> Option<PathBuf> {
     let args: Vec<String> = env::args().collect();

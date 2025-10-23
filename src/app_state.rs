@@ -21,10 +21,9 @@ impl AppState {
     pub fn new() -> Self {
         let app_data_path = dirs::data_local_dir().expect("Could not find OS specific dirs!");
         let app_config = match app_config::AppConfig::new(app_data_path) {
-            Ok(config) => config, //Rc::new(RefCell::new(config)),
+            Ok(config) => config,
             Err(e) => {
                 eprintln!("{}", e.to_string());
-                // Rc::new(RefCell::new(app_config::AppConfig::default()))
                 app_config::AppConfig::default()
             }
         };

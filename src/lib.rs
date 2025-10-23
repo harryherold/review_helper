@@ -5,6 +5,8 @@ use tokio::runtime::Runtime;
 
 use crate::app_state::AppState;
 
+mod storage;
+
 mod app_config;
 mod app_config_controller;
 mod app_state;
@@ -22,6 +24,7 @@ mod notes_proxy_models;
 mod project;
 mod project_config;
 mod project_controller;
+mod repositories;
 mod repository;
 mod repository_controller;
 
@@ -48,3 +51,5 @@ pub fn main() -> Result<(), slint::PlatformError> {
     let ui = app_state.borrow().app_window.as_weak();
     ui.unwrap().run()
 }
+
+fn setup_repositories(app_state: Rc<RefCell<AppState>>) {}

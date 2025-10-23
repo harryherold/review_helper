@@ -10,13 +10,25 @@ export global AppConfig {
     callback refresh_diff_tool_model();
 }
 
-export global Project {
-    in property <bool> has_modifications: false;
-    in property <string> path;
-    out property <bool> is_loaded: path != "";
-    callback open;
-    callback new;
-    callback save;
+// export global Project {
+//     in property <bool> has_modifications: false;
+//     in property <string> path;
+//     out property <bool> is_loaded: path != "";
+//     callback open;
+//     callback new;
+//     callback save;
+// }
+
+export struct RepositoryUi {
+    id: int,
+    name: string,
+    path: string,
+    first_commit: string,
+}
+
+export global RepositoriesUi {
+    in property <[RepositoryUi]> repositories;
+    callback new_repository(string);
 }
 
 export global Repository {

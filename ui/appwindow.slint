@@ -30,13 +30,15 @@ import {
     DiffFileItem,
     Notes,
     NoteItem,
-    Project,
     FilePickerAdapter,
     ModelUtils,
+    RepositoryUi,
+    RepositoriesUi,
 } from "globals.slint";
 import { SubSectionText } from "sub_section_text.slint";
+import { ToolButton } from "tool_button.slint";
 
-export { AppConfig, FilePickerAdapter, CommitPickerAdapter, Notes, NoteItem, Diff, DiffFileItem, Repository, StringUtils, OverallDiffStats, Project, ModelUtils }
+export { AppConfig, FilePickerAdapter, CommitPickerAdapter, Notes, NoteItem, Diff, DiffFileItem, Repository, StringUtils, OverallDiffStats, ModelUtils, RepositoryUi, RepositoriesUi }
 
 export component AppWindow inherits Window {
     in property <string> config_color_scheme;
@@ -48,7 +50,7 @@ export component AppWindow inherits Window {
 
     preferred-width: 1600px;
     preferred-height: 1200px;
-    title: Project.path;
+    title: "review_helper";
 
     icon: @image-url("../assets/icons/review_helper.png");
     notes-popup := FileNotesPopup {
@@ -118,30 +120,55 @@ export component AppWindow inherits Window {
                     }
                 }
 
-                if Project.has_modifications: Rectangle {
-                    width: Style.size.control_small_width;
-                    border-radius: Style.size.border_radius;
-                    border-width: Style.size.border_width;
-                    states [
-                        is_active when ta.has-hover: {
-                            background: Palette.control-background;
-                        }
-                    ]
-                    image := Image {
-                        source: @image-url("../assets/icons/save.svg");
-                        vertical-alignment: center;
-                        horizontal-alignment: center;
-                        colorize: Palette.foreground;
+                // if Project.has_modifications: Rectangle {
+                //     width: Style.size.control_small_width;
+                //     border-radius: Style.size.border_radius;
+                //     border-width: Style.size.border_width;
+                //     states [
+                //         is_active when ta.has-hover: {
+                //             background: Palette.control-background;
+                //         }
+                //     ]
+                //     image := Image {
+                //         source: @image-url("../assets/icons/save.svg");
+                //         vertical-alignment: center;
+                //         horizontal-alignment: center;
+                //         colorize: Palette.foreground;
 
-                        ta := TouchArea {
-                            clicked => {
-                                Project.save()
-                            }
-                        }
+                //         ta := TouchArea {
+                //             clicked => {
+                //                 Project.save()
+                //             }
+                //         }
+                //     }
+                // }
+            }
+        }
+
+        property <int> selected_repository_id: -1;
+        HorizontalLayout {
+            alignment: start;
+            for repository in RepositoriesUi.repositories: Button {
+                property <int> selected_id: selected_repository_id;
+                changed selected_id => {
+                    self.checked = selected_id == repository.id;
+                }
+                text: repository.name;
+                checkable: true;
+                clicked => {
+                    if (selected_repository_id == repository.id) {
+                        selected_repository_id = -1;
+                    } else {
+                        selected_repository_id = repository.id;
                     }
                 }
             }
+            ToolButton {
+                source: @image-url("../assets/icons/add.svg");
+            }
         }
+
+        Rectangle { }
 
         // if Project.is_loaded: TabWidget {
         //     Tab {
