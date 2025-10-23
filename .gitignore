@@ -8,3 +8,4 @@ src/target
 
 # Ignore editor stuff
 /.vscode/
+.zed/**

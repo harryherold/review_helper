@@ -1,5 +1,5 @@
 use slint::ComponentHandle;
-use std::process;
+use std::{cell::RefCell, process, rc::Rc};
 
 use tokio::runtime::Runtime;
 
@@ -13,6 +13,7 @@ mod commit_picker_controller;
 mod commit_proxy_model;
 mod file_diff_proxy_models;
 mod files_proxy_model;
+mod git_command_spawner;
 mod git_utils;
 mod id_model;
 mod notes;
@@ -23,7 +24,6 @@ mod project_config;
 mod project_controller;
 mod repository;
 mod repository_controller;
-mod git_command_spawner;
 
 mod utils_controller;
 
@@ -34,16 +34,17 @@ pub fn main() -> Result<(), slint::PlatformError> {
 
     let _guard = rt.enter();
 
-    let mut app_state = AppState::new();
+    let app_state = Rc::new(RefCell::new(AppState::new()));
 
-    app_state.app_window.on_close(move || process::exit(0));
+    app_state.borrow().app_window.on_close(move || process::exit(0));
 
-    project_controller::setup_project(&mut app_state);
-    app_config_controller::setup_app_config(&app_state);
-    repository_controller::setup_repository(&app_state);
-    commit_picker_controller::setup_commit_picker(&app_state);
-    notes_controller::setup_notes(&app_state);
-    utils_controller::setup_utils(&app_state);
+    // project_controller::setup_project(&mut app_state);
+    app_config_controller::setup_app_config(app_state.clone());
+    // repository_controller::setup_repository(&app_state);
+    // commit_picker_controller::setup_commit_picker(&app_state);
+    // notes_controller::setup_notes(&app_state);
+    utils_controller::setup_utils(app_state.clone());
 
-    app_state.app_window.run()
+    let ui = app_state.borrow().app_window.as_weak();
+    ui.unwrap().run()
 }

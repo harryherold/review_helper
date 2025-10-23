@@ -4,10 +4,11 @@ use std::rc::Rc;
 
 use slint::{ComponentHandle, Weak};
 
+use crate::app_state::AppState;
 use crate::commit_proxy_model::CommitProxyModel;
+use crate::git_utils;
 use crate::project::Project;
 use crate::ui;
-use crate::{app_config, git_utils};
 
 pub fn async_query_commits(repo_path: &PathBuf, commit_proxy_model: Rc<RefCell<CommitProxyModel>>) {
     if !repo_path.exists() {
@@ -77,7 +78,7 @@ pub fn async_diff_repository(project: Rc<RefCell<Project>>, ui_weak: Weak<ui::Ap
     .expect("async_diff_repository: spawn_local failed!");
 }
 
-pub fn async_query_diff_tools(app_config: Rc<RefCell<app_config::AppConfig>>, ui_weak: Weak<ui::AppWindow>) {
+pub fn async_query_diff_tools(app_state: Rc<RefCell<AppState>>) {
     slint::spawn_local(async move {
         let result = tokio::spawn(async move { git_utils::query_diff_tools() })
             .await
@@ -85,10 +86,11 @@ pub fn async_query_diff_tools(app_config: Rc<RefCell<app_config::AppConfig>>, ui
         match result {
             Err(e) => eprintln!("Error on quering diff tools: {}", e.to_string()),
             Ok(diff_tools) => {
-                let mut app_config = app_config.borrow_mut();
-                app_config.set_diff_tools(&diff_tools);
+                let mut app_state = app_state.borrow_mut();
 
-                let ui = ui_weak.unwrap();
+                app_state.app_config.set_diff_tools(&diff_tools);
+
+                let ui = app_state.app_window.as_weak().unwrap();
 
                 let diff_tool = ui.global::<ui::AppConfig>().get_diff_tool().to_string();
 

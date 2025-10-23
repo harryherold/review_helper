@@ -1,16 +1,18 @@
+use std::{cell::RefCell, rc::Rc};
+
 use crate::app_state::AppState;
 use crate::git_command_spawner::async_query_diff_tools;
 use crate::ui;
 use slint::{ComponentHandle, SharedString};
 
-pub fn setup_app_config(app_state: &AppState) {
-    app_state.app_window.global::<ui::AppConfig>().on_save({
-        let app_config = app_state.app_config.clone();
-        let ui_weak = app_state.app_window.as_weak();
+pub fn setup_app_config(app_state: Rc<RefCell<AppState>>) {
+    app_state.borrow().app_window.global::<ui::AppConfig>().on_save({
+        let state = app_state.clone();
+        let ui_weak = app_state.borrow().app_window.as_weak();
 
         move || {
             let ui = ui_weak.unwrap();
-            let mut app_config = app_config.borrow_mut();
+            let app_config = &mut state.borrow_mut().app_config;
             let ui_app_config = ui.global::<ui::AppConfig>();
 
             app_config.config.diff_tool = ui_app_config.get_diff_tool().to_string();
@@ -24,36 +26,42 @@ pub fn setup_app_config(app_state: &AppState) {
     });
 
     app_state
+        .borrow()
         .app_window
         .global::<ui::AppConfig>()
-        .set_diff_tool(SharedString::from(app_state.app_config.borrow().config.diff_tool.clone()));
+        .set_diff_tool(SharedString::from(app_state.borrow().app_config.config.diff_tool.clone()));
 
     app_state
+        .borrow()
         .app_window
         .global::<ui::AppConfig>()
-        .set_editor(SharedString::from(app_state.app_config.borrow().config.editor.clone()));
+        .set_editor(SharedString::from(app_state.borrow().app_config.config.editor.clone()));
 
-    let editor_args = app_state.app_config.borrow().config.editor_args.join(",");
-    app_state.app_window.global::<ui::AppConfig>().set_editor_args(SharedString::from(editor_args));
+    let editor_args = app_state.borrow().app_config.config.editor_args.join(",");
+    app_state
+        .borrow()
+        .app_window
+        .global::<ui::AppConfig>()
+        .set_editor_args(SharedString::from(editor_args));
 
-    let color_scheme = SharedString::from(app_state.app_config.borrow().config.color_scheme.clone());
+    let color_scheme = SharedString::from(app_state.borrow().app_config.config.color_scheme.clone());
 
-    app_state.app_window.global::<ui::AppConfig>().set_color_scheme(color_scheme.clone());
+    app_state.borrow().app_window.global::<ui::AppConfig>().set_color_scheme(color_scheme.clone());
 
-    app_state.app_window.set_config_color_scheme(color_scheme);
+    app_state.borrow().app_window.set_config_color_scheme(color_scheme);
 
     app_state
+        .borrow()
         .app_window
         .global::<ui::AppConfig>()
-        .set_diff_tool_model(app_state.app_config.borrow().diff_tool_model.clone().into());
+        .set_diff_tool_model(app_state.borrow().app_config.diff_tool_model.clone().into());
 
-    app_state.app_window.global::<ui::AppConfig>().on_refresh_diff_tool_model({
-        let app_config = app_state.app_config.clone();
-        let ui_weak = app_state.app_window.as_weak();
+    app_state.borrow().app_window.global::<ui::AppConfig>().on_refresh_diff_tool_model({
+        let state = app_state.clone();
         move || {
-            async_query_diff_tools(app_config.clone(), ui_weak.clone());
+            async_query_diff_tools(state.clone());
         }
     });
 
-    async_query_diff_tools(app_state.app_config.clone(), app_state.app_window.as_weak());
+    async_query_diff_tools(app_state.clone());
 }

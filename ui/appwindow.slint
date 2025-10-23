@@ -1,4 +1,14 @@
-import { Button, VerticalBox , HorizontalBox, LineEdit, ListView, CheckBox, GroupBox, Palette, TabWidget } from "std-widgets.slint";
+import {
+    Button,
+    VerticalBox,
+    HorizontalBox,
+    LineEdit,
+    ListView,
+    CheckBox,
+    GroupBox,
+    Palette,
+    TabWidget,
+} from "std-widgets.slint";
 
 import { Style } from "style.slint";
 import { NotesView } from "notes_view.slint";
@@ -10,7 +20,20 @@ import { AppConfigPopup } from "app_config_popup.slint";
 import { DiffConfigView } from "diff_config_view.slint";
 import { OverallStatistics } from "overall_statistics.slint";
 
-import { Repository, CommitPickerAdapter, OverallDiffStats, AppConfig, StringUtils, Diff, DiffFileItem, Notes, NoteItem, Project, FilePickerAdapter, ModelUtils  } from "globals.slint";
+import {
+    Repository,
+    CommitPickerAdapter,
+    OverallDiffStats,
+    AppConfig,
+    StringUtils,
+    Diff,
+    DiffFileItem,
+    Notes,
+    NoteItem,
+    Project,
+    FilePickerAdapter,
+    ModelUtils,
+} from "globals.slint";
 import { SubSectionText } from "sub_section_text.slint";
 
 export { AppConfig, FilePickerAdapter, CommitPickerAdapter, Notes, NoteItem, Diff, DiffFileItem, Repository, StringUtils, OverallDiffStats, Project, ModelUtils }
@@ -53,27 +76,27 @@ export component AppWindow inherits Window {
                     Menu {
                         text: "File";
 
-                        MenuItem {
-                            text: "New";
-                            clicked => {
-                                Project.new()
-                            }
-                        }
+                        // MenuItem {
+                        //     text: "New";
+                        //     clicked => {
+                        //         Project.new()
+                        //     }
+                        // }
 
-                        MenuItem {
-                            text: "Open";
-                            clicked => {
-                                Project.open()
-                            }
-                        }
+                        // MenuItem {
+                        //     text: "Open";
+                        //     clicked => {
+                        //         Project.open()
+                        //     }
+                        // }
 
-                        MenuItem {
-                            text: "Save";
-                            enabled: Project.is_loaded && Project.has_modifications;
-                            clicked => {
-                                Project.save()
-                            }
-                        }
+                        // MenuItem {
+                        //     text: "Save";
+                        //     enabled: Project.is_loaded && Project.has_modifications;
+                        //     clicked => {
+                        //         Project.save()
+                        //     }
+                        // }
 
                         MenuItem {
                             text: "Close";
@@ -120,56 +143,56 @@ export component AppWindow inherits Window {
             }
         }
 
-        if Project.is_loaded: TabWidget {
-            Tab {
-                title: "File Diff";
+        // if Project.is_loaded: TabWidget {
+        //     Tab {
+        //         title: "File Diff";
 
-                Rectangle {
-                    background: Palette.control-background;
+        //         Rectangle {
+        //             background: Palette.control-background;
 
-                    VerticalBox {
-                        spacing: Style.size.spacing;
-                        SubSectionText {
-                            text: "Repository:";
-                        }
+        //             VerticalBox {
+        //                 spacing: Style.size.spacing;
+        //                 SubSectionText {
+        //                     text: "Repository:";
+        //                 }
 
-                        DiffConfigView { }
+        //                 DiffConfigView { }
 
-                        SubSectionText {
-                            visible: Repository.is_loaded;
-                            text: "Statistics:";
-                        }
+        //                 SubSectionText {
+        //                     visible: Repository.is_loaded;
+        //                     text: "Statistics:";
+        //                 }
 
-                        if Repository.is_loaded: OverallStatistics { }
+        //                 if Repository.is_loaded: OverallStatistics { }
 
-                        SubSectionText {
-                            visible: Repository.is_loaded;
-                            text: "Differences:";
-                        }
+        //                 SubSectionText {
+        //                     visible: Repository.is_loaded;
+        //                     text: "Differences:";
+        //                 }
 
-                        if Repository.is_loaded: FileDiffView { }
-                    }
-                }
-            }
+        //                 if Repository.is_loaded: FileDiffView { }
+        //             }
+        //         }
+        //     }
 
-            Tab {
-                title: "Notes";
+        //     Tab {
+        //         title: "Notes";
 
-                NotesView { }
-            }
-        }
-        if !Project.is_loaded: HorizontalBox {
-            alignment: center;
-            Image {
-                source: @image-url("../assets/icons/warning.svg");
-                colorize: Palette.foreground;
-            }
+        //         NotesView { }
+        //     }
+        // }
+        // if !Project.is_loaded: HorizontalBox {
+        //     alignment: center;
+        //     Image {
+        //         source: @image-url("../assets/icons/warning.svg");
+        //         colorize: Palette.foreground;
+        //     }
 
-            Text {
-                vertical-alignment: center;
-                text: "No project loaded";
-                font-size: 18px;
-            }
-        }
+        //     Text {
+        //         vertical-alignment: center;
+        //         text: "No project loaded";
+        //         font-size: 18px;
+        //     }
+        // }
     }
 }
