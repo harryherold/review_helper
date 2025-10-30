@@ -1,0 +1,103 @@
+import { AboutSlint, Button, VerticalBox, Palette } from "std-widgets.slint";
+
+component TabButton inherits Rectangle {
+    in property <string> tab-text;
+    in property <bool> is-selected: false;
+    callback clicked <=> ta.clicked;
+
+    background: {
+        if (ta.pressed) {
+            return Palette.control-background;
+        }
+        return is-selected ? Palette.control-background : Palette.background;
+    }
+    border-color: Palette.border;
+    border-width: {
+        if (ta.pressed) {
+            return 1px;
+        }
+        return root.is-selected ? 0px : 1px;
+    }
+
+    Text {
+        text: tab-text;
+    }
+    ta := TouchArea {}
+}
+
+component TabCreateButton inherits Rectangle {
+    callback clicked <=> ta.clicked;
+
+    width: 40px;
+    background: {
+        if (ta.pressed) {
+            return Palette.control-background;
+        }
+        return Palette.background;
+    }
+    border-color: Palette.border;
+    border-width: {
+        if (ta.pressed) {
+            return 1px;
+        }
+        return 1px;
+    }
+
+    Text {
+        text: "+";
+    }
+    ta := TouchArea {}
+}
+
+component TabViewItem inherits Rectangle {
+    in property <int> current-index;
+    in property <int> index;
+
+    visible: index == current-index;
+    clip: true;
+}
+
+component TabView inherits Rectangle {
+    in property <[string]> model;
+    out property <int> current-index;
+    callback request-create <=> tab-create-button.clicked;
+
+    VerticalLayout {
+        alignment: start;
+
+        HorizontalLayout {
+            height: 10%;
+            for tab_text[idx] in root.model: TabButton {
+                tab-text: tab_text;
+                is-selected: current-index == idx;
+                clicked => { root.current-index = idx; }
+            }
+            tab-create-button := TabCreateButton {}
+        }
+        Rectangle {
+            height: 90%;
+            background: Palette.control-background;
+            clip: true;
+
+            @children
+        }
+    }
+}
+
+export component Demo {
+    height: 400px;
+    width: 600px;
+
+    TabView {
+        model: ["foo", "bar", "baz"];
+        request-create => { debug("Request creation") }
+
+        for tab_item[idx] in self.model: TabViewItem {
+            index: idx;
+            current-index: parent.current-index;
+            Text {
+                text: tab-item;
+            }
+        }
+    }
+}
