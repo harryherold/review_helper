@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use toml::Table;
 
-use crate::storage::{RepositoryStore, ReviewHelperStorage, ReviewHelperStore};
+use crate::storage::{RepositoryStore, ReviewHelperStorage};
 
 #[derive(Debug, Default)]
 pub struct ReviewHelperFileStorage {
@@ -24,7 +24,11 @@ fn is_toml(path: &PathBuf) -> bool {
 }
 
 impl ReviewHelperStorage for ReviewHelperFileStorage {
-    fn load(&self) -> anyhow::Result<ReviewHelperStore> {
+    fn load_repositories(&self) -> anyhow::Result<Vec<RepositoryStore>> {
+        if !self.storage_path.exists() {
+            return Ok(Vec::new());
+        }
+
         let nested_directories = fs::read_dir(&self.storage_path)?
             .filter(|r| match r {
                 Ok(dir_entry) => dir_entry.path().is_dir(),
@@ -46,7 +50,7 @@ impl ReviewHelperStorage for ReviewHelperFileStorage {
             }
         }
 
-        let mut store = super::ReviewHelperStore::default();
+        let mut repositories = Vec::new();
 
         for toml in tomls {
             let contents = fs::read_to_string(&toml)?;
@@ -59,12 +63,12 @@ impl ReviewHelperStorage for ReviewHelperFileStorage {
                 repository_store.first_commit = first_commit.to_string();
             }
             if let Some(name) = table["name"].as_str() {
-                repository_store.name = name.to_string();
+                repository_store.name = name.into();
             }
-            store.repositories.push(repository_store);
+            repositories.push(repository_store);
         }
 
-        Ok(store)
+        Ok(repositories)
     }
 }
 
@@ -123,21 +127,21 @@ first_commit = "5a99f0351a9dcbe5f2414e84e6f5bb9f617af33a"
 
         let context = Context(create_test_dir());
         let repository_storage = ReviewHelperFileStorage::new(context.0.clone());
-        let result = repository_storage.load();
+        let result = repository_storage.load_repositories();
         assert!(result.is_ok());
 
-        let repositories = result.unwrap_or_default().repositories;
+        let repositories = result.unwrap_or_default();
 
         let expected_repository = vec![
             RepositoryStore {
                 path: PathBuf::from("/home/harry/workspace/review_helper"),
                 first_commit: "9f89049b7f99682c48474d421ac126316adaed15".to_string(),
-                name: "review_helper".to_string(),
+                name: "review_helper".into(),
             },
             RepositoryStore {
                 path: PathBuf::from("/home/harry/workspace/trackme"),
                 first_commit: "5a99f0351a9dcbe5f2414e84e6f5bb9f617af33a".to_string(),
-                name: "trackme".to_string(),
+                name: "trackme".into(),
             },
         ];
 

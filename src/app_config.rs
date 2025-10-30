@@ -49,7 +49,6 @@ impl AppConfig {
     pub fn new(mut path: PathBuf) -> anyhow::Result<Self> {
         let mut app_config = AppConfig::default();
 
-        path.push(std::env!("CARGO_CRATE_NAME")); // directory
         path.push(APP_CONFIG_FILENAME);
 
         app_config.path = path.clone();
