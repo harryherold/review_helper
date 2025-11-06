@@ -34,11 +34,14 @@ import {
     ModelUtils,
     RepositoryUi,
     RepositoriesUi,
+    Result,
+    Errors,
+    ErrorEntry,
 } from "globals.slint";
 import { SubSectionText } from "sub_section_text.slint";
 import { ToolButton } from "tool_button.slint";
 
-export { AppConfig, FilePickerAdapter, CommitPickerAdapter, Notes, NoteItem, Diff, DiffFileItem, Repository, StringUtils, OverallDiffStats, ModelUtils, RepositoryUi, RepositoriesUi }
+export { AppConfig, FilePickerAdapter, CommitPickerAdapter, Notes, NoteItem, Diff, DiffFileItem, Repository, StringUtils, OverallDiffStats, ModelUtils, RepositoryUi, RepositoriesUi, Result, Errors, ErrorEntry }
 
 export component AppWindow inherits Window {
     in property <string> config_color_scheme;
@@ -64,6 +67,71 @@ export component AppWindow inherits Window {
         initial_y: (root.height / 2) - (self.height / 2);
     }
 
+    error-popup := Popup {
+        function show_error(result: Result) {
+            self.result = result;
+            self.open();
+        }
+
+        private property <Result> result: Result.Ok;
+
+        title: "Error";
+        initial_x: (root.width / 2) - (self.width / 2);
+        initial_y: (root.height / 2) - (self.height / 2);
+
+        VerticalLayout {
+            alignment: center;
+
+            padding-bottom: Style.size.big-spacing;
+            padding-left: Style.size.big-spacing;
+            padding-right: Style.size.big-spacing;
+            spacing: Style.size.big-spacing;
+
+            HorizontalLayout {
+                alignment: space-around;
+                spacing: Style.size.spacing;
+
+                Image {
+                    width: Style.size.image-width;
+                    source: @image-url("../assets/icons/failed.svg");
+                }
+
+                Text {
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    wrap: word-wrap;
+                    max-width: Style.size.control-width * 2;
+                    text: {
+                        if (error-popup.result == Result.RepositoryExists) {
+                            return "Repository already exists!";
+                        }
+                        if (error-popup.result == Result.GitCommandFailed) {
+                            return "Could not exec git commands!";
+                        }
+                        if (error-popup.result == Result.NoGitDirectory) {
+                            return "This folder is not Git-controlled!";
+                        }
+                        if (error-popup.result == Result.StoreFailed) {
+                            return "Could store repository data!";
+                        }
+                        return "";
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                alignment: center;
+                Button {
+                    width: Style.size.control-width;
+                    text: "Ok";
+                    clicked => {
+                        error-popup.close();
+                    }
+                }
+            }
+        }
+    }
+
     VerticalLayout {
         menu-rect := Rectangle {
             height: 40px;
@@ -77,29 +145,6 @@ export component AppWindow inherits Window {
 
                     Menu {
                         text: "File";
-
-                        // MenuItem {
-                        //     text: "New";
-                        //     clicked => {
-                        //         Project.new()
-                        //     }
-                        // }
-
-                        // MenuItem {
-                        //     text: "Open";
-                        //     clicked => {
-                        //         Project.open()
-                        //     }
-                        // }
-
-                        // MenuItem {
-                        //     text: "Save";
-                        //     enabled: Project.is_loaded && Project.has_modifications;
-                        //     clicked => {
-                        //         Project.save()
-                        //     }
-                        // }
-
                         MenuItem {
                             text: "Close";
                             clicked => {
@@ -145,6 +190,14 @@ export component AppWindow inherits Window {
             }
         }
 
+        for error in Errors.model: HorizontalLayout {
+            spacing: 5px;
+
+            Text {
+                text: error.text;
+            }
+        }
+
         property <int> selected_repository_id: -1;
         HorizontalLayout {
             alignment: start;
@@ -165,6 +218,12 @@ export component AppWindow inherits Window {
             }
             ToolButton {
                 source: @image-url("../assets/icons/add.svg");
+                clicked => {
+                    let result = RepositoriesUi.new_repository();
+                    if (result != Result.Ok) {
+                        error-popup.show_error(result);
+                    }
+                }
             }
         }
 

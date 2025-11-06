@@ -19,6 +19,14 @@ export global AppConfig {
 //     callback save;
 // }
 
+export enum Result {
+    Ok,
+    GitCommandFailed,
+    RepositoryExists,
+    NoGitDirectory,
+    StoreFailed,
+}
+
 export struct RepositoryUi {
     id: int,
     name: string,
@@ -26,9 +34,18 @@ export struct RepositoryUi {
     first_commit: string,
 }
 
+export struct ErrorEntry {
+    error_type: Result,
+    text: string,
+}
+
+export global Errors {
+    in property <[ErrorEntry]> model;
+}
+
 export global RepositoriesUi {
     in property <[RepositoryUi]> repositories;
-    callback new_repository(string);
+    callback new_repository() -> Result;
 }
 
 export global Repository {

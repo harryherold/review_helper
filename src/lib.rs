@@ -25,6 +25,7 @@ mod project;
 mod project_config;
 mod project_controller;
 mod repositories;
+mod repositories_controller;
 mod repository;
 mod repository_controller;
 
@@ -43,6 +44,7 @@ pub fn main() -> Result<(), slint::PlatformError> {
 
     // project_controller::setup_project(&mut app_state);
     app_config_controller::setup_app_config(app_state.clone());
+    repositories_controller::setup(app_state.clone());
     // repository_controller::setup_repository(&app_state);
     // commit_picker_controller::setup_commit_picker(&app_state);
     // notes_controller::setup_notes(&app_state);
