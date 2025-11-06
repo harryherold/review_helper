@@ -28,6 +28,7 @@ mod repositories;
 mod repositories_controller;
 mod repository;
 mod repository_controller;
+mod review_helper;
 
 mod utils_controller;
 

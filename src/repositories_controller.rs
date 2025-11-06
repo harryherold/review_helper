@@ -42,7 +42,7 @@ use crate::ui;
 // TODO track changes
 
 pub fn setup(app_state: Rc<RefCell<AppState>>) {
-    app_state.borrow().app_window.global::<ui::RepositoriesUi>().on_new_repository({
+    app_state.borrow().app_window.global::<ui::SlintReviewHelper>().on_new_repository({
         let state = app_state.clone();
         move || {
             if let Some(repository_path) = FileDialog::new()
@@ -52,20 +52,20 @@ pub fn setup(app_state: Rc<RefCell<AppState>>) {
             {
                 let model = &mut state.borrow_mut().model;
                 if let Err(e) = model.add_repository(repository_path) {
-                    use crate::app_state::ReviewHelperError::*;
+                    use crate::review_helper::ReviewHelperError::*;
 
                     let (ui_error, ui_error_text) = match e {
-                        RepositoryExists(t) => (ui::Result::RepositoryExists, SharedString::from(t.as_str())),
-                        GitCommandFailed(t) => (ui::Result::GitCommandFailed, SharedString::from(t.as_str())),
-                        NoGitDirectory(t) => (ui::Result::NoGitDirectory, SharedString::from(t.as_str())),
-                        StoreFailed(t) => (ui::Result::StoreFailed, SharedString::from(t.as_str())),
+                        RepositoryExists(t) => (ui::SlintResult::RepositoryExists, SharedString::from(t.as_str())),
+                        GitCommandFailed(t) => (ui::SlintResult::GitCommandFailed, SharedString::from(t.as_str())),
+                        NoGitDirectory(t) => (ui::SlintResult::NoGitDirectory, SharedString::from(t.as_str())),
+                        StoreFailed(t) => (ui::SlintResult::StoreFailed, SharedString::from(t.as_str())),
                     };
                     model.add_error(ui_error, ui_error_text);
 
                     return ui_error;
                 }
             }
-            ui::Result::Ok
+            ui::SlintResult::Ok
         }
     });
 }

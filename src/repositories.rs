@@ -7,7 +7,7 @@ use crate::ui;
 #[derive(Default)]
 pub struct Repositories {
     pub path: PathBuf,
-    pub model: Rc<IdModel<ui::RepositoryUi>>,
+    pub model: Rc<IdModel<ui::SlintRepository>>,
 }
 
 impl Repositories {

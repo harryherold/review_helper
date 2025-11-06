@@ -92,10 +92,10 @@ pub fn async_query_diff_tools(app_state: Rc<RefCell<AppState>>) {
 
                 let ui = app_state.app_window.as_weak().unwrap();
 
-                let diff_tool = ui.global::<ui::AppConfig>().get_diff_tool().to_string();
+                let diff_tool = ui.global::<ui::SlintReviewHelperConfig>().get_diff_tool().to_string();
 
                 if let Some(index) = diff_tools.iter().position(|v| *v == diff_tool) {
-                    ui.global::<ui::AppConfig>().set_difftool_index(index as i32);
+                    ui.global::<ui::SlintReviewHelperConfig>().set_difftool_index(index as i32);
                 }
             }
         }

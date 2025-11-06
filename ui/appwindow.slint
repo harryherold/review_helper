@@ -24,24 +24,24 @@ import {
     Repository,
     CommitPickerAdapter,
     OverallDiffStats,
-    AppConfig,
-    StringUtils,
+    SlintReviewHelperConfig,
+    SlintStringUtils,
     Diff,
     DiffFileItem,
     Notes,
     NoteItem,
     FilePickerAdapter,
-    ModelUtils,
-    RepositoryUi,
-    RepositoriesUi,
-    Result,
-    Errors,
-    ErrorEntry,
+    SlintModelUtils,
+    SlintRepository,
+    SlintReviewHelper,
+    SlintResult,
+    SlintErrors,
+    SlintErrorEntry,
 } from "globals.slint";
 import { SubSectionText } from "sub_section_text.slint";
 import { ToolButton } from "tool_button.slint";
 
-export { AppConfig, FilePickerAdapter, CommitPickerAdapter, Notes, NoteItem, Diff, DiffFileItem, Repository, StringUtils, OverallDiffStats, ModelUtils, RepositoryUi, RepositoriesUi, Result, Errors, ErrorEntry }
+export { SlintReviewHelperConfig, FilePickerAdapter, CommitPickerAdapter, Notes, NoteItem, Diff, DiffFileItem, Repository, SlintStringUtils, OverallDiffStats, SlintModelUtils, SlintRepository, SlintReviewHelper, SlintResult, SlintErrors, SlintErrorEntry }
 
 export component AppWindow inherits Window {
     in property <string> config_color_scheme;
@@ -68,12 +68,12 @@ export component AppWindow inherits Window {
     }
 
     error-popup := Popup {
-        function show_error(result: Result) {
+        function show_error(result: SlintResult) {
             self.result = result;
             self.open();
         }
 
-        private property <Result> result: Result.Ok;
+        private property <SlintResult> result: SlintResult.Ok;
 
         title: "Error";
         initial_x: (root.width / 2) - (self.width / 2);
@@ -102,16 +102,16 @@ export component AppWindow inherits Window {
                     wrap: word-wrap;
                     max-width: Style.size.control-width * 2;
                     text: {
-                        if (error-popup.result == Result.RepositoryExists) {
+                        if (error-popup.result == SlintResult.RepositoryExists) {
                             return "Repository already exists!";
                         }
-                        if (error-popup.result == Result.GitCommandFailed) {
+                        if (error-popup.result == SlintResult.GitCommandFailed) {
                             return "Could not exec git commands!";
                         }
-                        if (error-popup.result == Result.NoGitDirectory) {
+                        if (error-popup.result == SlintResult.NoGitDirectory) {
                             return "This folder is not Git-controlled!";
                         }
-                        if (error-popup.result == Result.StoreFailed) {
+                        if (error-popup.result == SlintResult.StoreFailed) {
                             return "Could store repository data!";
                         }
                         return "";
@@ -190,7 +190,7 @@ export component AppWindow inherits Window {
             }
         }
 
-        for error in Errors.model: HorizontalLayout {
+        for error in SlintErrors.model: HorizontalLayout {
             spacing: 5px;
 
             Text {
@@ -201,7 +201,7 @@ export component AppWindow inherits Window {
         property <int> selected_repository_id: -1;
         HorizontalLayout {
             alignment: start;
-            for repository in RepositoriesUi.repositories: Button {
+            for repository in SlintReviewHelper.repositories: Button {
                 property <int> selected_id: selected_repository_id;
                 changed selected_id => {
                     self.checked = selected_id == repository.id;
@@ -219,8 +219,8 @@ export component AppWindow inherits Window {
             ToolButton {
                 source: @image-url("../assets/icons/add.svg");
                 clicked => {
-                    let result = RepositoriesUi.new_repository();
-                    if (result != Result.Ok) {
+                    let result = SlintReviewHelper.new_repository();
+                    if (result != SlintResult.Ok) {
                         error-popup.show_error(result);
                     }
                 }

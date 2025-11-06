@@ -1,4 +1,4 @@
-export global AppConfig {
+export global SlintReviewHelperConfig {
     in-out property <string> diff_tool;
     in-out property <[string]> diff_tool_model;
     in-out property <string> editor;
@@ -19,7 +19,7 @@ export global AppConfig {
 //     callback save;
 // }
 
-export enum Result {
+export enum SlintResult {
     Ok,
     GitCommandFailed,
     RepositoryExists,
@@ -27,25 +27,26 @@ export enum Result {
     StoreFailed,
 }
 
-export struct RepositoryUi {
+export struct SlintRepository {
     id: int,
     name: string,
     path: string,
     first_commit: string,
+    // commit_model: [[StandardListViewItem]],
 }
 
-export struct ErrorEntry {
-    error_type: Result,
+export struct SlintErrorEntry {
+    error_type: SlintResult,
     text: string,
 }
 
-export global Errors {
-    in property <[ErrorEntry]> model;
+export global SlintErrors {
+    in property <[SlintErrorEntry]> model;
 }
 
-export global RepositoriesUi {
-    in property <[RepositoryUi]> repositories;
-    callback new_repository() -> Result;
+export global SlintReviewHelper {
+    in property <[SlintRepository]> repositories;
+    callback new_repository() -> SlintResult;
 }
 
 export global Repository {
@@ -181,11 +182,11 @@ export global Notes {
     callback set-notes-sorting(NoteSortCriteria, SortOrder);
 }
 
-export global StringUtils {
+export global SlintStringUtils {
     pure callback filename(string) -> string;
 }
 
-export global ModelUtils {
+export global SlintModelUtils {
     pure callback index_of_string([string], string) -> int;
 }
 
