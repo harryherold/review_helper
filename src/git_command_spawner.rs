@@ -88,7 +88,7 @@ pub fn async_query_diff_tools(app_state: Rc<RefCell<AppState>>) {
             Ok(diff_tools) => {
                 let mut app_state = app_state.borrow_mut();
 
-                app_state.app_config.set_diff_tools(&diff_tools);
+                app_state.review_helper_config.set_diff_tools(&diff_tools);
 
                 let ui = app_state.app_window.as_weak().unwrap();
 

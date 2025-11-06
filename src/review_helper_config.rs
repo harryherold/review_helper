@@ -6,59 +6,49 @@ use serde_derive::{Deserialize, Serialize};
 
 extern crate dirs;
 
-const APP_CONFIG_FILENAME: &'static str = "app_config.toml";
+const REVIEW_HELPER_CONFIG_FILENAME: &'static str = "review_helper_config.toml";
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Config {
+type DiffToolModel = Rc<VecModel<SharedString>>;
+
+#[derive(Serialize, Deserialize)]
+pub struct ReviewHelperConfig {
     pub diff_tool: String,
     pub editor: String,
     pub editor_args: Vec<String>,
     pub color_scheme: String,
-}
-
-type DiffToolModel = Rc<VecModel<SharedString>>;
-
-pub struct AppConfig {
-    pub config: Config,
+    #[serde(skip)]
     path: PathBuf,
+    #[serde(skip)]
     pub diff_tool_model: DiffToolModel,
 }
 
-impl Default for Config {
+impl Default for ReviewHelperConfig {
     fn default() -> Self {
         Self {
             diff_tool: "meld".to_string(),
             editor: "code".to_string(),
             editor_args: vec!["-n".to_string(), "{file}".to_string()],
             color_scheme: "Dark".to_string(),
-        }
-    }
-}
-
-impl Default for AppConfig {
-    fn default() -> Self {
-        Self {
-            config: Config::default(),
             path: PathBuf::new(),
             diff_tool_model: Rc::new(VecModel::default()),
         }
     }
 }
 
-impl AppConfig {
+impl ReviewHelperConfig {
     pub fn new(mut path: PathBuf) -> anyhow::Result<Self> {
-        let mut app_config = AppConfig::default();
+        let mut review_helper_config = ReviewHelperConfig::default();
 
-        path.push(APP_CONFIG_FILENAME);
+        path.push(REVIEW_HELPER_CONFIG_FILENAME);
 
-        app_config.path = path.clone();
+        review_helper_config.path = path.clone();
 
         if path.exists() && path.is_file() {
             let file_content = fs::read_to_string(&path).map_err(|e| anyhow::format_err!("Could not read app config: {}", e.to_string()))?;
-            let config: Config = toml::from_str(&file_content).map_err(|e| anyhow::format_err!("Could not convert file content to toml: {}", e.to_string()))?;
-            app_config.config = config;
+            review_helper_config =
+                toml::from_str(&file_content).map_err(|e| anyhow::format_err!("Could not convert file content to toml: {}", e.to_string()))?;
         }
-        Ok(app_config)
+        Ok(review_helper_config)
     }
     pub fn save(&self) -> anyhow::Result<()> {
         if self.path.as_os_str().is_empty() {
@@ -70,7 +60,7 @@ impl AppConfig {
             fs::create_dir(parent_dir).map_err(|e| anyhow::format_err!("Could not create app config dir: {}", e.to_string()))?;
         }
 
-        let contents = toml::to_string(&self.config).expect("Could not convert AppConfig struct to toml string!");
+        let contents = toml::to_string(self).expect("Could not convert ReviewHelperConfig struct to toml string!");
         fs::write(&self.path, contents).map_err(|e| anyhow::format_err!("Could not write app config file: {}", e.to_string()))
     }
     pub fn set_diff_tools(&mut self, diff_tools: &Vec<String>) {
@@ -83,10 +73,10 @@ impl AppConfig {
 mod tests {
     use std::{env, fs, path::PathBuf};
 
-    use super::AppConfig;
+    use super::ReviewHelperConfig;
 
     struct TestContext {
-        app_config: AppConfig,
+        review_helper_config: ReviewHelperConfig,
         path: PathBuf,
         is_clean_enabled: bool,
     }
@@ -94,20 +84,24 @@ mod tests {
     impl Drop for TestContext {
         fn drop(&mut self) {
             if self.is_clean_enabled {
-                let mut remove_path = self.path.clone();
-                remove_path.push(std::env!("CARGO_CRATE_NAME"));
-                let result = fs::remove_dir_all(&remove_path);
-                assert!(result.is_ok());
+                let _ = fs::remove_dir_all(self.path.clone());
             }
         }
     }
 
     fn setup(is_clean_enabled: bool) -> TestContext {
-        let path = env::temp_dir();
-        let app_config = AppConfig::new(path.clone());
-        assert!(app_config.is_ok());
+        let mut path = env::temp_dir();
+        path.push(std::env!("CARGO_CRATE_NAME"));
+
+        if !path.exists() {
+            let result = fs::create_dir(&path);
+            assert!(result.is_ok());
+        }
+
+        let review_helper_config = ReviewHelperConfig::new(path.clone());
+        assert!(review_helper_config.is_ok());
         TestContext {
-            app_config: app_config.unwrap(),
+            review_helper_config: review_helper_config.unwrap(),
             path,
             is_clean_enabled,
         }
@@ -117,14 +111,14 @@ mod tests {
     fn test_new_config() {
         {
             let mut ctx = setup(false);
-            assert_eq!(ctx.app_config.config.diff_tool, "meld");
+            assert_eq!(ctx.review_helper_config.diff_tool, "meld");
 
-            ctx.app_config.config.diff_tool = "vscode".to_string();
-            assert!(ctx.app_config.save().is_ok());
+            ctx.review_helper_config.diff_tool = "vscode".to_string();
+            assert!(ctx.review_helper_config.save().is_ok());
         }
         {
             let ctx = setup(true);
-            assert_eq!(ctx.app_config.config.diff_tool, "vscode");
+            assert_eq!(ctx.review_helper_config.diff_tool, "vscode");
         }
     }
 }

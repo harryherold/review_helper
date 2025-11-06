@@ -82,21 +82,21 @@ pub fn setup_repository(app_state: &AppState) {
     // });
     // app_state.app_window.global::<ui::Diff>().on_open_file_diff({
     //     let project_ref = app_state.project.clone();
-    //     let app_config = app_state.app_config.clone();
+    //     let review_helper_config = app_state.review_helper_config.clone();
     //     move |id| {
-    //         if let Err(error) = project_ref.borrow().repository.diff_file(id, &app_config.borrow().config.diff_tool) {
+    //         if let Err(error) = project_ref.borrow().repository.diff_file(id, &review_helper_config.borrow().config.diff_tool) {
     //             eprintln!("Error occurred while file diff: {}", error.to_string())
     //         }
     //     }
     // });
     // app_state.app_window.global::<ui::Diff>().on_open_file({
     //     let project_ref = app_state.project.clone();
-    //     let app_config = app_state.app_config.clone();
+    //     let review_helper_config = app_state.review_helper_config.clone();
     //     move |file_path| {
     //         let project = project_ref.borrow();
     //         let repo_path = project.repository.path.as_ref().expect("Repository path is not set!");
-    //         let app_config = app_config.borrow();
-    //         let args = app_config
+    //         let review_helper_config = review_helper_config.borrow();
+    //         let args = review_helper_config
     //             .config
     //             .editor_args
     //             .iter()
@@ -108,7 +108,7 @@ pub fn setup_repository(app_state: &AppState) {
     //                 }
     //             })
     //             .collect::<Vec<String>>();
-    //         if let Err(error) = run_command(&app_config.config.editor, &args, &PathBuf::from(repo_path)) {
+    //         if let Err(error) = run_command(&review_helper_config.config.editor, &args, &PathBuf::from(repo_path)) {
     //             eprintln!("Error occurred while opening file: {}", error.to_string())
     //         }
     //     }
