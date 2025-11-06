@@ -1,9 +1,7 @@
 # Hinzufuegen von Repository
 
 * Jeweils ueber das Klicken des Add-Button initieren
-* Oeffnen eines Popups der die Eingabe folgender Daten erfordert:
-    * Repo-Name
-    * Repo-Pfad
+* Oeffnen des File-Dialoags und auswahl des Repositories
 * Wird abgebrochen, wird die Eingabe verworfen
 * Wird bestaetigt geht es weiter ueber [Speichern im Filesystem](#speichern-im-filesystem)
 
