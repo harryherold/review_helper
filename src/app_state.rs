@@ -7,11 +7,11 @@ use slint::ComponentHandle;
 // use crate::files_proxy_model::FilesProxyModel;
 // use crate::notes_proxy_models::NotesProxyModels;
 // use crate::project::Project;
-use crate::{review_helper::ReviewHelperModel, review_helper_config, storage::ReviewHelperFileStorage, ui};
+use crate::{review_helper::ReviewHelperModel, review_helper_settings, storage::ReviewHelperFileStorage, ui};
 
 pub struct AppState {
     pub app_window: ui::AppWindow,
-    pub review_helper_config: review_helper_config::ReviewHelperConfig,
+    pub review_helper_settings: review_helper_settings::ReviewHelperSettings,
     pub model: ReviewHelperModel,
     // pub project: Rc<RefCell<Project>>,
     // pub file_diff_proxy_models: Rc<RefCell<FileDiffProxyModels>>,
@@ -29,11 +29,11 @@ impl AppState {
             assert!(result.is_ok());
         }
 
-        let review_helper_config = match review_helper_config::ReviewHelperConfig::new(app_data_path.clone()) {
+        let review_helper_settings = match review_helper_settings::ReviewHelperSettings::new(app_data_path.clone()) {
             Ok(config) => config,
             Err(e) => {
                 eprintln!("{}", e.to_string());
-                review_helper_config::ReviewHelperConfig::default()
+                review_helper_settings::ReviewHelperSettings::default()
             }
         };
 
@@ -51,7 +51,7 @@ impl AppState {
 
         AppState {
             app_window,
-            review_helper_config,
+            review_helper_settings,
             model,
             // project: Rc::new(RefCell::new(Project::default())),
             // file_diff_proxy_models: Rc::new(RefCell::new(FileDiffProxyModels::default())),

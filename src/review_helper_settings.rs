@@ -6,12 +6,12 @@ use serde_derive::{Deserialize, Serialize};
 
 extern crate dirs;
 
-const REVIEW_HELPER_CONFIG_FILENAME: &'static str = "review_helper_config.toml";
+const REVIEW_HELPER_CONFIG_FILENAME: &'static str = "review_helper_settings.toml";
 
 type DiffToolModel = Rc<VecModel<SharedString>>;
 
 #[derive(Serialize, Deserialize)]
-pub struct ReviewHelperConfig {
+pub struct ReviewHelperSettings {
     pub diff_tool: String,
     pub editor: String,
     pub editor_args: Vec<String>,
@@ -22,7 +22,7 @@ pub struct ReviewHelperConfig {
     pub diff_tool_model: DiffToolModel,
 }
 
-impl Default for ReviewHelperConfig {
+impl Default for ReviewHelperSettings {
     fn default() -> Self {
         Self {
             diff_tool: "meld".to_string(),
@@ -35,20 +35,20 @@ impl Default for ReviewHelperConfig {
     }
 }
 
-impl ReviewHelperConfig {
+impl ReviewHelperSettings {
     pub fn new(mut path: PathBuf) -> anyhow::Result<Self> {
-        let mut review_helper_config = ReviewHelperConfig::default();
+        let mut review_helper_settings = ReviewHelperSettings::default();
 
         path.push(REVIEW_HELPER_CONFIG_FILENAME);
 
-        review_helper_config.path = path.clone();
+        review_helper_settings.path = path.clone();
 
         if path.exists() && path.is_file() {
             let file_content = fs::read_to_string(&path).map_err(|e| anyhow::format_err!("Could not read app config: {}", e.to_string()))?;
-            review_helper_config =
+            review_helper_settings =
                 toml::from_str(&file_content).map_err(|e| anyhow::format_err!("Could not convert file content to toml: {}", e.to_string()))?;
         }
-        Ok(review_helper_config)
+        Ok(review_helper_settings)
     }
     pub fn save(&self) -> anyhow::Result<()> {
         if self.path.as_os_str().is_empty() {
@@ -60,7 +60,7 @@ impl ReviewHelperConfig {
             fs::create_dir(parent_dir).map_err(|e| anyhow::format_err!("Could not create app config dir: {}", e.to_string()))?;
         }
 
-        let contents = toml::to_string(self).expect("Could not convert ReviewHelperConfig struct to toml string!");
+        let contents = toml::to_string(self).expect("Could not convert ReviewHelperSettings struct to toml string!");
         fs::write(&self.path, contents).map_err(|e| anyhow::format_err!("Could not write app config file: {}", e.to_string()))
     }
     pub fn set_diff_tools(&mut self, diff_tools: &Vec<String>) {
@@ -73,10 +73,10 @@ impl ReviewHelperConfig {
 mod tests {
     use std::{env, fs, path::PathBuf};
 
-    use super::ReviewHelperConfig;
+    use super::ReviewHelperSettings;
 
     struct TestContext {
-        review_helper_config: ReviewHelperConfig,
+        review_helper_settings: ReviewHelperSettings,
         path: PathBuf,
         is_clean_enabled: bool,
     }
@@ -98,10 +98,10 @@ mod tests {
             assert!(result.is_ok());
         }
 
-        let review_helper_config = ReviewHelperConfig::new(path.clone());
-        assert!(review_helper_config.is_ok());
+        let review_helper_settings = ReviewHelperSettings::new(path.clone());
+        assert!(review_helper_settings.is_ok());
         TestContext {
-            review_helper_config: review_helper_config.unwrap(),
+            review_helper_settings: review_helper_settings.unwrap(),
             path,
             is_clean_enabled,
         }
@@ -111,14 +111,14 @@ mod tests {
     fn test_new_config() {
         {
             let mut ctx = setup(false);
-            assert_eq!(ctx.review_helper_config.diff_tool, "meld");
+            assert_eq!(ctx.review_helper_settings.diff_tool, "meld");
 
-            ctx.review_helper_config.diff_tool = "vscode".to_string();
-            assert!(ctx.review_helper_config.save().is_ok());
+            ctx.review_helper_settings.diff_tool = "vscode".to_string();
+            assert!(ctx.review_helper_settings.save().is_ok());
         }
         {
             let ctx = setup(true);
-            assert_eq!(ctx.review_helper_config.diff_tool, "vscode");
+            assert_eq!(ctx.review_helper_settings.diff_tool, "vscode");
         }
     }
 }

@@ -1,6 +1,6 @@
 import { Popup } from "popup.slint";
 import { Style } from "style.slint";
-import { SlintReviewHelperConfig, SlintModelUtils } from "globals.slint";
+import { SlintReviewHelperSettings, SlintModelUtils } from "globals.slint";
 import { ToolButton } from "tool_button.slint";
 
 import {
@@ -29,22 +29,22 @@ export component AppConfigPopup inherits Popup {
                 }
 
                 ComboBox {
-                    private property <int> difftool_idx: SlintReviewHelperConfig.difftool_index;
+                    private property <int> difftool_idx: SlintReviewHelperSettings.difftool_index;
                     changed difftool_idx => {
                         self.current-index = difftool_idx
                     }
-                    current-value: SlintReviewHelperConfig.diff_tool;
-                    model: SlintReviewHelperConfig.diff_tool_model;
+                    current-value: SlintReviewHelperSettings.diff_tool;
+                    model: SlintReviewHelperSettings.diff_tool_model;
                     selected(current-value) => {
-                        SlintReviewHelperConfig.difftool_index = SlintModelUtils.index_of_string(SlintReviewHelperConfig.diff_tool_model, current-value);
-                        SlintReviewHelperConfig.diff_tool = current-value;
+                        SlintReviewHelperSettings.difftool_index = SlintModelUtils.index_of_string(SlintReviewHelperSettings.diff_tool_model, current-value);
+                        SlintReviewHelperSettings.diff_tool = current-value;
                     }
                 }
 
                 ToolButton {
                     source: @image-url("../assets/icons/refresh.svg");
                     clicked => {
-                        SlintReviewHelperConfig.refresh_diff_tool_model()
+                        SlintReviewHelperSettings.refresh_diff_tool_model()
                     }
                 }
             }
@@ -58,7 +58,7 @@ export component AppConfigPopup inherits Popup {
 
                 editor_edit := LineEdit {
                     height: Style.size.control_height;
-                    text <=> SlintReviewHelperConfig.editor;
+                    text <=> SlintReviewHelperSettings.editor;
                 }
             }
 
@@ -71,7 +71,7 @@ export component AppConfigPopup inherits Popup {
 
                 editor_args_edit := LineEdit {
                     height: Style.size.control_height;
-                    text <=> SlintReviewHelperConfig.editor_args;
+                    text <=> SlintReviewHelperSettings.editor_args;
                 }
             }
 
@@ -91,10 +91,10 @@ export component AppConfigPopup inherits Popup {
                     }
 
                     model: [to_string(ColorScheme.dark), to_string(ColorScheme.light)];
-                    current-index: to_theme(SlintReviewHelperConfig.color_scheme) == ColorScheme.dark ? 0 : 1;
-                    current-value: SlintReviewHelperConfig.color_scheme;
+                    current-index: to_theme(SlintReviewHelperSettings.color_scheme) == ColorScheme.dark ? 0 : 1;
+                    current-value: SlintReviewHelperSettings.color_scheme;
                     selected(current-value) => {
-                        SlintReviewHelperConfig.color_scheme = current-value;
+                        SlintReviewHelperSettings.color_scheme = current-value;
                         Palette.color-scheme = to_theme(current-value);
                     }
                 }
@@ -115,7 +115,7 @@ export component AppConfigPopup inherits Popup {
             Button {
                 text: "Save";
                 clicked => {
-                    SlintReviewHelperConfig.save();
+                    SlintReviewHelperSettings.save();
                     root.close();
                 }
             }

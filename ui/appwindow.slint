@@ -16,7 +16,7 @@ import { FileDiffView } from "file_diff_view.slint";
 import { Popup } from "popup.slint";
 import { FileNotesPopup } from "file_notes_popup.slint";
 import { Menu, MenuItem } from "menu.slint";
-import { AppConfigPopup } from "app_config_popup.slint";
+import { AppConfigPopup } from "app_settings_popup.slint";
 import { DiffConfigView } from "diff_config_view.slint";
 import { OverallStatistics } from "overall_statistics.slint";
 
@@ -24,7 +24,7 @@ import {
     Repository,
     CommitPickerAdapter,
     OverallDiffStats,
-    SlintReviewHelperConfig,
+    SlintReviewHelperSettings,
     SlintStringUtils,
     Diff,
     DiffFileItem,
@@ -41,7 +41,7 @@ import {
 import { SubSectionText } from "sub_section_text.slint";
 import { ToolButton } from "tool_button.slint";
 
-export { SlintReviewHelperConfig, FilePickerAdapter, CommitPickerAdapter, Notes, NoteItem, Diff, DiffFileItem, Repository, SlintStringUtils, OverallDiffStats, SlintModelUtils, SlintRepository, SlintReviewHelper, SlintResult, SlintErrors, SlintErrorEntry }
+export { SlintReviewHelperSettings, FilePickerAdapter, CommitPickerAdapter, Notes, NoteItem, Diff, DiffFileItem, Repository, SlintStringUtils, OverallDiffStats, SlintModelUtils, SlintRepository, SlintReviewHelper, SlintResult, SlintErrors, SlintErrorEntry }
 
 export component AppWindow inherits Window {
     in property <string> config_color_scheme;
