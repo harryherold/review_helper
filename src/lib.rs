@@ -23,10 +23,10 @@ mod project;
 mod project_config;
 mod project_controller;
 mod repositories;
-mod repositories_controller;
 mod repository;
 mod repository_controller;
 mod review_helper;
+mod review_helper_controller;
 mod review_helper_settings;
 mod review_helper_settings_controller;
 
@@ -45,7 +45,7 @@ pub fn main() -> Result<(), slint::PlatformError> {
 
     // project_controller::setup_project(&mut app_state);
     review_helper_settings_controller::setup_app_config(app_state.clone());
-    repositories_controller::setup(app_state.clone());
+    review_helper_controller::setup(app_state.clone());
     // repository_controller::setup_repository(&app_state);
     // commit_picker_controller::setup_commit_picker(&app_state);
     // notes_controller::setup_notes(&app_state);
