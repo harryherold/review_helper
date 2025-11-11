@@ -10,7 +10,7 @@ use crate::commit_proxy_model::CommitProxyModel;
 use crate::file_diff_proxy_models::FileDiffProxyModels;
 use crate::files_proxy_model::FilesProxyModel;
 use crate::git_command_spawner::*;
-use crate::id_model::IdModelChange;
+use crate::model::IdModelChange;
 use crate::notes_proxy_models::NotesProxyModels;
 use crate::project::Project;
 use crate::project_config::ProjectConfig;

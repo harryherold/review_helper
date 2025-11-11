@@ -1,16 +1,10 @@
-use std::{
-    collections::{BTreeMap, HashSet},
-    convert::From,
-    path::PathBuf,
-    rc::Rc,
-};
+use std::{collections::HashSet, convert::From, path::PathBuf, rc::Rc};
 
 use slint::{Model, SharedString, VecModel};
 
 use crate::{
-    commit_proxy_model::CommitProxyModel,
     git_utils,
-    id_model::IdModel,
+    model::IdModel,
     storage::{RepositoryName, RepositoryStore, ReviewHelperStorage},
     ui,
 };
@@ -23,9 +17,9 @@ pub enum ReviewHelperError {
     StoreFailed(String),
 }
 
-pub struct RepositoryModel {
-    pub commit_proxy_model: CommitProxyModel,
-}
+// pub struct RepositoryModel {
+//     pub commit_proxy_model: CommitProxyModel,
+// }
 
 pub struct ReviewHelperModel {
     storage: Box<dyn ReviewHelperStorage>,

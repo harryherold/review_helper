@@ -1,4 +1,4 @@
-use crate::id_model::IdModel;
+use crate::model::IdModel;
 use crate::ui;
 use crate::ui::{NoteItem, SortOrder};
 use slint::{FilterModel, ModelExt, ModelRc, SharedString, SortModel};
@@ -77,7 +77,7 @@ impl NotesProxyModels {
     fn gen_sort_callback(criteria: ui::NoteSortCriteria, order: ui::SortOrder) -> Box<dyn Fn(&ui::NoteItem, &ui::NoteItem) -> Ordering> {
         Box::new(move |lhs: &ui::NoteItem, rhs: &ui::NoteItem| -> Ordering {
             match criteria {
-                ui::NoteSortCriteria::NoteText => match order { 
+                ui::NoteSortCriteria::NoteText => match order {
                     ui::SortOrder::Ascending => lhs.text.to_lowercase().cmp(&rhs.text.to_lowercase()),
                     ui::SortOrder::Descending => rhs.text.to_lowercase().cmp(&lhs.text.to_lowercase()),
                 }

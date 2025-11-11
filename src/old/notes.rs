@@ -7,7 +7,7 @@ use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{fs, path::PathBuf, rc::Rc};
 
-use crate::id_model::{IdModel, IdModelChange};
+use crate::model::{IdModel, IdModelChange};
 
 use crate::ui;
 

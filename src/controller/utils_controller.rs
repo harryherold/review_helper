@@ -1,4 +1,4 @@
-use crate::app_state::AppState;
+use crate::model::AppState;
 use crate::ui;
 use slint::{ComponentHandle, Model};
 use std::{cell::RefCell, path::PathBuf, rc::Rc};

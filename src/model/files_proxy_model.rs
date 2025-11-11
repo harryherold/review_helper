@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use crate::ui;
 
-use crate::id_model::IdModel;
+use crate::model::IdModel;
 use slint::{FilterModel, MapModel, ModelRc, SharedString, SortModel};
 
 type FilesMapModel = Rc<MapModel<ModelRc<ui::DiffFileItem>, fn(ui::DiffFileItem) -> SharedString>>;

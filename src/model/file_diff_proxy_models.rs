@@ -1,4 +1,4 @@
-use crate::id_model::IdModel;
+use crate::model::IdModel;
 use crate::ui;
 use slint::{FilterModel, ModelExt, ModelRc, SharedString, SortModel};
 use std::cell::RefCell;

@@ -4,7 +4,7 @@ use native_dialog::FileDialog;
 
 use slint::{ComponentHandle, SharedString};
 
-use crate::app_state::AppState;
+use crate::model::AppState;
 use crate::ui;
 
 // TODO initialize commit model
@@ -21,7 +21,7 @@ pub fn setup(app_state: Rc<RefCell<AppState>>) {
             {
                 let model = &mut state.borrow_mut().model;
                 if let Err(e) = model.add_repository(repository_path) {
-                    use crate::review_helper::ReviewHelperError::*;
+                    use crate::model::ReviewHelperError::*;
 
                     let (ui_error, ui_error_text) = match e {
                         RepositoryExists(t) => (ui::SlintResult::RepositoryExists, SharedString::from(t.as_str())),

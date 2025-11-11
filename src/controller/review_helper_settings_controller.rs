@@ -1,11 +1,11 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::app_state::AppState;
 use crate::git_command_spawner::async_query_diff_tools;
+use crate::model::AppState;
 use crate::ui;
 use slint::{ComponentHandle, SharedString};
 
-pub fn setup_app_config(app_state: Rc<RefCell<AppState>>) {
+pub fn setup_review_helper_settings(app_state: Rc<RefCell<AppState>>) {
     app_state.borrow().app_window.global::<ui::SlintReviewHelperSettings>().on_save({
         let state = app_state.clone();
         let ui_weak = app_state.borrow().app_window.as_weak();

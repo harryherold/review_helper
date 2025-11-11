@@ -6,7 +6,7 @@ use slint::{Model, ModelRc, VecModel};
 
 use crate::git_command_spawner;
 use crate::git_utils::ChangeType;
-use crate::id_model::{IdModel, IdModelChange};
+use crate::model::{IdModel, IdModelChange};
 use crate::ui::OverallStat;
 use crate::{git_utils, project_config::ProjectConfig, ui};
 
