@@ -30,6 +30,7 @@ pub struct RepositoryStore {
     pub path: PathBuf,
     pub name: RepositoryName,
     pub first_commit: String,
+    pub base_branch: String,
 }
 
 // pub struct ReviewStore {}

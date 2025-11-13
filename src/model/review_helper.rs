@@ -37,6 +37,7 @@ impl From<(usize, &RepositoryStore)> for ui::SlintRepository {
             first_commit: SharedString::from(&value.first_commit),
             name: String::from(&value.name).into(),
             path: value.path.as_os_str().to_str().unwrap_or_default().into(),
+            base_branch: SharedString::from(&value.base_branch),
         }
     }
 }
@@ -44,9 +45,10 @@ impl From<(usize, &RepositoryStore)> for ui::SlintRepository {
 impl From<&ui::SlintRepository> for RepositoryStore {
     fn from(value: &ui::SlintRepository) -> Self {
         RepositoryStore {
-            path: PathBuf::from(value.path.as_str()),
-            name: RepositoryName::from(value.name.as_str()),
             first_commit: String::from(value.first_commit.as_str()),
+            name: RepositoryName::from(value.name.as_str()),
+            path: PathBuf::from(value.path.as_str()),
+            base_branch: String::from(value.base_branch.as_str()),
         }
     }
 }
@@ -96,6 +98,7 @@ impl ReviewHelperModel {
             id: self.last_id as i32,
             name: name.into(),
             path: path_str.into(),
+            base_branch: SharedString::from("main"),
         };
 
         let repository_store = RepositoryStore::from(&ui_repository);

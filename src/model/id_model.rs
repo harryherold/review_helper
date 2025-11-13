@@ -32,10 +32,13 @@ impl<T: Clone + 'static> Model for IdModel<T> {
         }
     }
     fn set_row_data(&self, row: usize, data: Self::Data) {
-        if let Some(key) = self.entity_map.borrow().keys().nth(row) {
-            if let Some(entry) = self.entity_map.borrow_mut().get_mut(key) {
-                *entry = data;
-                self.notify.row_changed(row);
+        let key_result = self.entity_map.borrow().keys().nth(row).cloned();
+        if let Some(key) = key_result {
+            self.entity_map.borrow_mut().insert(key, data);
+            self.notify.row_changed(row);
+
+            if self.observer.borrow().is_some() {
+                self.observer.borrow().as_ref().unwrap()(IdModelChange::EntityChanged);
             }
         }
     }

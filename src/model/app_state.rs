@@ -1,6 +1,7 @@
 use std::fs;
+use std::rc::Rc;
 
-use slint::ComponentHandle;
+use slint::{ComponentHandle, ModelExt};
 
 use crate::model::{ReviewHelperModel, ReviewHelperSettings};
 use crate::storage::ReviewHelperFileStorage;
@@ -34,6 +35,12 @@ impl AppState {
         let model = ReviewHelperModel::new(Box::new(storage));
 
         let app_window = ui::AppWindow::new().expect("Error while creating app window!");
+
+        let respository_name_model = model.repositories_model.clone().map(|repository| repository.name);
+
+        app_window
+            .global::<ui::SlintReviewHelper>()
+            .set_repository_names(Rc::new(respository_name_model).into());
 
         app_window
             .global::<ui::SlintReviewHelper>()

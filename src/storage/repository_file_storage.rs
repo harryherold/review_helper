@@ -66,6 +66,9 @@ impl ReviewHelperStorage for ReviewHelperFileStorage {
             if let Some(name) = table["name"].as_str() {
                 repository_store.name = name.into();
             }
+            if let Some(base_branch) = table["base_branch"].as_str() {
+                repository_store.base_branch = base_branch.to_string();
+            }
             repositories.push(repository_store);
         }
 
@@ -90,6 +93,7 @@ impl ReviewHelperStorage for ReviewHelperFileStorage {
         table.insert("path".to_string(), Value::String(repository_store.path.to_str().unwrap_or_default().into()));
         table.insert("first_commit".to_string(), Value::String(repository_store.first_commit));
         table.insert("name".to_string(), Value::String(String::from(&repository_store.name)));
+        table.insert("base_branch".to_string(), Value::String(String::from(&repository_store.base_branch)));
 
         let mut file = File::create(&repository_sub_dir)?;
 
@@ -170,11 +174,13 @@ first_commit = "5a99f0351a9dcbe5f2414e84e6f5bb9f617af33a"
                 path: PathBuf::from("/home/harry/workspace/review_helper"),
                 first_commit: "9f89049b7f99682c48474d421ac126316adaed15".to_string(),
                 name: "review_helper".into(),
+                base_branch: "".to_string(),
             },
             RepositoryStore {
                 path: PathBuf::from("/home/harry/workspace/trackme"),
                 first_commit: "5a99f0351a9dcbe5f2414e84e6f5bb9f617af33a".to_string(),
                 name: "trackme".into(),
+                base_branch: "".to_string(),
             },
         ];
 
@@ -200,6 +206,7 @@ first_commit = "5a99f0351a9dcbe5f2414e84e6f5bb9f617af33a"
             path: PathBuf::from("/home/harry/workspace/review_helper"),
             name: "review_helper".into(),
             first_commit: "9f89049b7f99682c48474d421ac126316adaed15".to_string(),
+            base_branch: "".to_string(),
         };
         let expected_repository_store = repository_store.clone();
 
