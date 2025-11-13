@@ -1,0 +1,57 @@
+import { Button, LineEdit } from "std-widgets.slint";
+
+import { SlintRepository } from "globals.slint";
+import { Popup } from "popup.slint";
+import { Style } from "style.slint";
+
+
+export component RepositorySettingsPopup inherits Popup {
+    callback base-branch-changed(base-branch: string);
+
+    title: "Repository-Settings";
+
+    public function show(repository: SlintRepository) {
+        base-branch-edit.text = repository.base-branch;
+        self.open();
+    }
+
+    GridLayout {
+        spacing: Style.size.spacing;
+        padding-left: Style.size.big-spacing;
+        padding-right: Style.size.big-spacing;
+        padding-bottom: Style.size.big-spacing;
+        Row {
+            Text {
+                vertical-alignment: center;
+                horizontal-alignment: center;
+                text: "base-branch";
+            }
+
+            base-branch-edit := LineEdit { }
+        }
+
+        Row {
+            HorizontalLayout {
+                colspan: 2;
+                alignment: end;
+                spacing: Style.size.spacing;
+                padding-top: Style.size.big-spacing;
+
+                Button {
+                    text: "Close";
+                    clicked => {
+                        root.close();
+                    }
+                }
+
+                Button {
+                    text: "Save";
+                    clicked => {
+                        base-branch-changed(base-branch-edit.text);
+                        root.close();
+                    }
+                }
+            }
+        }
+    }
+}

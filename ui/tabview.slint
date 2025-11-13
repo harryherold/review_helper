@@ -1,0 +1,88 @@
+import { Button, VerticalBox, Palette } from "std-widgets.slint";
+import { Style } from "style.slint";
+import { ToolButton } from "tool_button.slint";
+
+export component TabButton inherits Rectangle {
+    in property <string> tab-text;
+    in property <bool> is-selected: false;
+    callback clicked <=> ta.clicked;
+
+    background: {
+        if (ta.pressed) {
+            return Palette.control-background;
+        }
+        return is-selected ? Palette.control-background : Palette.background;
+    }
+    border-color: Palette.border;
+    border-width: {
+        if (ta.pressed) {
+            return 1px;
+        }
+        return root.is-selected ? 0px : 1px;
+    }
+
+    Text {
+        text: tab-text;
+    }
+
+    ta := TouchArea { }
+}
+
+export component TabCreateButton inherits Rectangle {
+    callback clicked <=> ta.clicked;
+
+    background: {
+        if (ta.pressed) {
+            return Palette.control-background;
+        }
+        return Palette.background;
+    }
+    border-color: Palette.border;
+    border-width: Style.size.border-width;
+
+    Image {
+        vertical-alignment: center;
+        width: Style.size.image_width;
+        source: @image-url("../assets/icons/add.svg");
+        colorize: Palette.foreground;
+    }
+
+    ta := TouchArea { }
+}
+
+export component TabViewItem inherits Rectangle {
+    in property <int> current-index;
+    in property <int> index;
+
+    visible: index == current-index;
+}
+
+export component TabView inherits Rectangle {
+    in property <[string]> model;
+    out property <int> current-index;
+    callback request-create <=> tab-create-button.clicked;
+
+    public function set_current_index(index: int) {
+        root.current-index = index;
+    }
+
+    VerticalLayout {
+        HorizontalLayout {
+            for tab_text[idx] in root.model: TabButton {
+                height: Style.size.control-height;
+                tab-text: tab_text;
+                is-selected: current-index == idx;
+                clicked => {
+                    root.current-index = idx;
+                }
+            }
+            tab-create-button := TabCreateButton {
+                width: Style.size.control-small-width;
+            }
+        }
+
+        Rectangle {
+            @children
+        }
+    }
+}

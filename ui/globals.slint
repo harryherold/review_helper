@@ -32,6 +32,7 @@ export struct SlintRepository {
     name: string,
     path: string,
     first_commit: string,
+    base_branch: string,
     // commit_model: [[StandardListViewItem]],
 }
 
@@ -46,6 +47,7 @@ export global SlintErrors {
 
 export global SlintReviewHelper {
     in property <[SlintRepository]> repositories;
+    in property <[string]> repository_names;
     callback new_repository() -> SlintResult;
 }
 

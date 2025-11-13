@@ -19,6 +19,8 @@ import { Menu, MenuItem } from "menu.slint";
 import { AppConfigPopup } from "app_settings_popup.slint";
 import { DiffConfigView } from "diff_config_view.slint";
 import { OverallStatistics } from "overall_statistics.slint";
+import { TabView, TabViewItem } from "tabview.slint";
+import { RepositorySettingsPopup } from "repository_settings_popup.slint";
 
 import {
     Repository,
@@ -40,10 +42,12 @@ import {
 } from "globals.slint";
 import { SubSectionText } from "sub_section_text.slint";
 import { ToolButton } from "tool_button.slint";
+import { RepositoryView } from "respository_view.slint";
 
 export { SlintReviewHelperSettings, FilePickerAdapter, CommitPickerAdapter, Notes, NoteItem, Diff, DiffFileItem, Repository, SlintStringUtils, OverallDiffStats, SlintModelUtils, SlintRepository, SlintReviewHelper, SlintResult, SlintErrors, SlintErrorEntry }
 
 export component AppWindow inherits Window {
+    private property <int> selected_repository_index: tab_view.current-index;
     in property <string> config_color_scheme;
     callback close;
 
@@ -132,6 +136,14 @@ export component AppWindow inherits Window {
         }
     }
 
+    repository-settings-popup := RepositorySettingsPopup {
+        initial_x: (root.width / 2) - (self.width / 2);
+        initial_y: (root.height / 2) - (self.height / 2);
+        base-branch-changed(base-branch) => {
+            SlintReviewHelper.repositories[root.selected_repository_index].base-branch = base-branch;
+        }
+    }
+
     VerticalLayout {
         menu-rect := Rectangle {
             height: 40px;
@@ -154,131 +166,46 @@ export component AppWindow inherits Window {
                     }
 
                     Menu {
-                        text: "Edit";
+                        text: "Settings";
 
                         MenuItem {
-                            text: "Config";
+                            text: "ReviewHelper";
                             clicked => {
                                 app-config-popup.open()
                             }
                         }
-                    }
-                }
 
-                // if Project.has_modifications: Rectangle {
-                //     width: Style.size.control_small_width;
-                //     border-radius: Style.size.border_radius;
-                //     border-width: Style.size.border_width;
-                //     states [
-                //         is_active when ta.has-hover: {
-                //             background: Palette.control-background;
-                //         }
-                //     ]
-                //     image := Image {
-                //         source: @image-url("../assets/icons/save.svg");
-                //         vertical-alignment: center;
-                //         horizontal-alignment: center;
-                //         colorize: Palette.foreground;
-
-                //         ta := TouchArea {
-                //             clicked => {
-                //                 Project.save()
-                //             }
-                //         }
-                //     }
-                // }
-            }
-        }
-
-        for error in SlintErrors.model: HorizontalLayout {
-            spacing: 5px;
-
-            Text {
-                text: error.text;
-            }
-        }
-
-        property <int> selected_repository_id: -1;
-        HorizontalLayout {
-            alignment: start;
-            for repository in SlintReviewHelper.repositories: Button {
-                property <int> selected_id: selected_repository_id;
-                changed selected_id => {
-                    self.checked = selected_id == repository.id;
-                }
-                text: repository.name;
-                checkable: true;
-                clicked => {
-                    if (selected_repository_id == repository.id) {
-                        selected_repository_id = -1;
-                    } else {
-                        selected_repository_id = repository.id;
-                    }
-                }
-            }
-            ToolButton {
-                source: @image-url("../assets/icons/add.svg");
-                clicked => {
-                    let result = SlintReviewHelper.new_repository();
-                    if (result != SlintResult.Ok) {
-                        error-popup.show_error(result);
+                        MenuItem {
+                            enabled: root.selected_repository_index != -1;
+                            text: "Respository";
+                            clicked => {
+                                repository-settings-popup.show(SlintReviewHelper.repositories[root.selected_repository_index]);
+                            }
+                        }
                     }
                 }
             }
         }
 
-        Rectangle { }
+        tab_view := TabView {
+            model: SlintReviewHelper.repository_names;
+            request-create => {
+                let result = SlintReviewHelper.new_repository();
+                if (result != SlintResult.Ok) {
+                    error-popup.show_error(result);
+                } else {
+                    self.set_current_index(self.model.length - 1);
+                }
+            }
 
-        // if Project.is_loaded: TabWidget {
-        //     Tab {
-        //         title: "File Diff";
+            for repository[idx] in SlintReviewHelper.repositories: TabViewItem {
+                index: idx;
+                current-index: parent.current-index;
 
-        //         Rectangle {
-        //             background: Palette.control-background;
-
-        //             VerticalBox {
-        //                 spacing: Style.size.spacing;
-        //                 SubSectionText {
-        //                     text: "Repository:";
-        //                 }
-
-        //                 DiffConfigView { }
-
-        //                 SubSectionText {
-        //                     visible: Repository.is_loaded;
-        //                     text: "Statistics:";
-        //                 }
-
-        //                 if Repository.is_loaded: OverallStatistics { }
-
-        //                 SubSectionText {
-        //                     visible: Repository.is_loaded;
-        //                     text: "Differences:";
-        //                 }
-
-        //                 if Repository.is_loaded: FileDiffView { }
-        //             }
-        //         }
-        //     }
-
-        //     Tab {
-        //         title: "Notes";
-
-        //         NotesView { }
-        //     }
-        // }
-        // if !Project.is_loaded: HorizontalBox {
-        //     alignment: center;
-        //     Image {
-        //         source: @image-url("../assets/icons/warning.svg");
-        //         colorize: Palette.foreground;
-        //     }
-
-        //     Text {
-        //         vertical-alignment: center;
-        //         text: "No project loaded";
-        //         font-size: 18px;
-        //     }
-        // }
+                RepositoryView {
+                    repository: repository;
+                }
+            }
+        }
     }
 }
