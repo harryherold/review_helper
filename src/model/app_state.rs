@@ -3,14 +3,14 @@ use std::rc::Rc;
 
 use slint::{ComponentHandle, ModelExt};
 
-use crate::model::{ReviewHelperModel, ReviewHelperSettings};
+use crate::model::{ReviewHelper, ReviewHelperSettings};
 use crate::storage::ReviewHelperFileStorage;
 use crate::ui;
 
 pub struct AppState {
     pub app_window: ui::AppWindow,
     pub review_helper_settings: ReviewHelperSettings,
-    pub model: ReviewHelperModel,
+    pub review_helper: ReviewHelper,
 }
 
 impl AppState {
@@ -32,11 +32,11 @@ impl AppState {
 
         let storage = ReviewHelperFileStorage::new(app_data_path);
 
-        let model = ReviewHelperModel::new(Box::new(storage));
+        let review_helper = ReviewHelper::new(Rc::new(storage));
 
         let app_window = ui::AppWindow::new().expect("Error while creating app window!");
 
-        let respository_name_model = model.repositories_model.clone().map(|repository| repository.name);
+        let respository_name_model = review_helper.repositories_model.clone().map(|repository| repository.name);
 
         app_window
             .global::<ui::SlintReviewHelper>()
@@ -44,14 +44,14 @@ impl AppState {
 
         app_window
             .global::<ui::SlintReviewHelper>()
-            .set_repositories(model.repositories_model.clone().into());
+            .set_repositories(review_helper.repositories_model.clone().into());
 
-        app_window.global::<ui::SlintErrors>().set_model(model.error_model.clone().into());
+        app_window.global::<ui::SlintErrors>().set_model(review_helper.error_model.clone().into());
 
         AppState {
             app_window,
             review_helper_settings,
-            model,
+            review_helper,
         }
     }
 }

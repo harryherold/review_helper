@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use slint::{Model, ModelNotify};
 
 pub enum IdModelChange {
-    EntityChanged,
+    EntityChanged(usize),
     ModelCleared,
 }
 
@@ -38,7 +38,7 @@ impl<T: Clone + 'static> Model for IdModel<T> {
             self.notify.row_changed(row);
 
             if self.observer.borrow().is_some() {
-                self.observer.borrow().as_ref().unwrap()(IdModelChange::EntityChanged);
+                self.observer.borrow().as_ref().unwrap()(IdModelChange::EntityChanged(key));
             }
         }
     }
@@ -55,7 +55,7 @@ impl<T: Clone> IdModel<T> {
             self.notify.row_added(index, 1);
         }
         if self.observer.borrow().is_some() {
-            self.observer.borrow().as_ref().unwrap()(IdModelChange::EntityChanged);
+            self.observer.borrow().as_ref().unwrap()(IdModelChange::EntityChanged(id));
         }
     }
     pub fn remove(&self, id: usize) {
@@ -65,7 +65,7 @@ impl<T: Clone> IdModel<T> {
             self.notify.row_removed(index, 1);
 
             if self.observer.borrow().is_some() {
-                self.observer.borrow().as_ref().unwrap()(IdModelChange::EntityChanged);
+                self.observer.borrow().as_ref().unwrap()(IdModelChange::EntityChanged(id));
             }
         }
     }
@@ -76,7 +76,7 @@ impl<T: Clone> IdModel<T> {
             self.notify.row_changed(index);
 
             if self.observer.borrow().is_some() {
-                self.observer.borrow().as_ref().unwrap()(IdModelChange::EntityChanged);
+                self.observer.borrow().as_ref().unwrap()(IdModelChange::EntityChanged(id));
             }
         }
     }

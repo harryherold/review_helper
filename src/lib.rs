@@ -25,7 +25,7 @@ pub fn main() -> Result<(), slint::PlatformError> {
     app_state.borrow().app_window.on_close(move || process::exit(0));
 
     controller::setup_review_helper_settings(app_state.clone());
-    controller::setup(app_state.clone());
+    controller::setup_review_helper(app_state.clone());
     controller::setup_utils(app_state.clone());
 
     let ui = app_state.borrow().app_window.as_weak();

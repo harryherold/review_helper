@@ -50,6 +50,11 @@ export component AppWindow inherits Window {
     private property <int> selected_repository_index: tab_view.current-index;
     in property <string> config_color_scheme;
     callback close;
+    callback request_show_error(SlintResult);
+
+    request_show_error(e) => {
+        error-popup.show_error(e);
+    }
 
     changed config_color_scheme => {
         Palette.color-scheme = config_color_scheme == "Dark" ? ColorScheme.dark : ColorScheme.light;
@@ -117,6 +122,9 @@ export component AppWindow inherits Window {
                         }
                         if (error-popup.result == SlintResult.StoreFailed) {
                             return "Could store repository data!";
+                        }
+                        if (error-popup.result == SlintResult.ModelItemNotExists) {
+                            return "Could not find model item!";
                         }
                         return "";
                     }

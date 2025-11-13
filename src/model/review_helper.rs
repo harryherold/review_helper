@@ -15,14 +15,15 @@ pub enum ReviewHelperError {
     GitCommandFailed(String),
     NoGitDirectory(String),
     StoreFailed(String),
+    ModelItemNotExists,
 }
 
 // pub struct RepositoryModel {
 //     pub commit_proxy_model: CommitProxyModel,
 // }
 
-pub struct ReviewHelperModel {
-    storage: Box<dyn ReviewHelperStorage>,
+pub struct ReviewHelper {
+    pub storage: Rc<dyn ReviewHelperStorage>,
     pub repositories_model: Rc<IdModel<ui::SlintRepository>>,
     pub error_model: Rc<VecModel<ui::SlintErrorEntry>>,
     // pub repository_models: BTreeMap<usize, RepositoryModel>,
@@ -57,8 +58,8 @@ fn path_to_str(path: &PathBuf) -> &str {
     path.to_str().unwrap_or_default()
 }
 
-impl ReviewHelperModel {
-    pub fn new(storage: Box<dyn ReviewHelperStorage>) -> Self {
+impl ReviewHelper {
+    pub fn new(storage: Rc<dyn ReviewHelperStorage>) -> Self {
         let repository_stores = storage.load_repositories().expect("Error while loading repositories from config!");
         let model = IdModel::default();
         let mut paths = HashSet::new();
@@ -100,11 +101,6 @@ impl ReviewHelperModel {
             path: path_str.into(),
             base_branch: SharedString::from("main"),
         };
-
-        let repository_store = RepositoryStore::from(&ui_repository);
-        self.storage
-            .save_repository(repository_store)
-            .map_err(|e| ReviewHelperError::StoreFailed(e.to_string()))?;
 
         self.repository_paths.insert(path.clone());
         self.repositories_model.add(self.last_id, ui_repository);
