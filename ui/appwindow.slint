@@ -43,11 +43,13 @@ import {
 import { SubSectionText } from "sub_section_text.slint";
 import { ToolButton } from "tool_button.slint";
 import { RepositoryView } from "respository_view.slint";
+import { ErrorPopup } from "error_popup.slint";
 
 export { SlintReviewHelperSettings, FilePickerAdapter, CommitPickerAdapter, Notes, NoteItem, Diff, DiffFileItem, Repository, SlintStringUtils, OverallDiffStats, SlintModelUtils, SlintRepository, SlintReviewHelper, SlintResult, SlintErrors, SlintErrorEntry }
 
 export component AppWindow inherits Window {
-    private property <int> selected_repository_index: tab_view.current-index;
+    private property <int> selected_repository_index: -1;
+    //tab_view.current-index;
     in property <string> config_color_scheme;
     callback close;
     callback request_show_error(SlintResult);
@@ -76,72 +78,9 @@ export component AppWindow inherits Window {
         initial_y: (root.height / 2) - (self.height / 2);
     }
 
-    error-popup := Popup {
-        function show_error(result: SlintResult) {
-            self.result = result;
-            self.open();
-        }
-
-        private property <SlintResult> result: SlintResult.Ok;
-
-        title: "Error";
+    error-popup := ErrorPopup {
         initial_x: (root.width / 2) - (self.width / 2);
         initial_y: (root.height / 2) - (self.height / 2);
-
-        VerticalLayout {
-            alignment: center;
-
-            padding-bottom: Style.size.big-spacing;
-            padding-left: Style.size.big-spacing;
-            padding-right: Style.size.big-spacing;
-            spacing: Style.size.big-spacing;
-
-            HorizontalLayout {
-                alignment: space-around;
-                spacing: Style.size.spacing;
-
-                Image {
-                    width: Style.size.image-width;
-                    source: @image-url("../assets/icons/failed.svg");
-                }
-
-                Text {
-                    horizontal-alignment: center;
-                    vertical-alignment: center;
-                    wrap: word-wrap;
-                    max-width: Style.size.control-width * 2;
-                    text: {
-                        if (error-popup.result == SlintResult.RepositoryExists) {
-                            return "Repository already exists!";
-                        }
-                        if (error-popup.result == SlintResult.GitCommandFailed) {
-                            return "Could not exec git commands!";
-                        }
-                        if (error-popup.result == SlintResult.NoGitDirectory) {
-                            return "This folder is not Git-controlled!";
-                        }
-                        if (error-popup.result == SlintResult.StoreFailed) {
-                            return "Could store repository data!";
-                        }
-                        if (error-popup.result == SlintResult.ModelItemNotExists) {
-                            return "Could not find model item!";
-                        }
-                        return "";
-                    }
-                }
-            }
-
-            HorizontalLayout {
-                alignment: center;
-                Button {
-                    width: Style.size.control-width;
-                    text: "Ok";
-                    clicked => {
-                        error-popup.close();
-                    }
-                }
-            }
-        }
     }
 
     repository-settings-popup := RepositorySettingsPopup {
@@ -195,7 +134,7 @@ export component AppWindow inherits Window {
             }
         }
 
-        tab_view := TabView {
+        TabView {
             model: SlintReviewHelper.repository_names;
             request-create => {
                 let result = SlintReviewHelper.new_repository();
@@ -204,6 +143,9 @@ export component AppWindow inherits Window {
                 } else {
                     self.set_current_index(self.model.length - 1);
                 }
+            }
+            changed current-index => {
+                root.selected_repository_index = self.current-index;
             }
 
             for repository[idx] in SlintReviewHelper.repositories: TabViewItem {

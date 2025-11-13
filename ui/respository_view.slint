@@ -25,9 +25,13 @@ export component RepositoryView inherits HorizontalLayout {
         }
 
         ListView {
-            for review in ["Rotation", "RayAlignment", "NewCoreModel"]: TabButton {
-                tab-text: review;
-                height: Style.size.control-height;
+            for review in ["Rotation", "RayAlignment", "NewCoreModel"]: Rectangle {
+                height: Style.size.control-height + Style.size.spacing;
+
+                TabButton {
+                    tab-text: review;
+                    height: Style.size.control-height;
+                }
             }
         }
     }

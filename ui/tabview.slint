@@ -1,4 +1,10 @@
-import { Button, VerticalBox, Palette } from "std-widgets.slint";
+import {
+    Button,
+    VerticalBox,
+    Palette,
+    HorizontalBox,
+    ScrollView,
+} from "std-widgets.slint";
 import { Style } from "style.slint";
 import { ToolButton } from "tool_button.slint";
 
@@ -7,19 +13,26 @@ export component TabButton inherits Rectangle {
     in property <bool> is-selected: false;
     callback clicked <=> ta.clicked;
 
+    // border-width: root.is-selected ? 1px : 0px;
+    // border-color: Palette.border;
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+    border-bottom-left-radius: ta.has-hover && !root.is-selected ? 10px : 0px;
+    border-bottom-right-radius: ta.has-hover && !root.is-selected ? 10px : 0px;
+
     background: {
-        if (ta.pressed) {
+        if (ta.has-hover) {
             return Palette.control-background;
         }
-        return is-selected ? Palette.control-background : Palette.background;
+        return is-selected ? Palette.control-background : #292929;
     }
-    border-color: Palette.border;
-    border-width: {
-        if (ta.pressed) {
-            return 1px;
-        }
-        return root.is-selected ? 0px : 1px;
-    }
+    // border-color: Palette.border;
+    // border-width: {
+    //     if (ta.pressed) {
+    //         return 1px;
+    //     }
+    //     return root.is-selected ? 0px : 1px;
+    // }
 
     Text {
         text: tab-text;
@@ -31,14 +44,23 @@ export component TabButton inherits Rectangle {
 export component TabCreateButton inherits Rectangle {
     callback clicked <=> ta.clicked;
 
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+    border-bottom-left-radius: ta.has-hover ? 10px : 0px;
+    border-bottom-right-radius: ta.has-hover ? 10px : 0px;
     background: {
-        if (ta.pressed) {
+        if (ta.has-hover) {
             return Palette.control-background;
         }
-        return Palette.background;
+        // if (ta.pressed) {
+        //     return Palette.background;
+        // }
+        // return Palette.background;
+        return #292929;
+        //Palette.control-background;
     }
-    border-color: Palette.border;
-    border-width: Style.size.border-width;
+    // border-color: Palette.border;
+    // border-width: Style.size.border-width;
 
     Image {
         vertical-alignment: center;
@@ -65,19 +87,39 @@ export component TabView inherits Rectangle {
     public function set_current_index(index: int) {
         root.current-index = index;
     }
-
+    background: #363636;
     VerticalLayout {
-        HorizontalLayout {
-            for tab_text[idx] in root.model: TabButton {
-                height: Style.size.control-height;
-                tab-text: tab_text;
-                is-selected: current-index == idx;
-                clicked => {
-                    root.current-index = idx;
+        Rectangle {
+            background: #292929;
+            height: Style.size.control-height;
+            HorizontalLayout {
+                spacing: Style.size.spacing;
+                alignment: start;
+                if root.model.length > 0: ScrollView {
+                    preferred-width: 120px * root.model.length + (root.model.length - 1) * Style.size.spacing;
+                    horizontal-scrollbar-policy: always-off;
+                    vertical-scrollbar-policy: always-off;
+                    HorizontalLayout {
+                        spacing: Style.size.spacing;
+                        alignment: start;
+                        for tab_text[idx] in root.model: TabButton {
+                            height: Style.size.control-height;
+                            width: 120px;
+                            tab-text: tab_text;
+                            is-selected: current-index == idx;
+                            clicked => {
+                                root.current-index = idx;
+                            }
+                        }
+                    }
                 }
-            }
-            tab-create-button := TabCreateButton {
-                width: Style.size.control-small-width;
+
+                tab-create-button := TabCreateButton {
+                    height: Style.size.control-height;
+                    width: Style.size.control-small-width;
+                }
+
+                Rectangle { }
             }
         }
 

@@ -1,0 +1,71 @@
+
+import { Button } from "std-widgets.slint";
+
+import { SlintResult } from "globals.slint";
+import { Popup } from "popup.slint";
+import { Style } from "style.slint";
+
+export component ErrorPopup inherits Popup {
+    public function show_error(result: SlintResult) {
+        self.result = result;
+        self.open();
+    }
+    private property <SlintResult> result: SlintResult.Ok;
+
+    title: "Error";
+
+    VerticalLayout {
+        alignment: center;
+
+        padding-bottom: Style.size.big-spacing;
+        padding-left: Style.size.big-spacing;
+        padding-right: Style.size.big-spacing;
+        spacing: Style.size.big-spacing;
+
+        HorizontalLayout {
+            alignment: space-around;
+            spacing: Style.size.spacing;
+
+            Image {
+                width: Style.size.image-width;
+                source: @image-url("../assets/icons/failed.svg");
+            }
+
+            Text {
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                wrap: word-wrap;
+                max-width: Style.size.control-width * 2;
+                text: {
+                    if (root.result == SlintResult.RepositoryExists) {
+                        return "Repository already exists!";
+                    }
+                    if (root.result == SlintResult.GitCommandFailed) {
+                        return "Could not exec git commands!";
+                    }
+                    if (root.result == SlintResult.NoGitDirectory) {
+                        return "This folder is not Git-controlled!";
+                    }
+                    if (root.result == SlintResult.StoreFailed) {
+                        return "Could store repository data!";
+                    }
+                    if (root.result == SlintResult.ModelItemNotExists) {
+                        return "Could not find model item!";
+                    }
+                    return "";
+                }
+            }
+        }
+
+        HorizontalLayout {
+            alignment: center;
+            Button {
+                width: Style.size.control-width;
+                text: "Ok";
+                clicked => {
+                    root.close();
+                }
+            }
+        }
+    }
+}
