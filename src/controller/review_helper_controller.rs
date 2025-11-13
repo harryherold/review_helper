@@ -1,4 +1,3 @@
-use std::clone;
 use std::{cell::RefCell, rc::Rc};
 
 use native_dialog::FileDialog;
@@ -9,7 +8,7 @@ use crate::model::{AppState, IdModelChange, ReviewHelper, ReviewHelperError};
 use crate::storage::RepositoryStore;
 use crate::ui;
 
-pub fn report_error(review_helper: &mut ReviewHelper, app_window: &ui::AppWindow, error: ReviewHelperError) {
+pub fn report_error(review_helper: &ReviewHelper, app_window: &ui::AppWindow, error: ReviewHelperError) {
     use crate::model::ReviewHelperError::*;
 
     let (ui_error, ui_error_text) = match error {
@@ -37,13 +36,13 @@ pub fn setup_review_helper(app_state: Rc<RefCell<AppState>>) {
 
                 let repository_result = repositories_model.get(id);
                 if repository_result.is_none() {
-                    report_error(&mut state.borrow_mut().review_helper, &ui, ReviewHelperError::ModelItemNotExists);
+                    report_error(&state.borrow().review_helper, &ui, ReviewHelperError::ModelItemNotExists);
                     return;
                 }
                 let repository = repository_result.unwrap_or_default();
                 let save_result = storage.save_repository(RepositoryStore::from(&repository));
                 if let Err(e) = save_result {
-                    report_error(&mut state.borrow_mut().review_helper, &ui, ReviewHelperError::StoreFailed(e.to_string()));
+                    report_error(&state.borrow().review_helper, &ui, ReviewHelperError::StoreFailed(e.to_string()));
                 }
             }
         }
@@ -58,10 +57,10 @@ pub fn setup_review_helper(app_state: Rc<RefCell<AppState>>) {
                 .show_open_single_dir()
                 .expect("Could not create FileDialog! Check your dependencies!")
             {
-                let review_helper = &mut state.borrow_mut().review_helper;
-                let ui = ui_weak.unwrap();
-                if let Err(e) = review_helper.add_repository(repository_path) {
-                    report_error(review_helper, &ui, e);
+                let result = state.borrow_mut().review_helper.add_repository(repository_path);
+                if let Err(e) = result {
+                    let ui = ui_weak.unwrap();
+                    report_error(&state.borrow().review_helper, &ui, e);
                 }
             }
             ui::SlintResult::Ok
