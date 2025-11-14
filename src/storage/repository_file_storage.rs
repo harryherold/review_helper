@@ -140,11 +140,13 @@ mod tests {
         let review_helper_content = r#"name = "review_helper"
 path = "/home/harry/workspace/review_helper"
 first_commit = "9f89049b7f99682c48474d421ac126316adaed15"
+base_branch = "main"
 "#;
 
         let trackme_content = r#"name = "trackme"
 path = "/home/harry/workspace/trackme"
 first_commit = "5a99f0351a9dcbe5f2414e84e6f5bb9f617af33a"
+base_branch = "main"
 "#;
         create_repo_toml(path.clone(), "review_helper", review_helper_content);
         create_repo_toml(path.clone(), "trackme", trackme_content);
@@ -174,13 +176,13 @@ first_commit = "5a99f0351a9dcbe5f2414e84e6f5bb9f617af33a"
                 path: PathBuf::from("/home/harry/workspace/review_helper"),
                 first_commit: "9f89049b7f99682c48474d421ac126316adaed15".to_string(),
                 name: "review_helper".into(),
-                base_branch: "".to_string(),
+                base_branch: "main".to_string(),
             },
             RepositoryStore {
                 path: PathBuf::from("/home/harry/workspace/trackme"),
                 first_commit: "5a99f0351a9dcbe5f2414e84e6f5bb9f617af33a".to_string(),
                 name: "trackme".into(),
-                base_branch: "".to_string(),
+                base_branch: "main".to_string(),
             },
         ];
 
@@ -206,7 +208,7 @@ first_commit = "5a99f0351a9dcbe5f2414e84e6f5bb9f617af33a"
             path: PathBuf::from("/home/harry/workspace/review_helper"),
             name: "review_helper".into(),
             first_commit: "9f89049b7f99682c48474d421ac126316adaed15".to_string(),
-            base_branch: "".to_string(),
+            base_branch: "main".to_string(),
         };
         let expected_repository_store = repository_store.clone();
 
