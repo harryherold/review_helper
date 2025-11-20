@@ -1,11 +1,14 @@
-use std::fs::{self, File};
+use std::collections::BTreeMap;
+use std::fs::{self, File, OpenOptions};
 use std::io::Write;
 use std::path::PathBuf;
 
 use toml::{Table, Value};
 
-use crate::storage::repository_storage::ReviewName;
+use crate::storage::repository_storage::{DiffRange, FileDiffItem, Note, ReviewName, ReviewStore};
 use crate::storage::{RepositoryName, RepositoryStore, ReviewHelperStorage};
+
+const NOTE_FILE_NAME: &str = "notes.md";
 
 #[derive(Debug, Default, Clone)]
 pub struct ReviewHelperFileStorage {
@@ -140,13 +143,126 @@ impl ReviewHelperStorage for ReviewHelperFileStorage {
 
         Ok(review_directories)
     }
+    fn load_review(&self, repository_name: &RepositoryName, review_name: &ReviewName) -> anyhow::Result<Option<ReviewStore>> {
+        let file_name = PathBuf::from(format!("{}.toml", review_name.as_str()));
+        let review_dir_path = self.storage_path.join(repository_name.as_str()).join(review_name.as_str());
+        let review_file_path = review_dir_path.clone().join(file_name);
+        if !review_file_path.exists() {
+            return Ok(None);
+        }
+        let contents = fs::read_to_string(review_file_path)?;
+        let table = contents.parse::<Table>()?;
+
+        let mut diff_range = DiffRange::default();
+        if let Some(start) = table["start_diff"].as_str() {
+            diff_range.start = start.to_string();
+        }
+        if let Some(end) = table["end_diff"].as_str() {
+            diff_range.end = end.to_string();
+        }
+
+        let mut review_store = ReviewStore::default();
+        review_store.diff_range = diff_range;
+
+        if let Some(diff_files) = table["diff_files"].as_array() {
+            for diff_file in diff_files {
+                if let Some(diff_file_table) = diff_file.as_table() {
+                    let mut file_diff_item = FileDiffItem::default();
+                    if let Some(file_name) = diff_file_table["file_name"].as_str() {
+                        file_diff_item.file_path = PathBuf::from(file_name);
+                    }
+                    if let Some(is_reviewed) = diff_file_table["is_reviewed"].as_bool() {
+                        file_diff_item.is_reviewed = is_reviewed;
+                    }
+                    review_store.file_diff_list.push(file_diff_item);
+                }
+            }
+        }
+        review_store.notes = load_notes(&review_dir_path)?;
+
+        Ok(Some(review_store))
+    }
+}
+
+fn load_notes(review_path: &PathBuf) -> anyhow::Result<Vec<Note>> {
+    let note_file = review_path.join(NOTE_FILE_NAME);
+    let to_note = |line: &str| -> Option<(bool, String)> {
+        let pos = line.find("[")?;
+        let is_done = false == line.get(pos + 1..)?.starts_with("]");
+        let text: String = if is_done {
+            let pos = line.find("]")?;
+            line.get(pos + 1..)?.trim().to_string()
+        } else {
+            line.get(pos + 2..)?.trim().to_string()
+        };
+        Some((is_done, text))
+    };
+    let to_file = |line: &str| -> Option<String> {
+        let start = line.find("'")? + 1;
+        let end = line.rfind("'")?;
+        Some(line.get(start..end)?.to_string())
+    };
+    let buffer = fs::read_to_string(note_file)?;
+    let mut notes = Vec::new();
+    let mut iter = buffer.lines().into_iter();
+    let mut context = String::new();
+
+    while let Some(line) = iter.next() {
+        let line = line.trim();
+        if line.starts_with("#") {
+            context = to_file(line).expect("Error while parsing heading");
+        } else if line.starts_with("*") {
+            let (is_done, text) = to_note(line).expect("Error while parsing ListItem");
+            notes.push(Note {
+                text,
+                context: context.clone(),
+                is_done,
+            });
+        }
+    }
+    anyhow::Ok(notes)
+}
+
+fn store_notes(notes: &Vec<Note>, review_path: &PathBuf) -> anyhow::Result<()> {
+    let note_file = review_path.join(NOTE_FILE_NAME);
+
+    let mut general_notes = Vec::<String>::new();
+    let mut file_notes = BTreeMap::<String, Vec<String>>::new();
+
+    let note_item_to_string = |item: &Note| -> String { format!("* [{}] {}", if item.is_done { "x" } else { "" }, item.text) };
+
+    for item in notes {
+        let notes: &mut Vec<String> = if item.context.is_empty() {
+            &mut general_notes
+        } else {
+            file_notes.entry(item.context.to_string()).or_insert(Vec::new())
+        };
+        notes.push(note_item_to_string(&item));
+    }
+    let mut file = OpenOptions::new().create(true).truncate(true).write(true).open(note_file)?;
+
+    for note in general_notes {
+        write!(file, "{}\n", note)?;
+    }
+
+    write!(file, "\n")?;
+
+    for (file_name, notes) in file_notes {
+        write!(file, "# Notes of '{}'\n", file_name)?;
+        for note in notes {
+            write!(file, "{}\n", note)?;
+        }
+        write!(file, "\n")?;
+    }
+
+    anyhow::Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use serial_test::serial;
 
-    use crate::storage::repository_storage::{RepositoryStore, ReviewName};
+    use crate::storage::repository_storage::{DiffRange, FileDiffItem, RepositoryStore, ReviewName};
 
     use super::*;
     use std::{
@@ -167,11 +283,14 @@ mod tests {
         fs::write(&path, contents).expect("Write to repo toml failed!");
     }
 
-    fn create_review(mut path: PathBuf, repository_name: &str, review_name: &str, contents: &str) {
+    fn create_review(mut path: PathBuf, repository_name: &str, review_name: &str, contents: &str, notes: Vec<Note>) {
         path.push(repository_name);
         path.push(review_name);
         if !path.exists() {
             assert!(fs::create_dir_all(&path).is_ok());
+        }
+        if !notes.is_empty() {
+            assert!(store_notes(&notes, &path).is_ok());
         }
 
         path.push(review_name);
@@ -224,8 +343,14 @@ is_reviewed = true
 file_name = "foo.md"
 "#;
 
-        create_review(path.clone(), "review_helper", "cool_feature", cool_feature_contents);
-        create_review(path.clone(), "review_helper", "fancy_ui", fancy_ui_contents);
+        create_review(path.clone(), "review_helper", "cool_feature", cool_feature_contents, Vec::new());
+
+        let notes = vec![Note {
+            context: "foo/bar.cpp".to_string(),
+            is_done: true,
+            text: "fix bug".to_string(),
+        }];
+        create_review(path.clone(), "review_helper", "fancy_ui", fancy_ui_contents, notes);
         create_repo(path.clone(), "trackme", trackme_content);
     }
 
@@ -322,5 +447,57 @@ file_name = "foo.md"
         for name in current_names {
             assert!(expected_names.contains(&name));
         }
+    }
+    #[serial]
+    #[test]
+    fn test_loading_review() {
+        struct Context(PathBuf);
+        impl Drop for Context {
+            fn drop(&mut self) {
+                let _ = fs::remove_dir_all(&self.0);
+            }
+        }
+
+        let context = Context(create_test_dir());
+        create_test_repos(&context.0);
+
+        let repository_storage = ReviewHelperFileStorage::new(context.0.clone());
+        let review_result = repository_storage.load_review(&RepositoryName::from("review_helper"), &ReviewName::from("fancy_ui"));
+        assert!(review_result.is_ok());
+
+        let expected_file_diffs = vec![
+            FileDiffItem {
+                file_path: PathBuf::from("bar.md"),
+                is_reviewed: false,
+            },
+            FileDiffItem {
+                file_path: PathBuf::from("foo.md"),
+                is_reviewed: true,
+            },
+        ];
+        assert!(review_result.as_ref().unwrap().is_some());
+        let review = review_result.unwrap_or_default().unwrap_or_default();
+
+        let expected_diff_range = DiffRange {
+            start: "ed7811b".to_string(),
+            end: "a261b7b".to_string(),
+        };
+        assert_eq!(review.diff_range, expected_diff_range);
+
+        assert_eq!(review.file_diff_list.len(), expected_file_diffs.len());
+
+        for file_diff_item in review.file_diff_list {
+            assert!(expected_file_diffs.contains(&file_diff_item));
+        }
+
+        assert_eq!(review.notes.len(), 1);
+        assert_eq!(
+            review.notes[0],
+            Note {
+                context: "foo/bar.cpp".to_string(),
+                is_done: true,
+                text: "fix bug".to_string(),
+            }
+        )
     }
 }
