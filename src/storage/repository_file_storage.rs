@@ -4,9 +4,10 @@ use std::path::PathBuf;
 
 use toml::{Table, Value};
 
-use crate::storage::{RepositoryStore, ReviewHelperStorage};
+use crate::storage::repository_storage::ReviewName;
+use crate::storage::{RepositoryName, RepositoryStore, ReviewHelperStorage};
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct ReviewHelperFileStorage {
     storage_path: PathBuf,
 }
@@ -101,21 +102,60 @@ impl ReviewHelperStorage for ReviewHelperFileStorage {
         file.write_all(contents.as_bytes())?;
         Ok(())
     }
+
+    fn load_review_names(&self, repository_name: &RepositoryName) -> anyhow::Result<Vec<ReviewName>> {
+        let mut repository_path = self.storage_path.clone();
+        repository_path.push(PathBuf::from(String::from(repository_name)));
+        if !repository_path.exists() {
+            return Err(anyhow::format_err!("Repository directory does not exists!"));
+        }
+
+        let has_toml = |path: &PathBuf| -> bool {
+            match fs::read_dir(&path) {
+                Err(_) => false,
+                Ok(mut read_dir) => read_dir.any(|r| match r {
+                    Err(_) => false,
+                    Ok(dir_entry) => {
+                        let p = dir_entry.path();
+                        let ext = p.extension().unwrap_or_default();
+                        ext == "toml"
+                    }
+                }),
+            }
+        };
+
+        let review_directories = fs::read_dir(&repository_path)?
+            .filter(|r| match r {
+                Ok(dir_entry) => dir_entry.path().is_dir() && has_toml(&dir_entry.path()),
+                Err(_) => false,
+            })
+            .map(|r| {
+                let file_name_result = r.expect("Errors should be filtered!").file_name();
+                match file_name_result.to_str() {
+                    Some(file_name) => ReviewName::from(file_name),
+                    None => panic!("Could not convert filename to &str"),
+                }
+            })
+            .collect::<Vec<ReviewName>>();
+
+        Ok(review_directories)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use serial_test::serial;
 
-    use crate::storage::repository_storage::RepositoryStore;
+    use crate::storage::repository_storage::{RepositoryStore, ReviewName};
 
     use super::*;
     use std::{
+        collections::HashSet,
         env,
         fs::{self, File},
     };
 
-    fn create_repo_toml(mut path: PathBuf, name: &str, content: &str) {
+    fn create_repo(mut path: PathBuf, name: &str, contents: &str) {
         path.push(name);
 
         if !path.exists() {
@@ -124,7 +164,21 @@ mod tests {
         path.push(name);
         path.set_extension("toml");
         File::create(&path).expect("Could not create repo!");
-        fs::write(&path, content).expect("Write to repo toml failed!");
+        fs::write(&path, contents).expect("Write to repo toml failed!");
+    }
+
+    fn create_review(mut path: PathBuf, repository_name: &str, review_name: &str, contents: &str) {
+        path.push(repository_name);
+        path.push(review_name);
+        if !path.exists() {
+            assert!(fs::create_dir_all(&path).is_ok());
+        }
+
+        path.push(review_name);
+        path.set_extension("toml");
+
+        File::create(&path).expect("Could not create review!");
+        fs::write(&path, contents).expect("Write to review toml failed!");
     }
 
     fn create_test_dir() -> PathBuf {
@@ -148,8 +202,31 @@ path = "/home/harry/workspace/trackme"
 first_commit = "5a99f0351a9dcbe5f2414e84e6f5bb9f617af33a"
 base_branch = "main"
 "#;
-        create_repo_toml(path.clone(), "review_helper", review_helper_content);
-        create_repo_toml(path.clone(), "trackme", trackme_content);
+        create_repo(path.clone(), "review_helper", review_helper_content);
+
+        let cool_feature_contents = r#"start_diff = "a261b7b"
+end_diff = ""
+
+[[diff_files]]
+is_reviewed = false
+file_name = "Changes.md"
+"#;
+
+        let fancy_ui_contents = r#"start_diff = "ed7811b"
+end_diff = "a261b7b"
+
+[[diff_files]]
+is_reviewed = false
+file_name = "bar.md"
+
+[[diff_files]]
+is_reviewed = true
+file_name = "foo.md"
+"#;
+
+        create_review(path.clone(), "review_helper", "cool_feature", cool_feature_contents);
+        create_review(path.clone(), "review_helper", "fancy_ui", fancy_ui_contents);
+        create_repo(path.clone(), "trackme", trackme_content);
     }
 
     #[serial]
@@ -219,5 +296,31 @@ base_branch = "main"
         assert!(load_result.is_ok());
 
         assert_eq!(load_result.unwrap_or_default(), vec![expected_repository_store]);
+    }
+
+    #[serial]
+    #[test]
+    fn test_loading_review_names() {
+        struct Context(PathBuf);
+        impl Drop for Context {
+            fn drop(&mut self) {
+                let _ = fs::remove_dir_all(&self.0);
+            }
+        }
+
+        let context = Context(create_test_dir());
+        create_test_repos(&context.0);
+
+        let repository_storage = ReviewHelperFileStorage::new(context.0.clone());
+        let result = repository_storage.load_review_names(&"review_helper".into());
+        assert!(result.is_ok());
+
+        let current_names = result.unwrap_or_default();
+        let expected_names = HashSet::from([ReviewName::from("cool_feature"), ReviewName::from("fancy_ui")]);
+
+        assert_eq!(expected_names.len(), current_names.len());
+        for name in current_names {
+            assert!(expected_names.contains(&name));
+        }
     }
 }
