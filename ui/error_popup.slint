@@ -52,6 +52,9 @@ export component ErrorPopup inherits Popup {
                     if (root.result == SlintResult.ModelItemNotExists) {
                         return "Could not find model item!";
                     }
+                    if (root.result == SlintResult.LoadReviewNamesFailed) {
+                        return "Could not load review names of repository!";
+                    }
                     return "";
                 }
             }

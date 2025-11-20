@@ -25,6 +25,12 @@ impl From<&RepositoryName> for String {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub struct ReviewName(String);
 
+impl ReviewName {
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
 impl From<&str> for ReviewName {
     fn from(value: &str) -> Self {
         ReviewName(value.to_string())

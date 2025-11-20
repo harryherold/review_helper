@@ -75,6 +75,7 @@ export component TabCreateButton inherits Rectangle {
 export component TabViewItem inherits Rectangle {
     in property <int> current-index;
     in property <int> index;
+    out property <bool> is_active: root.current-index == root.index;
 
     visible: index == current-index;
 }

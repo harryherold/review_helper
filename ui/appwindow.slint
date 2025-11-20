@@ -39,13 +39,14 @@ import {
     SlintResult,
     SlintErrors,
     SlintErrorEntry,
+    SlintRepositoryCallbacks,
 } from "globals.slint";
 import { SubSectionText } from "sub_section_text.slint";
 import { ToolButton } from "tool_button.slint";
-import { RepositoryView } from "respository_view.slint";
+import { RepositoryTabViewItem } from "respository_tab_view_item.slint";
 import { ErrorPopup } from "error_popup.slint";
 
-export { SlintReviewHelperSettings, FilePickerAdapter, CommitPickerAdapter, Notes, NoteItem, Diff, DiffFileItem, Repository, SlintStringUtils, OverallDiffStats, SlintModelUtils, SlintRepository, SlintReviewHelper, SlintResult, SlintErrors, SlintErrorEntry }
+export { SlintRepositoryCallbacks, SlintReviewHelperSettings, FilePickerAdapter, CommitPickerAdapter, Notes, NoteItem, Diff, DiffFileItem, Repository, SlintStringUtils, OverallDiffStats, SlintModelUtils, SlintRepository, SlintReviewHelper, SlintResult, SlintErrors, SlintErrorEntry }
 
 export component AppWindow inherits Window {
     private property <int> selected_repository_index: -1;
@@ -148,13 +149,11 @@ export component AppWindow inherits Window {
                 root.selected_repository_index = self.current-index;
             }
 
-            for repository[idx] in SlintReviewHelper.repositories: TabViewItem {
+            for repository[idx] in SlintReviewHelper.repositories: RepositoryTabViewItem {
                 index: idx;
                 current-index: parent.current-index;
-
-                RepositoryView {
-                    repository: repository;
-                }
+                repository_id: repository.id;
+                repository_name: repository.name;
             }
         }
     }

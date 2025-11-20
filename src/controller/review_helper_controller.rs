@@ -17,6 +17,7 @@ pub fn report_error(review_helper: &ReviewHelper, app_window: &ui::AppWindow, er
         NoGitDirectory(t) => (ui::SlintResult::NoGitDirectory, SharedString::from(t.as_str())),
         StoreFailed(t) => (ui::SlintResult::StoreFailed, SharedString::from(t.as_str())),
         ModelItemNotExists => (ui::SlintResult::ModelItemNotExists, SharedString::from("Model item does not exist!")),
+        LoadReviewNamesFailed(t) => (ui::SlintResult::LoadReviewNamesFailed, SharedString::from(t.as_str())),
     };
     review_helper.add_error(ui_error, ui_error_text);
     app_window.invoke_request_show_error(ui_error);

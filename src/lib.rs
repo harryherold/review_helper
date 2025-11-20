@@ -27,6 +27,7 @@ pub fn main() -> Result<(), slint::PlatformError> {
     controller::setup_review_helper_settings(app_state.clone());
     controller::setup_review_helper(app_state.clone());
     controller::setup_utils(app_state.clone());
+    controller::setup_repository_callbacks(app_state.clone());
 
     let ui = app_state.borrow().app_window.as_weak();
     ui.unwrap().run()

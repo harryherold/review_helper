@@ -1,0 +1,70 @@
+import { VerticalBox, TabWidget, ListView, Palette } from "std-widgets.slint";
+import { ToolButton } from "tool_button.slint";
+import { Style } from "style.slint";
+import { SlintReviewHelper, SlintRepositoryCallbacks } from "globals.slint";
+import { TabButton, TabCreateButton, TabViewItem } from "tabview.slint";
+
+export component RepositoryTabViewItem inherits TabViewItem {
+    in property <int> repository_id;
+    in property <string> repository_name;
+    private property <bool> is_repository_loaded: false;
+
+    changed is_active => {
+        if (root.is_active && !root.is_repository_loaded) {
+            SlintRepositoryCallbacks.load_repository(root.repository_id, root.repository_name);
+            root.is_repository_loaded = true;
+        }
+    }
+    HorizontalLayout {
+        Rectangle {
+            width: 15%;
+            VerticalLayout {
+                padding-left: 5px;
+                padding-right: 5px;
+                spacing: Style.size.spacing;
+                Text {
+                    height: Style.size.control-height;
+                    vertical-alignment: center;
+                    horizontal-alignment: center;
+                    text: "Reviews";
+                }
+
+                TabCreateButton {
+                    height: Style.size.control-height;
+                }
+
+                ListView {
+                    for review in SlintReviewHelper.repositories[root.repository_id].review-names: Rectangle {
+                        height: Style.size.control-height + Style.size.spacing;
+                        TabButton {
+                            tab-text: review;
+                            height: Style.size.control-height;
+                        }
+                    }
+                }
+            }
+        }
+
+        VerticalLayout {
+            width: 85%;
+            HorizontalLayout {
+                spacing: Style.size.spacing;
+                TabWidget {
+                    Tab {
+                        title: "FileDiff";
+                        Rectangle {
+                            background: orange;
+                        }
+                    }
+
+                    Tab {
+                        title: "Notes";
+                        Rectangle {
+                            background: pink;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

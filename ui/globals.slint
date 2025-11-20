@@ -26,6 +26,7 @@ export enum SlintResult {
     NoGitDirectory,
     StoreFailed,
     ModelItemNotExists,
+    LoadReviewNamesFailed,
 }
 
 export struct SlintRepository {
@@ -34,6 +35,7 @@ export struct SlintRepository {
     path: string,
     first_commit: string,
     base_branch: string,
+    review_names: [string],
     // commit_model: [[StandardListViewItem]],
 }
 
@@ -44,6 +46,10 @@ export struct SlintErrorEntry {
 
 export global SlintErrors {
     in property <[SlintErrorEntry]> model;
+}
+
+export global SlintRepositoryCallbacks {
+    callback load_repository(int, string);
 }
 
 export global SlintReviewHelper {
