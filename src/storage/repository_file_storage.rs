@@ -182,6 +182,41 @@ impl ReviewHelperStorage for ReviewHelperFileStorage {
 
         Ok(Some(review_store))
     }
+    fn save_review(&self, repository_name: &RepositoryName, review_name: &ReviewName, review: ReviewStore) -> anyhow::Result<()> {
+        let file_name = PathBuf::from(format!("{}.toml", review_name.as_str()));
+        let repository_path = self.storage_path.join(repository_name.as_str());
+        if !repository_path.exists() {
+            return Err(anyhow::format_err!("Respository does not exist!"));
+        }
+        let review_dir_path = repository_path.join(review_name.as_str());
+        if !review_dir_path.exists() {
+            fs::create_dir(&review_dir_path)?;
+        }
+        let review_file_path = review_dir_path.clone().join(file_name);
+
+        let mut table = Table::new();
+        table.insert("start_diff".to_string(), Value::String(review.diff_range.start));
+        table.insert("end_diff".to_string(), Value::String(review.diff_range.end));
+
+        let file_diff_list: Vec<Value> = review
+            .file_diff_list
+            .iter()
+            .map(|file_diff_item| {
+                let mut table = Table::new();
+                table.insert("file_name".to_string(), Value::String(file_diff_item.file_path.to_string_lossy().to_string()));
+                table.insert("is_reviewed".to_string(), Value::Boolean(file_diff_item.is_reviewed));
+                Value::Table(table)
+            })
+            .collect();
+        table.insert("diff_files".to_string(), Value::Array(file_diff_list));
+
+        let mut file = File::create(&review_file_path)?;
+
+        let contents = toml::to_string_pretty(&table)?;
+        file.write_all(contents.as_bytes())?;
+
+        save_notes(&review.notes, &review_dir_path)
+    }
 }
 
 fn load_notes(review_path: &PathBuf) -> anyhow::Result<Vec<Note>> {
@@ -223,7 +258,7 @@ fn load_notes(review_path: &PathBuf) -> anyhow::Result<Vec<Note>> {
     anyhow::Ok(notes)
 }
 
-fn store_notes(notes: &Vec<Note>, review_path: &PathBuf) -> anyhow::Result<()> {
+fn save_notes(notes: &Vec<Note>, review_path: &PathBuf) -> anyhow::Result<()> {
     let note_file = review_path.join(NOTE_FILE_NAME);
 
     let mut general_notes = Vec::<String>::new();
@@ -290,7 +325,7 @@ mod tests {
             assert!(fs::create_dir_all(&path).is_ok());
         }
         if !notes.is_empty() {
-            assert!(store_notes(&notes, &path).is_ok());
+            assert!(save_notes(&notes, &path).is_ok());
         }
 
         path.push(review_name);
@@ -499,5 +534,55 @@ file_name = "foo.md"
                 text: "fix bug".to_string(),
             }
         )
+    }
+    #[serial]
+    #[test]
+    fn test_storing_review() {
+        struct Context(PathBuf);
+        impl Drop for Context {
+            fn drop(&mut self) {
+                let _ = fs::remove_dir_all(&self.0);
+            }
+        }
+
+        let context = Context(create_test_dir());
+        let repository_storage = ReviewHelperFileStorage::new(context.0.clone());
+
+        let repository_name = RepositoryName::from("review_helper");
+
+        let repository_store = RepositoryStore {
+            path: PathBuf::from("/home/harry/workspace/review_helper"),
+            name: repository_name.clone(),
+            first_commit: "9f89049b7f99682c48474d421ac126316adaed15".to_string(),
+            base_branch: "main".to_string(),
+        };
+
+        let _result = repository_storage.save_repository(repository_store);
+
+        let review_store = ReviewStore {
+            diff_range: DiffRange {
+                start: "0xfoo".to_string(),
+                end: "".to_string(),
+            },
+            file_diff_list: vec![FileDiffItem {
+                file_path: PathBuf::from("/foo/bar.txt"),
+                is_reviewed: true,
+            }],
+            notes: vec![Note {
+                context: "/foo/bar.txt".to_string(),
+                text: "Fix bug".to_string(),
+                is_done: true,
+            }],
+        };
+        let review_name = ReviewName::from("fancy_stuff");
+        let result = repository_storage.save_review(&repository_name, &review_name, review_store.clone());
+        assert!(result.is_ok());
+
+        let result = repository_storage.load_review(&repository_name, &review_name);
+        assert!(result.is_ok());
+        let opt_review = result.unwrap_or_default();
+        assert!(opt_review.is_some());
+        let current_review = opt_review.unwrap_or_default();
+        assert_eq!(current_review, review_store);
     }
 }

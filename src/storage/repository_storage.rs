@@ -46,7 +46,7 @@ impl From<&ReviewName> for String {
 #[derive(Debug, Default, PartialEq, Clone)]
 pub struct RepositoryStore {
     pub path: PathBuf,
-    pub name: RepositoryName,
+    pub name: RepositoryName, // TODO not required
     pub first_commit: String,
     pub base_branch: String,
 }
@@ -70,7 +70,7 @@ pub struct Note {
     pub is_done: bool,
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct ReviewStore {
     pub diff_range: DiffRange,
     pub file_diff_list: Vec<FileDiffItem>,
@@ -82,5 +82,5 @@ pub trait ReviewHelperStorage {
     fn save_repository(&self, repository_store: RepositoryStore) -> anyhow::Result<()>;
     fn load_review_names(&self, repository_name: &RepositoryName) -> anyhow::Result<Vec<ReviewName>>;
     fn load_review(&self, repository_name: &RepositoryName, review_name: &ReviewName) -> anyhow::Result<Option<ReviewStore>>;
-    // fn store_review(&self, repository_name: &RepositoryName, review: ReviewStore) -> anyhow::Result<()>;
+    fn save_review(&self, repository_name: &RepositoryName, review_name: &ReviewName, review: ReviewStore) -> anyhow::Result<()>;
 }
