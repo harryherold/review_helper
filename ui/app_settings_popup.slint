@@ -29,14 +29,12 @@ export component AppConfigPopup inherits Popup {
                 }
 
                 ComboBox {
-                    private property <int> difftool_idx: SlintReviewHelperSettings.difftool_index;
-                    changed difftool_idx => {
-                        self.current-index = difftool_idx
+                    changed current-value => {
+                        self.current-index = SlintModelUtils.index_of_string(SlintReviewHelperSettings.diff_tool_model, self.current-value);
                     }
                     current-value: SlintReviewHelperSettings.diff_tool;
                     model: SlintReviewHelperSettings.diff_tool_model;
                     selected(current-value) => {
-                        SlintReviewHelperSettings.difftool_index = SlintModelUtils.index_of_string(SlintReviewHelperSettings.diff_tool_model, current-value);
                         SlintReviewHelperSettings.diff_tool = current-value;
                     }
                 }

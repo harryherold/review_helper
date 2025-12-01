@@ -74,28 +74,3 @@ use crate::ui;
 //     })
 //     .expect("async_diff_repository: spawn_local failed!");
 // }
-
-pub fn async_query_diff_tools(app_state: Rc<RefCell<AppState>>) {
-    slint::spawn_local(async move {
-        let result = tokio::spawn(async move { git_utils::query_diff_tools() })
-            .await
-            .expect("tokio spawn query_diff_tools failed!");
-        match result {
-            Err(e) => eprintln!("Error on quering diff tools: {}", e.to_string()),
-            Ok(diff_tools) => {
-                let mut app_state = app_state.borrow_mut();
-
-                app_state.review_helper_settings.set_diff_tools(&diff_tools);
-
-                let ui = app_state.app_window.as_weak().unwrap();
-
-                let diff_tool = ui.global::<ui::SlintReviewHelperSettings>().get_diff_tool().to_string();
-
-                if let Some(index) = diff_tools.iter().position(|v| *v == diff_tool) {
-                    ui.global::<ui::SlintReviewHelperSettings>().set_difftool_index(index as i32);
-                }
-            }
-        }
-    })
-    .expect("async_query_diff_tools: spawn_local failed!");
-}

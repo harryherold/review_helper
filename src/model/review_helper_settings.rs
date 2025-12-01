@@ -1,14 +1,10 @@
-use std::{fs, path::PathBuf, rc::Rc};
-
-use slint::{SharedString, VecModel};
+use std::{fs, path::PathBuf};
 
 use serde_derive::{Deserialize, Serialize};
 
 extern crate dirs;
 
 const REVIEW_HELPER_CONFIG_FILENAME: &'static str = "review_helper_settings.toml";
-
-type DiffToolModel = Rc<VecModel<SharedString>>;
 
 #[derive(Serialize, Deserialize)]
 pub struct ReviewHelperSettings {
@@ -18,8 +14,6 @@ pub struct ReviewHelperSettings {
     pub color_scheme: String,
     #[serde(skip)]
     path: PathBuf,
-    #[serde(skip)]
-    pub diff_tool_model: DiffToolModel,
 }
 
 impl Default for ReviewHelperSettings {
@@ -30,7 +24,6 @@ impl Default for ReviewHelperSettings {
             editor_args: vec!["-n".to_string(), "{file}".to_string()],
             color_scheme: "Dark".to_string(),
             path: PathBuf::new(),
-            diff_tool_model: Rc::new(VecModel::default()),
         }
     }
 }
@@ -48,6 +41,7 @@ impl ReviewHelperSettings {
             review_helper_settings =
                 toml::from_str(&file_content).map_err(|e| anyhow::format_err!("Could not convert file content to toml: {}", e.to_string()))?;
         }
+        review_helper_settings.path = path.clone();
         Ok(review_helper_settings)
     }
     pub fn save(&self) -> anyhow::Result<()> {
@@ -62,10 +56,6 @@ impl ReviewHelperSettings {
 
         let contents = toml::to_string(self).expect("Could not convert ReviewHelperSettings struct to toml string!");
         fs::write(&self.path, contents).map_err(|e| anyhow::format_err!("Could not write app config file: {}", e.to_string()))
-    }
-    pub fn set_diff_tools(&mut self, diff_tools: &Vec<String>) {
-        self.diff_tool_model
-            .set_vec(diff_tools.iter().map(|s| SharedString::from(s)).collect::<Vec<_>>());
     }
 }
 

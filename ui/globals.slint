@@ -4,7 +4,6 @@ export global SlintReviewHelperSettings {
     in-out property <string> editor;
     in-out property <string> editor_args;
     in-out property <string> color_scheme;
-    in property <int> difftool_index;
 
     callback save();
     callback refresh_diff_tool_model();
@@ -27,6 +26,7 @@ export enum SlintResult {
     StoreFailed,
     ModelItemNotExists,
     LoadReviewNamesFailed,
+    QueryingDiffToolsFailed,
 }
 
 export struct SlintRepository {
