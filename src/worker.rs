@@ -2,12 +2,13 @@ use std::fs;
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use slint::{ComponentHandle, Model, SharedString, VecModel};
+use slint::{ComponentHandle, Model, ModelExt, SharedString, VecModel};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
+use crate::storage::ReviewHelperFileStorage;
 use crate::{git_utils, ui};
 
-use crate::model::ReviewHelperSettings;
+use crate::model::{IdModel, ReviewHelper, ReviewHelperSettings};
 
 pub type WorkerChannel = UnboundedSender<WorkerMessage>;
 
@@ -59,14 +60,17 @@ fn prepare_app_data_path() -> PathBuf {
 
 fn worker_loop(ui_weak: slint::Weak<ui::AppWindow>, mut rx: UnboundedReceiver<WorkerMessage>) {
     let app_data_path = prepare_app_data_path();
-    let mut review_helper_settings = match ReviewHelperSettings::new(app_data_path) {
+    let mut review_helper_settings = match ReviewHelperSettings::new(&app_data_path) {
         Ok(config) => config,
         Err(e) => {
             eprintln!("{}", e.to_string());
             ReviewHelperSettings::default()
         }
     };
+    let storage = ReviewHelperFileStorage::new(app_data_path);
+    let mut review_helper = ReviewHelper::new(Rc::new(storage));
 
+    initialize_repositories_ui(ui_weak.clone(), &review_helper);
     initialize_review_helper_settings_ui(ui_weak.clone(), &review_helper_settings);
 
     while let Some(message) = rx.blocking_recv() {
@@ -89,6 +93,33 @@ fn worker_loop(ui_weak: slint::Weak<ui::AppWindow>, mut rx: UnboundedReceiver<Wo
             }
         }
     }
+}
+
+fn initialize_repositories_ui(ui_weak: slint::Weak<ui::AppWindow>, review_helper: &ReviewHelper) {
+    ui_weak
+        .upgrade_in_event_loop({
+            let repositories = review_helper.repository_stores.clone();
+            move |app_window| {
+                let model = IdModel::default();
+
+                repositories
+                    .iter()
+                    .enumerate()
+                    .for_each(|(id, store)| model.add(id, ui::SlintRepository::from((id, store))));
+
+                let model_rc = Rc::new(model);
+                let respository_name_model = model_rc.clone().map(|repository| repository.name);
+
+                app_window
+                    .global::<ui::SlintReviewHelper>()
+                    .set_repository_names(Rc::new(respository_name_model).into());
+
+                app_window.global::<ui::SlintReviewHelper>().set_repositories(model_rc.into());
+
+                app_window.global::<ui::SlintErrors>().set_model(Rc::new(VecModel::default()).into());
+            }
+        })
+        .unwrap();
 }
 
 fn initialize_review_helper_settings_ui(ui_weak: slint::Weak<ui::AppWindow>, review_helper_settings: &ReviewHelperSettings) {
