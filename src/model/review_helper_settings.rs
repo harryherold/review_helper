@@ -29,19 +29,17 @@ impl Default for ReviewHelperSettings {
 }
 
 impl ReviewHelperSettings {
-    pub fn new(mut path: PathBuf) -> anyhow::Result<Self> {
+    pub fn new(path: &PathBuf) -> anyhow::Result<Self> {
         let mut review_helper_settings = ReviewHelperSettings::default();
 
-        path.push(REVIEW_HELPER_CONFIG_FILENAME);
+        let settings_path = path.join(REVIEW_HELPER_CONFIG_FILENAME);
 
-        review_helper_settings.path = path.clone();
-
-        if path.exists() && path.is_file() {
-            let file_content = fs::read_to_string(&path).map_err(|e| anyhow::format_err!("Could not read app config: {}", e.to_string()))?;
+        if settings_path.exists() && settings_path.is_file() {
+            let file_content = fs::read_to_string(&settings_path).map_err(|e| anyhow::format_err!("Could not read app config: {}", e.to_string()))?;
             review_helper_settings =
                 toml::from_str(&file_content).map_err(|e| anyhow::format_err!("Could not convert file content to toml: {}", e.to_string()))?;
         }
-        review_helper_settings.path = path.clone();
+        review_helper_settings.path = settings_path.clone();
         Ok(review_helper_settings)
     }
     pub fn save(&self) -> anyhow::Result<()> {
@@ -88,7 +86,7 @@ mod tests {
             assert!(result.is_ok());
         }
 
-        let review_helper_settings = ReviewHelperSettings::new(path.clone());
+        let review_helper_settings = ReviewHelperSettings::new(&path);
         assert!(review_helper_settings.is_ok());
         TestContext {
             review_helper_settings: review_helper_settings.unwrap(),
