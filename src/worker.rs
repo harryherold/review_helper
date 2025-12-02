@@ -21,6 +21,7 @@ pub enum WorkerMessage {
         editor_args: Vec<String>,
         color_scheme: String,
     },
+    NewRepository(PathBuf),
 }
 
 pub struct Worker {
@@ -91,6 +92,33 @@ fn worker_loop(ui_weak: slint::Weak<ui::AppWindow>, mut rx: UnboundedReceiver<Wo
                     report_error(ui_weak.clone(), ui::SlintResult::StoreFailed, &e.to_string());
                 }
             }
+            WorkerMessage::NewRepository(path) => new_repository(path, &mut review_helper, ui_weak.clone()),
+        }
+    }
+}
+
+fn new_repository(path: PathBuf, review_helper: &mut ReviewHelper, ui_weak: slint::Weak<ui::AppWindow>) {
+    match review_helper.add_repository(path) {
+        Ok(store) => ui_weak
+            .upgrade_in_event_loop({
+                move |app_window| {
+                    let model_rc = app_window.global::<ui::SlintReviewHelper>().get_repositories();
+                    let model = model_rc.as_any().downcast_ref::<IdModel<ui::SlintRepository>>().unwrap();
+                    let id = model.row_count();
+                    model.add(id, ui::SlintRepository::from((id, &store)));
+                }
+            })
+            .unwrap(),
+        Err(e) => {
+            use crate::model::ReviewHelperError::*;
+
+            let (ui_error, ui_error_text) = match &e {
+                GitCommandFailed(t) => (ui::SlintResult::GitCommandFailed, t.as_str()),
+                NoGitDirectory(t) => (ui::SlintResult::NoGitDirectory, t.as_str()),
+                RepositoryExists(t) => (ui::SlintResult::RepositoryExists, t.as_str()),
+                StoreFailed(t) => (ui::SlintResult::StoreFailed, t.as_str()),
+            };
+            report_error(ui_weak.clone(), ui_error, ui_error_text);
         }
     }
 }

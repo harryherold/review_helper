@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::{controller::review_helper_controller::report_error, model::AppState, storage::RepositoryName, ui};
+use crate::{model::AppState, storage::RepositoryName, ui};
 
 use slint::ComponentHandle;
 

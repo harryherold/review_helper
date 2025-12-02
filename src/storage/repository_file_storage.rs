@@ -79,7 +79,7 @@ impl ReviewHelperStorage for ReviewHelperFileStorage {
         Ok(repositories)
     }
 
-    fn save_repository(&self, repository_store: RepositoryStore) -> anyhow::Result<()> {
+    fn save_repository(&self, repository_store: &RepositoryStore) -> anyhow::Result<()> {
         if !self.storage_path.exists() {
             fs::create_dir_all(&self.storage_path)?;
         }
@@ -95,9 +95,9 @@ impl ReviewHelperStorage for ReviewHelperFileStorage {
 
         let mut table = Table::new();
         table.insert("path".to_string(), Value::String(repository_store.path.to_str().unwrap_or_default().into()));
-        table.insert("first_commit".to_string(), Value::String(repository_store.first_commit));
-        table.insert("name".to_string(), Value::String(String::from(&repository_store.name)));
-        table.insert("base_branch".to_string(), Value::String(String::from(&repository_store.base_branch)));
+        table.insert("first_commit".to_string(), Value::String(repository_store.first_commit.clone()));
+        table.insert("name".to_string(), Value::String(String::from(repository_store.name.as_str())));
+        table.insert("base_branch".to_string(), Value::String(String::from(repository_store.base_branch.as_str())));
 
         let mut file = File::create(&repository_sub_dir)?;
 
@@ -182,7 +182,7 @@ impl ReviewHelperStorage for ReviewHelperFileStorage {
 
         Ok(Some(review_store))
     }
-    fn save_review(&self, repository_name: &RepositoryName, review_name: &ReviewName, review: ReviewStore) -> anyhow::Result<()> {
+    fn save_review(&self, repository_name: &RepositoryName, review_name: &ReviewName, review: &ReviewStore) -> anyhow::Result<()> {
         let file_name = PathBuf::from(format!("{}.toml", review_name.as_str()));
         let repository_path = self.storage_path.join(repository_name.as_str());
         if !repository_path.exists() {
@@ -195,8 +195,8 @@ impl ReviewHelperStorage for ReviewHelperFileStorage {
         let review_file_path = review_dir_path.clone().join(file_name);
 
         let mut table = Table::new();
-        table.insert("start_diff".to_string(), Value::String(review.diff_range.start));
-        table.insert("end_diff".to_string(), Value::String(review.diff_range.end));
+        table.insert("start_diff".to_string(), Value::String(review.diff_range.start.clone()));
+        table.insert("end_diff".to_string(), Value::String(review.diff_range.end.clone()));
 
         let file_diff_list: Vec<Value> = review
             .file_diff_list
@@ -449,7 +449,7 @@ file_name = "foo.md"
         };
         let expected_repository_store = repository_store.clone();
 
-        let result = repository_storage.save_repository(repository_store);
+        let result = repository_storage.save_repository(&repository_store);
         assert!(result.is_ok());
 
         let load_result = repository_storage.load_repositories();
@@ -557,7 +557,7 @@ file_name = "foo.md"
             base_branch: "main".to_string(),
         };
 
-        let _result = repository_storage.save_repository(repository_store);
+        let _result = repository_storage.save_repository(&repository_store);
 
         let review_store = ReviewStore {
             diff_range: DiffRange {
@@ -575,7 +575,7 @@ file_name = "foo.md"
             }],
         };
         let review_name = ReviewName::from("fancy_stuff");
-        let result = repository_storage.save_review(&repository_name, &review_name, review_store.clone());
+        let result = repository_storage.save_review(&repository_name, &review_name, &review_store);
         assert!(result.is_ok());
 
         let result = repository_storage.load_review(&repository_name, &review_name);

@@ -5,12 +5,11 @@ use std::{
     rc::Rc,
 };
 
-use slint::{Model, SharedString, VecModel};
+use slint::{SharedString, VecModel};
 
 use crate::{
     git_utils,
-    model::IdModel,
-    storage::{RepositoryName, RepositoryStore, ReviewHelperStorage, repository_storage::ReviewName},
+    storage::{RepositoryName, RepositoryStore, ReviewHelperStorage},
     ui,
 };
 
@@ -20,8 +19,8 @@ pub enum ReviewHelperError {
     GitCommandFailed(String),
     NoGitDirectory(String),
     StoreFailed(String),
-    ModelItemNotExists,
-    LoadReviewNamesFailed(String),
+    // ModelItemNotExists,
+    // LoadReviewNamesFailed(String),
 }
 
 #[derive(Default, Clone)]
@@ -49,6 +48,8 @@ pub struct ReviewHelper {
     pub storage: Rc<dyn ReviewHelperStorage>,
     // pub repositories_model: Rc<IdModel<ui::SlintRepository>>,
     // pub error_model: Rc<VecModel<ui::SlintErrorEntry>>,
+
+    // TODO @repository_stores can be dropped using a load function that returns these stores
     pub repository_stores: Vec<RepositoryStore>,
     pub repositories: HashMap<RepositoryName, Repository>,
     repository_paths: HashSet<PathBuf>,
@@ -86,40 +87,22 @@ fn path_to_str(path: &PathBuf) -> &str {
 impl ReviewHelper {
     pub fn new(storage: Rc<dyn ReviewHelperStorage>) -> Self {
         let repository_stores = storage.load_repositories().expect("Error while loading repositories from config!");
-        // let model = IdModel::default();
         let mut paths = HashSet::new();
         let mut repositories = HashMap::new();
 
-        repository_stores.iter().enumerate().for_each(|(id, item)| {
+        repository_stores.iter().for_each(|item| {
             paths.insert(item.path.clone());
-
-            let repository = Repository::new(&item.name);
-
-            // let slint_repository = ui::SlintRepository {
-            //     id: id as i32,
-            //     first_commit: SharedString::from(&item.first_commit),
-            //     name: String::from(&item.name).into(),
-            //     path: item.path.as_os_str().to_str().unwrap_or_default().into(),
-            //     base_branch: SharedString::from(&item.base_branch),
-            //     review_names: Rc::new(VecModel::default()).into(),
-            // };
-
-            repositories.insert(item.name.clone(), repository);
-            // model.add(id + 1, slint_repository);
+            repositories.insert(item.name.clone(), Repository::new(&item.name));
         });
 
-        // let last_id = repositories.len() + 1;
         Self {
             storage,
-            // repositories_model: Rc::new(model),
-            // error_model: Rc::new(VecModel::default()),
             repository_stores: repository_stores,
             repository_paths: paths,
             repositories,
-            // last_id: last_id,
         }
     }
-    pub fn add_repository(&mut self, path: PathBuf) -> Result<(), ReviewHelperError> {
+    pub fn add_repository(&mut self, path: PathBuf) -> Result<RepositoryStore, ReviewHelperError> {
         let path_str = path_to_str(&path);
 
         if !git_utils::is_git_repo(&path) {
@@ -131,30 +114,29 @@ impl ReviewHelper {
         }
 
         let name = path.file_name().unwrap_or_default().to_str().unwrap_or_default();
-        // let first_commit = git_utils::first_commit(&path)
-        //     .map_err(|e| ReviewHelperError::GitCommandFailed(e.to_string()))?
-        //     .into();
+        let first_commit = git_utils::first_commit(&path)
+            .map_err(|e| ReviewHelperError::GitCommandFailed(e.to_string()))?
+            .into();
 
         let repository_name = RepositoryName::from(name);
         let repository = Repository::new(&repository_name);
 
-        // let ui_repository = ui::SlintRepository {
-        //     first_commit,
-        //     id: self.last_id as i32,
-        //     name: name.into(),
-        //     path: path_str.into(),
-        //     base_branch: SharedString::from("main"),
-        //     review_names: Rc::new(VecModel::default()).into(),
-        // };
-
         self.repository_paths.insert(path.clone());
-        self.repositories.insert(repository_name, repository);
-        // self.repositories_model.add(self.last_id, ui_repository);
-        // self.last_id += 1;
+        self.repositories.insert(repository_name.clone(), repository);
 
-        Ok(())
-    }
-    pub fn add_error(&self, result: ui::SlintResult, text: SharedString) {
-        // self.error_model.push(ui::SlintErrorEntry { text, error_type: result });
+        let repository_store = RepositoryStore {
+            base_branch: "main".to_string(),
+            path: path,
+            first_commit,
+            name: repository_name,
+        };
+
+        self.storage
+            .save_repository(&repository_store)
+            .map_err(|e| ReviewHelperError::StoreFailed(e.to_string()))?;
+
+        self.repository_stores.push(repository_store.clone());
+
+        Ok(repository_store)
     }
 }

@@ -27,18 +27,6 @@ impl AppState {
 
         let app_window = ui::AppWindow::new().expect("Error while creating app window!");
 
-        // let respository_name_model = review_helper.repositories_model.clone().map(|repository| repository.name);
-
-        // app_window
-        //     .global::<ui::SlintReviewHelper>()
-        //     .set_repository_names(Rc::new(respository_name_model).into());
-
-        // app_window
-        //     .global::<ui::SlintReviewHelper>()
-        //     .set_repositories(review_helper.repositories_model.clone().into());
-
-        // app_window.global::<ui::SlintErrors>().set_model(review_helper.error_model.clone().into());
-
         AppState { app_window }
     }
 }
