@@ -1,4 +1,9 @@
-import { VerticalBox, TabWidget, ListView, Palette } from "std-widgets.slint";
+import {
+    VerticalBox,
+    TabWidget,
+    ListView,
+    Palette,
+} from "std-widgets.slint";
 import { ToolButton } from "tool_button.slint";
 import { Style } from "style.slint";
 import { SlintReviewHelper, SlintRepositoryCallbacks } from "globals.slint";
@@ -8,6 +13,7 @@ export component RepositoryTabViewItem inherits TabViewItem {
     in property <int> repository_id;
     in property <string> repository_name;
     private property <bool> is_repository_loaded: false;
+    private property <[string]> review_names: SlintReviewHelper.repositories[root.repository_id].review-names;
 
     changed is_active => {
         if (root.is_active && !root.is_repository_loaded) {
@@ -34,7 +40,8 @@ export component RepositoryTabViewItem inherits TabViewItem {
                 }
 
                 ListView {
-                    for review in SlintReviewHelper.repositories[root.repository_id].review-names: Rectangle {
+                    visible: root.review_names.length > 0; // NOTE workaround to get ListView visible with their elements
+                    for review in root.review_names: Rectangle {
                         height: Style.size.control-height + Style.size.spacing;
                         TabButton {
                             tab-text: review;

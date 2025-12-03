@@ -8,8 +8,7 @@ use std::{
 use slint::{SharedString, VecModel};
 
 use crate::{
-    git_utils,
-    storage::{RepositoryName, RepositoryStore},
+    storage::{RepositoryName, RepositoryStore, repository_storage::ReviewName},
     ui,
 };
 
@@ -27,7 +26,7 @@ pub enum ReviewHelperError {
 pub struct Repository {
     pub name: RepositoryName,
     pub store: RepositoryStore,
-    // pub review_names_model: Rc<VecModel<SharedString>>,
+    pub review_names: Vec<ReviewName>,
 }
 
 impl Repository {
@@ -35,15 +34,12 @@ impl Repository {
         Self {
             name: name.clone(),
             store,
-            // review_names_model: Rc::new(VecModel::default()),
+            review_names: Vec::new(),
         }
     }
-    // pub fn update(&self, names: Vec<ReviewName>) {
-    //     self.review_names_model.clear();
-    //     for name in names {
-    //         self.review_names_model.push(SharedString::from(name.as_str()));
-    //     }
-    // }
+    pub fn set_review_names(&mut self, names: Vec<ReviewName>) {
+        self.review_names = names;
+    }
 }
 
 #[derive(Default)]
@@ -98,11 +94,7 @@ impl ReviewHelperCache {
     pub fn contains_repository_path(&self, path: &PathBuf) -> bool {
         self.repository_paths.contains(path)
     }
-    pub fn get_mut_repository_store(&mut self, name: &RepositoryName) -> Option<&mut RepositoryStore> {
-        if let Some(repository) = self.repositories.get_mut(name) {
-            Some(&mut repository.store)
-        } else {
-            None
-        }
+    pub fn get_mut_repository(&mut self, name: &RepositoryName) -> Option<&mut Repository> {
+        self.repositories.get_mut(name)
     }
 }

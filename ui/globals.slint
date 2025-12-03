@@ -56,6 +56,7 @@ export global SlintRepositoryCallbacks {
 export global SlintReviewHelper {
     in property <[SlintRepository]> repositories;
     in property <[string]> repository_names;
+    in property <int> last_repository_id;
     callback new_repository() -> SlintResult;
 }
 

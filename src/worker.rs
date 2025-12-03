@@ -26,6 +26,10 @@ pub enum WorkerMessage {
         name: RepositoryName,
         base_branch: String,
     },
+    LoadReviewNames {
+        id: usize,
+        name: RepositoryName,
+    },
 }
 
 pub struct Worker {
@@ -146,10 +150,24 @@ fn worker_loop(ui_weak: slint::Weak<ui::AppWindow>, mut rx: UnboundedReceiver<Wo
                 }
             }
             WorkerMessage::ChangeRepository { name, base_branch } => {
-                if let Some(store) = review_helper_cache.get_mut_repository_store(&name) {
-                    store.base_branch = base_branch;
-                    if let Err(_) = storage.save_repository(store) {
+                if let Some(repository) = review_helper_cache.get_mut_repository(&name) {
+                    repository.store.base_branch = base_branch;
+                    if let Err(_) = storage.save_repository(&repository.store) {
                         report_error(ui_weak.clone(), ui::SlintResult::StoreFailed, name.as_str());
+                    }
+                } else {
+                    report_error(ui_weak.clone(), ui::SlintResult::ModelItemNotExists, &name.as_str());
+                }
+            }
+            WorkerMessage::LoadReviewNames { id, name } => {
+                if let Some(repository) = review_helper_cache.get_mut_repository(&name) {
+                    match storage.load_review_names(&name) {
+                        Ok(review_names) => {
+                            let ui_review_names: Vec<_> = review_names.iter().map(|item| SharedString::from(item.as_str())).collect();
+                            repository.set_review_names(review_names);
+                            set_ui_review_names(ui_weak.clone(), id, ui_review_names);
+                        }
+                        Err(e) => report_error(ui_weak.clone(), ui::SlintResult::LoadReviewNamesFailed, &e.to_string()),
                     }
                 } else {
                     report_error(ui_weak.clone(), ui::SlintResult::ModelItemNotExists, &name.as_str());
@@ -157,6 +175,18 @@ fn worker_loop(ui_weak: slint::Weak<ui::AppWindow>, mut rx: UnboundedReceiver<Wo
             }
         }
     }
+}
+
+fn set_ui_review_names(ui_weak: slint::Weak<ui::AppWindow>, repository_id: usize, review_names: Vec<SharedString>) {
+    ui_weak
+        .upgrade_in_event_loop(move |app_window| {
+            let model_rc = app_window.global::<ui::SlintReviewHelper>().get_repositories();
+            let model = model_rc.as_any().downcast_ref::<IdModel<ui::SlintRepository>>().unwrap();
+            let repository = model.get(repository_id).unwrap();
+            let review_names_model = repository.review_names.as_any().downcast_ref::<VecModel<SharedString>>().unwrap();
+            review_names_model.set_vec(review_names);
+        })
+        .unwrap();
 }
 
 fn new_ui_repository(ui_weak: slint::Weak<ui::AppWindow>, store: RepositoryStore) {

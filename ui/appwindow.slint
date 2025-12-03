@@ -49,8 +49,7 @@ import { ErrorPopup } from "error_popup.slint";
 export { SlintRepositoryCallbacks, SlintReviewHelperSettings, FilePickerAdapter, CommitPickerAdapter, Notes, NoteItem, Diff, DiffFileItem, Repository, SlintStringUtils, OverallDiffStats, SlintModelUtils, SlintRepository, SlintReviewHelper, SlintResult, SlintErrors, SlintErrorEntry }
 
 export component AppWindow inherits Window {
-    private property <int> selected_repository_index: -1;
-    //tab_view.current-index;
+    private property <int> selected_repository_index <=> tab-view.current-index;
     in property <string> config_color_scheme;
     callback close;
     callback request_show_error(SlintResult);
@@ -136,7 +135,7 @@ export component AppWindow inherits Window {
             }
         }
 
-        TabView {
+        tab-view := TabView {
             model: SlintReviewHelper.repository_names;
             request-create => {
                 let result = SlintReviewHelper.new_repository();
@@ -146,13 +145,9 @@ export component AppWindow inherits Window {
                     self.set_current_index(self.model.length - 1);
                 }
             }
-            changed current-index => {
-                root.selected_repository_index = self.current-index;
-            }
-
             for repository[idx] in SlintReviewHelper.repositories: RepositoryTabViewItem {
                 index: idx;
-                current-index: parent.current-index;
+                current-index <=> parent.current-index;
                 repository_id: repository.id;
                 repository_name: repository.name;
             }
