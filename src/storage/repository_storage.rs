@@ -22,7 +22,7 @@ impl From<&RepositoryName> for String {
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 pub struct ReviewName(String);
 
 impl ReviewName {
@@ -43,7 +43,7 @@ impl From<&ReviewName> for String {
     }
 }
 
-#[derive(Debug, Default, PartialEq, Clone)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct RepositoryStore {
     pub path: PathBuf,
     pub name: RepositoryName, // TODO not required

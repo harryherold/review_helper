@@ -26,7 +26,7 @@ pub fn main() {
     controller::setup_review_helper_settings(app_window, worker.channel.clone());
     controller::setup_review_helper(app_window, worker.channel.clone());
 
-    // controller::setup_repository_callbacks(app_state.clone());
+    controller::setup_repository_callbacks(app_window, worker.channel.clone());
 
     controller::setup_utils(app_state.clone());
 

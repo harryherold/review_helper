@@ -5,5 +5,5 @@ mod review_helper_settings;
 
 pub use app_state::AppState;
 pub use id_model::{IdModel, IdModelChange};
-pub use review_helper::{ReviewHelper, ReviewHelperError};
+pub use review_helper::{ReviewHelperCache, ReviewHelperError};
 pub use review_helper_settings::ReviewHelperSettings;

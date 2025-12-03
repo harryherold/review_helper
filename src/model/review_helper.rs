@@ -9,7 +9,7 @@ use slint::{SharedString, VecModel};
 
 use crate::{
     git_utils,
-    storage::{RepositoryName, RepositoryStore, ReviewHelperStorage},
+    storage::{RepositoryName, RepositoryStore},
     ui,
 };
 
@@ -26,13 +26,15 @@ pub enum ReviewHelperError {
 #[derive(Default, Clone)]
 pub struct Repository {
     pub name: RepositoryName,
+    pub store: RepositoryStore,
     // pub review_names_model: Rc<VecModel<SharedString>>,
 }
 
 impl Repository {
-    pub fn new(name: &RepositoryName) -> Self {
+    pub fn new(name: &RepositoryName, store: RepositoryStore) -> Self {
         Self {
             name: name.clone(),
+            store,
             // review_names_model: Rc::new(VecModel::default()),
         }
     }
@@ -44,16 +46,10 @@ impl Repository {
     // }
 }
 
-pub struct ReviewHelper {
-    pub storage: Rc<dyn ReviewHelperStorage>,
-    // pub repositories_model: Rc<IdModel<ui::SlintRepository>>,
-    // pub error_model: Rc<VecModel<ui::SlintErrorEntry>>,
-
-    // TODO @repository_stores can be dropped using a load function that returns these stores
-    pub repository_stores: Vec<RepositoryStore>,
+#[derive(Default)]
+pub struct ReviewHelperCache {
     pub repositories: HashMap<RepositoryName, Repository>,
     repository_paths: HashSet<PathBuf>,
-    // last_id: usize,
 }
 
 impl From<(usize, &RepositoryStore)> for ui::SlintRepository {
@@ -80,63 +76,33 @@ impl From<&ui::SlintRepository> for RepositoryStore {
     }
 }
 
-fn path_to_str(path: &PathBuf) -> &str {
-    path.to_str().unwrap_or_default()
-}
-
-impl ReviewHelper {
-    pub fn new(storage: Rc<dyn ReviewHelperStorage>) -> Self {
-        let repository_stores = storage.load_repositories().expect("Error while loading repositories from config!");
-        let mut paths = HashSet::new();
-        let mut repositories = HashMap::new();
+impl ReviewHelperCache {
+    pub fn set_repositories(&mut self, repository_stores: &Vec<RepositoryStore>) {
+        self.repositories.clear();
+        self.repository_paths.clear();
 
         repository_stores.iter().for_each(|item| {
-            paths.insert(item.path.clone());
-            repositories.insert(item.name.clone(), Repository::new(&item.name));
+            self.repository_paths.insert(item.path.clone());
+            self.repositories.insert(item.name.clone(), Repository::new(&item.name, item.clone()));
         });
-
-        Self {
-            storage,
-            repository_stores: repository_stores,
-            repository_paths: paths,
-            repositories,
-        }
     }
-    pub fn add_repository(&mut self, path: PathBuf) -> Result<RepositoryStore, ReviewHelperError> {
-        let path_str = path_to_str(&path);
+    pub fn add_repository(&mut self, store: RepositoryStore) {
+        self.repository_paths.insert(store.path.clone());
 
-        if !git_utils::is_git_repo(&path) {
-            return Err(ReviewHelperError::NoGitDirectory(path_str.to_string()));
+        let repository_name = store.name.clone();
+
+        let repository = Repository::new(&repository_name, store);
+
+        self.repositories.insert(repository_name, repository);
+    }
+    pub fn contains_repository_path(&self, path: &PathBuf) -> bool {
+        self.repository_paths.contains(path)
+    }
+    pub fn get_mut_repository_store(&mut self, name: &RepositoryName) -> Option<&mut RepositoryStore> {
+        if let Some(repository) = self.repositories.get_mut(name) {
+            Some(&mut repository.store)
+        } else {
+            None
         }
-
-        if self.repository_paths.contains(&path) {
-            return Err(ReviewHelperError::RepositoryExists(path_str.to_string()));
-        }
-
-        let name = path.file_name().unwrap_or_default().to_str().unwrap_or_default();
-        let first_commit = git_utils::first_commit(&path)
-            .map_err(|e| ReviewHelperError::GitCommandFailed(e.to_string()))?
-            .into();
-
-        let repository_name = RepositoryName::from(name);
-        let repository = Repository::new(&repository_name);
-
-        self.repository_paths.insert(path.clone());
-        self.repositories.insert(repository_name.clone(), repository);
-
-        let repository_store = RepositoryStore {
-            base_branch: "main".to_string(),
-            path: path,
-            first_commit,
-            name: repository_name,
-        };
-
-        self.storage
-            .save_repository(&repository_store)
-            .map_err(|e| ReviewHelperError::StoreFailed(e.to_string()))?;
-
-        self.repository_stores.push(repository_store.clone());
-
-        Ok(repository_store)
     }
 }

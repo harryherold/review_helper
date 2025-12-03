@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use slint::{ComponentHandle, ModelExt};
 
-use crate::model::ReviewHelper;
+use crate::model::ReviewHelperCache;
 use crate::storage::ReviewHelperFileStorage;
 use crate::ui;
 
