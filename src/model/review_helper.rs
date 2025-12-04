@@ -14,12 +14,8 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub enum ReviewHelperError {
-    RepositoryExists(String),
     GitCommandFailed(String),
     NoGitDirectory(String),
-    StoreFailed(String),
-    // ModelItemNotExists,
-    // LoadReviewNamesFailed(String),
 }
 
 #[derive(Default, Clone)]

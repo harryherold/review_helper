@@ -1,7 +1,7 @@
 use slint::ComponentHandle;
-use std::{cell::RefCell, process, rc::Rc};
+use std::process;
 
-use crate::{model::AppState, worker::Worker};
+use crate::worker::Worker;
 
 mod controller;
 mod model;
@@ -15,21 +15,19 @@ mod worker;
 pub mod ui;
 
 pub fn main() {
-    let app_state = Rc::new(RefCell::new(AppState::new()));
+    let app_window = ui::AppWindow::new().expect("Error while creating app window!");
 
-    let app_window = &app_state.borrow().app_window;
-
-    let worker = Worker::new(app_window);
+    let worker = Worker::new(&app_window);
 
     app_window.on_close(move || process::exit(0));
 
-    controller::setup_review_helper_settings(app_window, worker.channel.clone());
+    controller::setup_review_helper_settings(&app_window, worker.channel.clone());
 
-    controller::setup_review_helper(app_window, worker.channel.clone());
+    controller::setup_review_helper(&app_window, worker.channel.clone());
 
-    controller::setup_repository_callbacks(app_window, worker.channel.clone());
+    controller::setup_repository_callbacks(&app_window, worker.channel.clone());
 
-    controller::setup_utils(app_state.clone());
+    controller::setup_utils(&app_window);
 
     app_window.run().unwrap();
     worker.join().unwrap();

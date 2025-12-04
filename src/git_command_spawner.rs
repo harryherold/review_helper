@@ -4,7 +4,6 @@ use std::rc::Rc;
 use slint::ComponentHandle;
 
 use crate::git_utils;
-use crate::model::AppState;
 use crate::ui;
 
 // pub fn async_query_commits(repo_path: &PathBuf, commit_proxy_model: Rc<RefCell<CommitProxyModel>>) {

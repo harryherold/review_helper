@@ -301,8 +301,6 @@ fn report_review_helper_error(ui_weak: slint::Weak<ui::AppWindow>, error: &Revie
     let (ui_error, ui_error_text) = match error {
         GitCommandFailed(t) => (ui::SlintResult::GitCommandFailed, t.as_str()),
         NoGitDirectory(t) => (ui::SlintResult::NoGitDirectory, t.as_str()),
-        RepositoryExists(t) => (ui::SlintResult::RepositoryExists, t.as_str()),
-        StoreFailed(t) => (ui::SlintResult::StoreFailed, t.as_str()),
     };
     report_error(ui_weak, ui_error, ui_error_text);
 }
