@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use slint::{ComponentHandle, Model, ModelExt, SharedString, VecModel};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
@@ -55,6 +56,16 @@ impl Worker {
         let _ = self.channel.send(WorkerMessage::Quit);
         self.join_handle.join()
     }
+}
+
+fn allocate_repository_id() -> usize {
+    static NEXT_ID: AtomicUsize = AtomicUsize::new(1);
+    let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
+    if id == usize::MAX {
+        eprintln!("Too many repository ids allocated");
+        std::process::abort();
+    }
+    id
 }
 
 fn prepare_app_data_path() -> PathBuf {
@@ -195,7 +206,7 @@ fn new_ui_repository(ui_weak: slint::Weak<ui::AppWindow>, store: RepositoryStore
             move |app_window| {
                 let model_rc = app_window.global::<ui::SlintReviewHelper>().get_repositories();
                 let model = model_rc.as_any().downcast_ref::<IdModel<ui::SlintRepository>>().unwrap();
-                let id = model.row_count();
+                let id = allocate_repository_id();
                 model.add(id, ui::SlintRepository::from((id, &store)));
             }
         })
@@ -208,10 +219,10 @@ fn initialize_ui_repositories(ui_weak: slint::Weak<ui::AppWindow>, repositories:
             move |app_window| {
                 let model = IdModel::default();
 
-                repositories
-                    .iter()
-                    .enumerate()
-                    .for_each(|(id, store)| model.add(id, ui::SlintRepository::from((id, store))));
+                repositories.iter().for_each(|store| {
+                    let id = allocate_repository_id();
+                    model.add(id, ui::SlintRepository::from((id, store)));
+                });
 
                 let model_rc = Rc::new(model);
                 let respository_name_model = model_rc.clone().map(|repository| repository.name);

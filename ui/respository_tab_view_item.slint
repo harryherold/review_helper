@@ -12,8 +12,8 @@ import { TabButton, TabCreateButton, TabViewItem } from "tabview.slint";
 export component RepositoryTabViewItem inherits TabViewItem {
     in property <int> repository_id;
     in property <string> repository_name;
+    in property <[string]> review_names;
     private property <bool> is_repository_loaded: false;
-    private property <[string]> review_names: SlintReviewHelper.repositories[root.repository_id].review-names;
 
     changed is_active => {
         if (root.is_active && !root.is_repository_loaded) {
