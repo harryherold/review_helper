@@ -9,7 +9,8 @@ use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use crate::storage::{RepositoryName, RepositoryStore, create_storage};
 use crate::{git_utils, ui};
 
-use crate::model::{IdModel, ReviewHelperCache, ReviewHelperError, ReviewHelperSettings};
+use crate::model::{IdModel, ReviewHelperSettings};
+use crate::review_helper_cache::{ReviewHelperCache, ReviewHelperError};
 
 pub type WorkerChannel = UnboundedSender<WorkerMessage>;
 
@@ -296,7 +297,7 @@ fn report_error(ui_weak: slint::Weak<ui::AppWindow>, error: ui::SlintResult, det
 }
 
 fn report_review_helper_error(ui_weak: slint::Weak<ui::AppWindow>, error: &ReviewHelperError) {
-    use crate::model::ReviewHelperError::*;
+    use ReviewHelperError::*;
 
     let (ui_error, ui_error_text) = match error {
         GitCommandFailed(t) => (ui::SlintResult::GitCommandFailed, t.as_str()),

@@ -10,6 +10,7 @@ mod storage;
 mod command_utils;
 mod git_command_spawner;
 mod git_utils;
+mod review_helper_cache;
 mod worker;
 
 pub mod ui;
