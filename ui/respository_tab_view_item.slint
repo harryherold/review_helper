@@ -3,17 +3,24 @@ import {
     TabWidget,
     ListView,
     Palette,
+    LineEdit,
 } from "std-widgets.slint";
 import { ToolButton } from "tool_button.slint";
 import { Style } from "style.slint";
-import { SlintReviewHelper, SlintRepositoryCallbacks } from "globals.slint";
+import {
+    SlintReviewHelper,
+    SlintRepositoryCallbacks,
+    SlintReview,
+    SlintReviewCallbacks,
+} from "globals.slint";
 import { TabButton, TabCreateButton, TabViewItem } from "tabview.slint";
 
 export component RepositoryTabViewItem inherits TabViewItem {
     in property <int> repository_id;
     in property <string> repository_name;
-    in property <[string]> review_names;
+    in property <[SlintReview]> review_model;
     private property <bool> is_repository_loaded: false;
+    private property <int> selected_review_id: -1;
 
     changed is_active => {
         if (root.is_active && !root.is_repository_loaded) {
@@ -40,34 +47,100 @@ export component RepositoryTabViewItem inherits TabViewItem {
                 }
 
                 ListView {
-                    visible: root.review_names.length > 0; // NOTE workaround to get ListView visible with their elements
-                    for review in root.review_names: Rectangle {
+                    visible: root.review_model.length > 0; // NOTE workaround to get ListView visible with their elements
+                    for review[idx] in root.review_model: Rectangle {
                         height: Style.size.control-height + Style.size.spacing;
                         TabButton {
-                            tab-text: review;
+                            tab-text: review.name;
                             height: Style.size.control-height;
+                            is-selected: root.selected_review_id == review.id;
+                            clicked => {
+                                root.selected_review_id = review.id;
+                                SlintReviewCallbacks.load_review(root.repository_id, root.repository_name, review.id);
+                            }
                         }
                     }
                 }
             }
         }
 
-        VerticalLayout {
-            width: 85%;
-            HorizontalLayout {
-                spacing: Style.size.spacing;
-                TabWidget {
-                    Tab {
-                        title: "FileDiff";
-                        Rectangle {
-                            background: orange;
-                        }
-                    }
+        Rectangle {
+            width: 1px;
+            height: 100%;
+            background: Palette.border;
+        }
 
-                    Tab {
-                        title: "Notes";
-                        Rectangle {
-                            background: pink;
+        Rectangle {
+            private property <int> review_index: SlintReviewCallbacks.review_id_to_index(root.selected_review_id, root.review_model);
+            width: 85%;
+
+            if review_index != -1: VerticalLayout {
+                HorizontalLayout {
+                    spacing: Style.size.spacing;
+                    TabWidget {
+                        Tab {
+                            title: "FileDiff";
+                            Rectangle {
+                                VerticalLayout {
+                                    alignment: start;
+                                    spacing: Style.size.spacing;
+                                    HorizontalLayout {
+                                        spacing: Style.size.spacing;
+                                        Text {
+                                            text: "start";
+                                        }
+
+                                        LineEdit {
+                                            text: root.review_model[review_index].start_diff;
+                                        }
+                                    }
+
+                                    HorizontalLayout {
+                                        spacing: Style.size.spacing;
+                                        Text {
+                                            text: "end";
+                                        }
+
+                                        LineEdit {
+                                            text: root.review_model[review_index].end_diff;
+                                        }
+                                    }
+
+                                    HorizontalLayout {
+                                        alignment: start;
+                                        spacing: Style.size.spacing;
+
+                                        Text {
+                                            text: "FileDiffs count";
+                                        }
+
+                                        Text {
+                                            text: root.review_model[review_index].file_diff_model.length;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Tab {
+                            title: "Notes";
+                            Rectangle {
+                                VerticalLayout {
+                                    alignment: start;
+                                    spacing: Style.size.spacing;
+                                    HorizontalLayout {
+                                        alignment: start;
+                                        spacing: Style.size.spacing;
+                                        Text {
+                                            text: "Notes count";
+                                        }
+
+                                        Text {
+                                            text: root.review_model[review_index].note_model.length;
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }

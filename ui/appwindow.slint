@@ -40,13 +40,14 @@ import {
     SlintErrors,
     SlintErrorEntry,
     SlintRepositoryCallbacks,
+    SlintReviewCallbacks,
 } from "globals.slint";
 import { SubSectionText } from "sub_section_text.slint";
 import { ToolButton } from "tool_button.slint";
 import { RepositoryTabViewItem } from "respository_tab_view_item.slint";
 import { ErrorPopup } from "error_popup.slint";
 
-export { SlintRepositoryCallbacks, SlintReviewHelperSettings, FilePickerAdapter, CommitPickerAdapter, Notes, NoteItem, Diff, DiffFileItem, Repository, SlintStringUtils, OverallDiffStats, SlintModelUtils, SlintRepository, SlintReviewHelper, SlintResult, SlintErrors, SlintErrorEntry }
+export { SlintReviewCallbacks, SlintRepositoryCallbacks, SlintReviewHelperSettings, FilePickerAdapter, CommitPickerAdapter, Notes, NoteItem, Diff, DiffFileItem, Repository, SlintStringUtils, OverallDiffStats, SlintModelUtils, SlintRepository, SlintReviewHelper, SlintResult, SlintErrors, SlintErrorEntry }
 
 export component AppWindow inherits Window {
     private property <int> selected_repository_index <=> tab-view.current-index;
@@ -150,7 +151,7 @@ export component AppWindow inherits Window {
                 current-index <=> parent.current-index;
                 repository_id: repository.id;
                 repository_name: repository.name;
-                review_names: repository.review_names;
+                review_model: repository.review_model;
             }
         }
     }

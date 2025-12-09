@@ -8,9 +8,37 @@ use std::{
 use slint::{SharedString, VecModel};
 
 use crate::{
-    storage::{RepositoryName, RepositoryStore, repository_storage::ReviewName},
+    model::IdModel,
+    storage::{
+        RepositoryName, RepositoryStore,
+        repository_storage::{ReviewName, ReviewStore},
+    },
     ui,
 };
+
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
+pub struct ReviewId(usize);
+
+impl ReviewId {
+    pub fn as_i32(&self) -> i32 {
+        self.0 as i32
+    }
+    pub fn as_usize(&self) -> usize {
+        self.0
+    }
+}
+
+impl From<usize> for ReviewId {
+    fn from(value: usize) -> Self {
+        ReviewId(value)
+    }
+}
+
+impl From<i32> for ReviewId {
+    fn from(value: i32) -> Self {
+        ReviewId(value as usize)
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum ReviewHelperError {
@@ -19,10 +47,15 @@ pub enum ReviewHelperError {
 }
 
 #[derive(Default, Clone)]
+pub struct Review {
+    pub store: ReviewStore,
+}
+
+#[derive(Default, Clone)]
 pub struct Repository {
     pub name: RepositoryName,
     pub store: RepositoryStore,
-    pub review_names: Vec<ReviewName>,
+    pub reviews: HashMap<ReviewId, (ReviewName, Option<Review>)>,
 }
 
 impl Repository {
@@ -30,12 +63,21 @@ impl Repository {
         Self {
             name: name.clone(),
             store,
-            review_names: Vec::new(),
+            reviews: HashMap::new(),
         }
     }
-    pub fn set_review_names(&mut self, names: Vec<ReviewName>) {
-        self.review_names = names;
+    pub fn insert_review_id_name(&mut self, review_id: ReviewId, review_name: ReviewName) {
+        self.reviews.insert(review_id, (review_name, None));
     }
+    pub fn get_mut_review(&mut self, review_id: &ReviewId) -> Option<&mut (ReviewName, Option<Review>)> {
+        match self.reviews.get_mut(review_id) {
+            Some(review_tuple) => Some(review_tuple),
+            None => None,
+        }
+    }
+    // pub fn set_review(&mut self, review_id: ReviewId, store: ReviewStore) {
+    //     self.reviews.insert(review_id, Some(Review { store }));
+    // }
 }
 
 #[derive(Default)]
@@ -52,7 +94,7 @@ impl From<(usize, &RepositoryStore)> for ui::SlintRepository {
             name: String::from(&value.name).into(),
             path: value.path.as_os_str().to_str().unwrap_or_default().into(),
             base_branch: SharedString::from(&value.base_branch),
-            review_names: Rc::new(VecModel::default()).into(),
+            review_model: Rc::new(IdModel::default()).into(),
         }
     }
 }

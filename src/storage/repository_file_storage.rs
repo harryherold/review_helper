@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use toml::{Table, Value};
 
-use crate::storage::repository_storage::{DiffRange, FileDiffItem, Note, ReviewName, ReviewStore};
+use crate::storage::repository_storage::{DiffRangeStore, FileDiffStore, NoteStore, ReviewName, ReviewStore};
 use crate::storage::{RepositoryName, RepositoryStore, ReviewHelperStorage};
 
 const NOTE_FILE_NAME: &str = "notes.md";
@@ -153,7 +153,7 @@ impl ReviewHelperStorage for ReviewHelperFileStorage {
         let contents = fs::read_to_string(review_file_path)?;
         let table = contents.parse::<Table>()?;
 
-        let mut diff_range = DiffRange::default();
+        let mut diff_range = DiffRangeStore::default();
         if let Some(start) = table["start_diff"].as_str() {
             diff_range.start = start.to_string();
         }
@@ -164,10 +164,12 @@ impl ReviewHelperStorage for ReviewHelperFileStorage {
         let mut review_store = ReviewStore::default();
         review_store.diff_range = diff_range;
 
-        if let Some(diff_files) = table["diff_files"].as_array() {
+        if table.contains_key("diff_files")
+            && let Some(diff_files) = table["diff_files"].as_array()
+        {
             for diff_file in diff_files {
                 if let Some(diff_file_table) = diff_file.as_table() {
-                    let mut file_diff_item = FileDiffItem::default();
+                    let mut file_diff_item = FileDiffStore::default();
                     if let Some(file_name) = diff_file_table["file_name"].as_str() {
                         file_diff_item.file_path = PathBuf::from(file_name);
                     }
@@ -178,7 +180,10 @@ impl ReviewHelperStorage for ReviewHelperFileStorage {
                 }
             }
         }
-        review_store.notes = load_notes(&review_dir_path)?;
+        let note_file = review_dir_path.join(NOTE_FILE_NAME);
+        if note_file.exists() {
+            review_store.notes = load_notes(note_file)?;
+        }
 
         Ok(Some(review_store))
     }
@@ -215,12 +220,12 @@ impl ReviewHelperStorage for ReviewHelperFileStorage {
         let contents = toml::to_string_pretty(&table)?;
         file.write_all(contents.as_bytes())?;
 
-        save_notes(&review.notes, &review_dir_path)
+        let note_file = review_dir_path.join(NOTE_FILE_NAME);
+        save_notes(&review.notes, note_file)
     }
 }
 
-fn load_notes(review_path: &PathBuf) -> anyhow::Result<Vec<Note>> {
-    let note_file = review_path.join(NOTE_FILE_NAME);
+fn load_notes(note_file: PathBuf) -> anyhow::Result<Vec<NoteStore>> {
     let to_note = |line: &str| -> Option<(bool, String)> {
         let pos = line.find("[")?;
         let is_done = false == line.get(pos + 1..)?.starts_with("]");
@@ -248,7 +253,7 @@ fn load_notes(review_path: &PathBuf) -> anyhow::Result<Vec<Note>> {
             context = to_file(line).expect("Error while parsing heading");
         } else if line.starts_with("*") {
             let (is_done, text) = to_note(line).expect("Error while parsing ListItem");
-            notes.push(Note {
+            notes.push(NoteStore {
                 text,
                 context: context.clone(),
                 is_done,
@@ -258,13 +263,11 @@ fn load_notes(review_path: &PathBuf) -> anyhow::Result<Vec<Note>> {
     anyhow::Ok(notes)
 }
 
-fn save_notes(notes: &Vec<Note>, review_path: &PathBuf) -> anyhow::Result<()> {
-    let note_file = review_path.join(NOTE_FILE_NAME);
-
+fn save_notes(notes: &Vec<NoteStore>, note_file: PathBuf) -> anyhow::Result<()> {
     let mut general_notes = Vec::<String>::new();
     let mut file_notes = BTreeMap::<String, Vec<String>>::new();
 
-    let note_item_to_string = |item: &Note| -> String { format!("* [{}] {}", if item.is_done { "x" } else { "" }, item.text) };
+    let note_item_to_string = |item: &NoteStore| -> String { format!("* [{}] {}", if item.is_done { "x" } else { "" }, item.text) };
 
     for item in notes {
         let notes: &mut Vec<String> = if item.context.is_empty() {
@@ -297,7 +300,7 @@ fn save_notes(notes: &Vec<Note>, review_path: &PathBuf) -> anyhow::Result<()> {
 mod tests {
     use serial_test::serial;
 
-    use crate::storage::repository_storage::{DiffRange, FileDiffItem, RepositoryStore, ReviewName};
+    use crate::storage::repository_storage::{DiffRangeStore, FileDiffStore, RepositoryStore, ReviewName};
 
     use super::*;
     use std::{
@@ -318,14 +321,15 @@ mod tests {
         fs::write(&path, contents).expect("Write to repo toml failed!");
     }
 
-    fn create_review(mut path: PathBuf, repository_name: &str, review_name: &str, contents: &str, notes: Vec<Note>) {
+    fn create_review(mut path: PathBuf, repository_name: &str, review_name: &str, contents: &str, notes: Vec<NoteStore>) {
         path.push(repository_name);
         path.push(review_name);
         if !path.exists() {
             assert!(fs::create_dir_all(&path).is_ok());
         }
         if !notes.is_empty() {
-            assert!(save_notes(&notes, &path).is_ok());
+            let note_file = path.join(NOTE_FILE_NAME);
+            assert!(save_notes(&notes, note_file).is_ok());
         }
 
         path.push(review_name);
@@ -360,10 +364,6 @@ base_branch = "main"
 
         let cool_feature_contents = r#"start_diff = "a261b7b"
 end_diff = ""
-
-[[diff_files]]
-is_reviewed = false
-file_name = "Changes.md"
 "#;
 
         let fancy_ui_contents = r#"start_diff = "ed7811b"
@@ -380,7 +380,7 @@ file_name = "foo.md"
 
         create_review(path.clone(), "review_helper", "cool_feature", cool_feature_contents, Vec::new());
 
-        let notes = vec![Note {
+        let notes = vec![NoteStore {
             context: "foo/bar.cpp".to_string(),
             is_done: true,
             text: "fix bug".to_string(),
@@ -501,11 +501,11 @@ file_name = "foo.md"
         assert!(review_result.is_ok());
 
         let expected_file_diffs = vec![
-            FileDiffItem {
+            FileDiffStore {
                 file_path: PathBuf::from("bar.md"),
                 is_reviewed: false,
             },
-            FileDiffItem {
+            FileDiffStore {
                 file_path: PathBuf::from("foo.md"),
                 is_reviewed: true,
             },
@@ -513,7 +513,7 @@ file_name = "foo.md"
         assert!(review_result.as_ref().unwrap().is_some());
         let review = review_result.unwrap_or_default().unwrap_or_default();
 
-        let expected_diff_range = DiffRange {
+        let expected_diff_range = DiffRangeStore {
             start: "ed7811b".to_string(),
             end: "a261b7b".to_string(),
         };
@@ -528,12 +528,15 @@ file_name = "foo.md"
         assert_eq!(review.notes.len(), 1);
         assert_eq!(
             review.notes[0],
-            Note {
+            NoteStore {
                 context: "foo/bar.cpp".to_string(),
                 is_done: true,
                 text: "fix bug".to_string(),
             }
-        )
+        );
+
+        let review_result = repository_storage.load_review(&RepositoryName::from("review_helper"), &ReviewName::from("cool_feature"));
+        assert!(review_result.is_ok());
     }
     #[serial]
     #[test]
@@ -560,15 +563,15 @@ file_name = "foo.md"
         let _result = repository_storage.save_repository(&repository_store);
 
         let review_store = ReviewStore {
-            diff_range: DiffRange {
+            diff_range: DiffRangeStore {
                 start: "0xfoo".to_string(),
                 end: "".to_string(),
             },
-            file_diff_list: vec![FileDiffItem {
+            file_diff_list: vec![FileDiffStore {
                 file_path: PathBuf::from("/foo/bar.txt"),
                 is_reviewed: true,
             }],
-            notes: vec![Note {
+            notes: vec![NoteStore {
                 context: "/foo/bar.txt".to_string(),
                 text: "Fix bug".to_string(),
                 is_done: true,

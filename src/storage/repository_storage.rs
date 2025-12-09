@@ -52,19 +52,19 @@ pub struct RepositoryStore {
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]
-pub struct DiffRange {
+pub struct DiffRangeStore {
     pub start: String,
     pub end: String,
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]
-pub struct FileDiffItem {
+pub struct FileDiffStore {
     pub file_path: PathBuf,
     pub is_reviewed: bool,
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]
-pub struct Note {
+pub struct NoteStore {
     pub text: String,
     pub context: String,
     pub is_done: bool,
@@ -72,9 +72,9 @@ pub struct Note {
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct ReviewStore {
-    pub diff_range: DiffRange,
-    pub file_diff_list: Vec<FileDiffItem>,
-    pub notes: Vec<Note>,
+    pub diff_range: DiffRangeStore,
+    pub file_diff_list: Vec<FileDiffStore>,
+    pub notes: Vec<NoteStore>,
 }
 
 pub trait ReviewHelperStorage {

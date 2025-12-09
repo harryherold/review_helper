@@ -28,6 +28,8 @@ pub fn main() {
 
     controller::setup_repository_callbacks(&app_window, worker.channel.clone());
 
+    controller::setup_review_callbacks(&app_window, worker.channel.clone());
+
     controller::setup_utils(&app_window);
 
     app_window.run().unwrap();

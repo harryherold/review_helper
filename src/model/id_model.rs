@@ -93,6 +93,12 @@ impl<T: Clone> IdModel<T> {
     pub fn set_observer<Observer: Fn(IdModelChange) + 'static>(&self, callback: Observer) {
         *self.observer.borrow_mut() = Some(Box::new(callback));
     }
+    pub fn id_to_index(&self, id: usize) -> i32 {
+        match self.entity_map.borrow().keys().position(|&k| k == id) {
+            Some(index) => index as i32,
+            None => -1,
+        }
+    }
 }
 
 #[cfg(test)]

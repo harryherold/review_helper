@@ -9,15 +9,6 @@ export global SlintReviewHelperSettings {
     callback refresh_diff_tool_model();
 }
 
-// export global Project {
-//     in property <bool> has_modifications: false;
-//     in property <string> path;
-//     out property <bool> is_loaded: path != "";
-//     callback open;
-//     callback new;
-//     callback save;
-// }
-
 export enum SlintResult {
     Ok,
     GitCommandFailed,
@@ -27,6 +18,71 @@ export enum SlintResult {
     ModelItemNotExists,
     LoadReviewNamesFailed,
     QueryingDiffToolsFailed,
+    ReviewAlreadyLoaded,
+    LoadReviewFailed,
+}
+
+export enum SlintChangeType {
+    Invalid,
+    Added,
+    Copied,
+    Deleted,
+    Modified,
+    Renamed,
+    TypChanged,
+    Unmerged,
+    Unknown,
+    Broken
+}
+
+export global SlintChangeTypeUtils {
+    public pure function to_icon(change_type: SlintChangeType) -> image {
+        if (change_type == SlintChangeType.Added) {
+            return @image-url("../assets/icons/git_file_added.svg");
+        } else if (change_type == SlintChangeType.Broken) {
+            return @image-url("../assets/icons/git_file_broken.svg");
+        } else if (change_type == SlintChangeType.Copied) {
+            return @image-url("../assets/icons/git_file_copied.svg");
+        } else if (change_type == SlintChangeType.Deleted) {
+            return @image-url("../assets/icons/git_file_deleted.svg");
+        } else if (change_type == SlintChangeType.Modified) {
+            return @image-url("../assets/icons/git_file_edited.svg");
+        } else if (change_type == SlintChangeType.Renamed) {
+            return @image-url("../assets/icons/git_file_renamed.svg");
+        } else if (change_type == SlintChangeType.TypChanged) {
+            return @image-url("../assets/icons/git_file_type_changed.svg");
+        } else if (change_type == SlintChangeType.Unknown) {
+            return @image-url("../assets/icons/git_file_unknown.svg");
+        } else if (change_type == SlintChangeType.Unmerged) {
+            return @image-url("../assets/icons/git_file_unmerged.svg");
+        }
+        return @image-url("../assets/icons/invalid.svg");
+    }
+}
+
+export struct SlintFileDiff {
+    id: int,
+    added_lines: int,
+    removed_lines: int,
+    text: string,
+    is_reviewed: bool,
+    change_type: SlintChangeType,    
+}
+
+export struct SlintNote {
+    id: int,
+    text: string,
+    is_fixed: bool,
+    context: string,
+}
+
+export struct SlintReview {
+    id: int,
+    name: string,
+    start_diff: string,
+    end_diff: string,
+    note_model: [SlintNote],
+    file_diff_model: [SlintFileDiff],
 }
 
 export struct SlintRepository {
@@ -35,7 +91,7 @@ export struct SlintRepository {
     path: string,
     first_commit: string,
     base_branch: string,
-    review_names: [string],
+    review_model: [SlintReview],
     // commit_model: [[StandardListViewItem]],
 }
 
@@ -46,6 +102,11 @@ export struct SlintErrorEntry {
 
 export global SlintErrors {
     in property <[SlintErrorEntry]> model;
+}
+
+export global SlintReviewCallbacks {
+    callback load_review(int, string, int);
+    pure callback review_id_to_index(int, [SlintReview]) -> int;
 }
 
 export global SlintRepositoryCallbacks {

@@ -6,11 +6,13 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use slint::{ComponentHandle, Model, ModelExt, SharedString, VecModel};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
+use crate::storage::repository_storage::{FileDiffStore, NoteStore, ReviewName, ReviewStore};
 use crate::storage::{RepositoryName, RepositoryStore, create_storage};
+use crate::ui::{SlintFileDiff, SlintNote};
 use crate::{git_utils, ui};
 
 use crate::model::{IdModel, ReviewHelperSettings};
-use crate::review_helper_cache::{ReviewHelperCache, ReviewHelperError};
+use crate::review_helper_cache::{Review, ReviewHelperCache, ReviewHelperError, ReviewId};
 
 pub type WorkerChannel = UnboundedSender<WorkerMessage>;
 
@@ -31,6 +33,11 @@ pub enum WorkerMessage {
     LoadReviewNames {
         id: usize,
         name: RepositoryName,
+    },
+    LoadReview {
+        repository_id: usize,
+        repository_name: RepositoryName,
+        review_id: ReviewId,
     },
 }
 
@@ -67,6 +74,60 @@ fn allocate_repository_id() -> usize {
         std::process::abort();
     }
     id
+}
+
+fn allocate_review_id() -> ReviewId {
+    static NEXT_ID: AtomicUsize = AtomicUsize::new(1);
+    let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
+    if id == usize::MAX {
+        eprintln!("Too many review ids allocated");
+        std::process::abort();
+    }
+    ReviewId::from(id)
+}
+
+fn allocate_note_id() -> usize {
+    static NEXT_ID: AtomicUsize = AtomicUsize::new(1);
+    let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
+    if id == usize::MAX {
+        eprintln!("Too many review ids allocated");
+        std::process::abort();
+    }
+    id
+}
+
+fn allocate_file_diff_id() -> usize {
+    static NEXT_ID: AtomicUsize = AtomicUsize::new(1);
+    let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
+    if id == usize::MAX {
+        eprintln!("Too many review ids allocated");
+        std::process::abort();
+    }
+    id
+}
+
+impl From<&NoteStore> for ui::SlintNote {
+    fn from(note_store: &NoteStore) -> Self {
+        let id = allocate_note_id();
+        SlintNote {
+            id: id as i32,
+            context: SharedString::from(note_store.context.as_str()),
+            is_fixed: note_store.is_done,
+            text: SharedString::from(note_store.text.as_str()),
+        }
+    }
+}
+
+impl From<&FileDiffStore> for ui::SlintFileDiff {
+    fn from(file_diff_store: &FileDiffStore) -> Self {
+        let id = allocate_file_diff_id();
+        SlintFileDiff {
+            id: id as i32,
+            is_reviewed: file_diff_store.is_reviewed,
+            text: SharedString::from(file_diff_store.file_path.to_string_lossy().as_ref()),
+            ..Default::default()
+        }
+    }
 }
 
 fn prepare_app_data_path() -> PathBuf {
@@ -175,9 +236,13 @@ fn worker_loop(ui_weak: slint::Weak<ui::AppWindow>, mut rx: UnboundedReceiver<Wo
                 if let Some(repository) = review_helper_cache.get_mut_repository(&name) {
                     match storage.load_review_names(&name) {
                         Ok(review_names) => {
-                            let ui_review_names: Vec<_> = review_names.iter().map(|item| SharedString::from(item.as_str())).collect();
-                            repository.set_review_names(review_names);
-                            set_ui_review_names(ui_weak.clone(), id, ui_review_names);
+                            let mut reviews = Vec::new();
+                            review_names.into_iter().for_each(|review_name| {
+                                let id = allocate_review_id();
+                                reviews.push((id.as_i32(), SharedString::from(review_name.as_str())));
+                                repository.insert_review_id_name(id, review_name);
+                            });
+                            set_ui_review_names(ui_weak.clone(), id, reviews);
                         }
                         Err(e) => report_error(ui_weak.clone(), ui::SlintResult::LoadReviewNamesFailed, &e.to_string()),
                     }
@@ -185,18 +250,90 @@ fn worker_loop(ui_weak: slint::Weak<ui::AppWindow>, mut rx: UnboundedReceiver<Wo
                     report_error(ui_weak.clone(), ui::SlintResult::ModelItemNotExists, &name.as_str());
                 }
             }
+            WorkerMessage::LoadReview {
+                repository_id,
+                repository_name,
+                review_id,
+            } => {
+                if let Some(repository) = review_helper_cache.get_mut_repository(&repository_name) {
+                    let Some(opt_review) = repository.get_mut_review(&review_id) else {
+                        report_error(
+                            ui_weak.clone(),
+                            ui::SlintResult::ModelItemNotExists,
+                            &format!("review_id {} not found!", review_id.as_usize()),
+                        );
+                        continue;
+                    };
+                    match storage.load_review(&repository_name, &opt_review.0) {
+                        Ok(opt_store) => {
+                            if let Some(store) = opt_store {
+                                opt_review.1 = Some(Review { store: store.clone() });
+                                let ui_notes: Vec<_> = store.notes.iter().map(|note| SlintNote::from(note)).collect();
+                                let ui_file_diffs: Vec<_> = store.file_diff_list.iter().map(|file_diff| SlintFileDiff::from(file_diff)).collect();
+
+                                set_ui_review(ui_weak.clone(), repository_id, review_id.as_usize(), store, ui_notes, ui_file_diffs);
+                            }
+                        }
+                        Err(e) => report_error(ui_weak.clone(), ui::SlintResult::LoadReviewFailed, &e.to_string()),
+                    }
+                } else {
+                    report_error(ui_weak.clone(), ui::SlintResult::ModelItemNotExists, &repository_name.as_str());
+                }
+            }
         }
     }
 }
 
-fn set_ui_review_names(ui_weak: slint::Weak<ui::AppWindow>, repository_id: usize, review_names: Vec<SharedString>) {
+fn set_ui_review(
+    ui_weak: slint::Weak<ui::AppWindow>,
+    repository_id: usize,
+    review_id: usize,
+    store: ReviewStore,
+    ui_notes: Vec<SlintNote>,
+    ui_file_diffs: Vec<SlintFileDiff>,
+) {
+    ui_weak
+        .upgrade_in_event_loop(move |app_window| {
+            let repository_model = app_window.global::<ui::SlintReviewHelper>().get_repositories();
+            let repository_model = repository_model.as_any().downcast_ref::<IdModel<ui::SlintRepository>>().unwrap();
+            let repository = repository_model.get(repository_id).expect("Repository model is out of sync with cache!");
+            let review_model = repository.review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>().unwrap();
+            let mut review = review_model.get(review_id).expect("Review model is out of sync with cache");
+            review.start_diff = SharedString::from(store.diff_range.start);
+            review.end_diff = SharedString::from(store.diff_range.end);
+
+            let notes_model = review.note_model.as_any().downcast_ref::<IdModel<ui::SlintNote>>().unwrap();
+            ui_notes.into_iter().for_each(|ui_note| notes_model.add(ui_note.id as usize, ui_note));
+
+            let file_diff_model = review.file_diff_model.as_any().downcast_ref::<IdModel<ui::SlintFileDiff>>().unwrap();
+            ui_file_diffs
+                .into_iter()
+                .for_each(|ui_file_diff| file_diff_model.add(ui_file_diff.id as usize, ui_file_diff));
+
+            review_model.update(review_id, review);
+        })
+        .unwrap();
+}
+
+fn set_ui_review_names(ui_weak: slint::Weak<ui::AppWindow>, repository_id: usize, reviews: Vec<(i32, SharedString)>) {
     ui_weak
         .upgrade_in_event_loop(move |app_window| {
             let model_rc = app_window.global::<ui::SlintReviewHelper>().get_repositories();
             let model = model_rc.as_any().downcast_ref::<IdModel<ui::SlintRepository>>().unwrap();
             let repository = model.get(repository_id).unwrap();
-            let review_names_model = repository.review_names.as_any().downcast_ref::<VecModel<SharedString>>().unwrap();
-            review_names_model.set_vec(review_names);
+            let review_model = repository.review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>().unwrap();
+            reviews.into_iter().for_each(|(id, name)| {
+                review_model.add(
+                    id as usize,
+                    ui::SlintReview {
+                        id,
+                        name: name.clone(),
+                        note_model: Rc::new(IdModel::default()).into(),
+                        file_diff_model: Rc::new(IdModel::default()).into(),
+                        ..Default::default()
+                    },
+                );
+            });
         })
         .unwrap();
 }
