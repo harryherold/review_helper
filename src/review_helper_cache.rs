@@ -1,6 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
     convert::From,
+    hash::Hash,
     path::PathBuf,
     rc::Rc,
 };
@@ -25,6 +26,9 @@ impl ReviewId {
     }
     pub fn as_usize(&self) -> usize {
         self.0
+    }
+    pub fn increment(&mut self) {
+        self.0 += 1;
     }
 }
 
@@ -55,7 +59,9 @@ pub struct Review {
 pub struct Repository {
     pub name: RepositoryName,
     pub store: RepositoryStore,
-    pub reviews: HashMap<ReviewId, (ReviewName, Option<Review>)>,
+    reviews: HashMap<ReviewId, Review>,
+    last_review_id: ReviewId,
+    review_names: HashMap<ReviewId, ReviewName>,
 }
 
 impl Repository {
@@ -64,20 +70,29 @@ impl Repository {
             name: name.clone(),
             store,
             reviews: HashMap::new(),
+            last_review_id: ReviewId::from(0),
+            review_names: HashMap::new(),
         }
     }
-    pub fn insert_review_id_name(&mut self, review_id: ReviewId, review_name: ReviewName) {
-        self.reviews.insert(review_id, (review_name, None));
-    }
-    pub fn get_mut_review(&mut self, review_id: &ReviewId) -> Option<&mut (ReviewName, Option<Review>)> {
-        match self.reviews.get_mut(review_id) {
-            Some(review_tuple) => Some(review_tuple),
-            None => None,
+    fn allocate_review_id(&mut self) -> ReviewId {
+        if self.last_review_id.as_usize() == usize::MAX {
+            eprintln!("Too many review ids allocated");
+            std::process::abort();
         }
+        self.last_review_id.increment();
+        self.last_review_id.clone()
     }
-    // pub fn set_review(&mut self, review_id: ReviewId, store: ReviewStore) {
-    //     self.reviews.insert(review_id, Some(Review { store }));
-    // }
+    pub fn reserve_review(&mut self, review_name: ReviewName) -> ReviewId {
+        let id = self.allocate_review_id();
+        self.review_names.insert(id.clone(), review_name);
+        id
+    }
+    pub fn insert_review(&mut self, review_id: ReviewId, store: ReviewStore) {
+        self.reviews.insert(review_id, Review { store });
+    }
+    pub fn get_review_name(&self, id: &ReviewId) -> Option<&ReviewName> {
+        self.review_names.get(id)
+    }
 }
 
 #[derive(Default)]

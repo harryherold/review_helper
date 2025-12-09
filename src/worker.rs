@@ -238,9 +238,8 @@ fn worker_loop(ui_weak: slint::Weak<ui::AppWindow>, mut rx: UnboundedReceiver<Wo
                         Ok(review_names) => {
                             let mut reviews = Vec::new();
                             review_names.into_iter().for_each(|review_name| {
-                                let id = allocate_review_id();
+                                let id = repository.reserve_review(review_name.clone());
                                 reviews.push((id.as_i32(), SharedString::from(review_name.as_str())));
-                                repository.insert_review_id_name(id, review_name);
                             });
                             set_ui_review_names(ui_weak.clone(), id, reviews);
                         }
@@ -256,7 +255,7 @@ fn worker_loop(ui_weak: slint::Weak<ui::AppWindow>, mut rx: UnboundedReceiver<Wo
                 review_id,
             } => {
                 if let Some(repository) = review_helper_cache.get_mut_repository(&repository_name) {
-                    let Some(opt_review) = repository.get_mut_review(&review_id) else {
+                    let Some(review_name) = repository.get_review_name(&review_id) else {
                         report_error(
                             ui_weak.clone(),
                             ui::SlintResult::ModelItemNotExists,
@@ -264,10 +263,11 @@ fn worker_loop(ui_weak: slint::Weak<ui::AppWindow>, mut rx: UnboundedReceiver<Wo
                         );
                         continue;
                     };
-                    match storage.load_review(&repository_name, &opt_review.0) {
+                    match storage.load_review(&repository_name, review_name) {
                         Ok(opt_store) => {
                             if let Some(store) = opt_store {
-                                opt_review.1 = Some(Review { store: store.clone() });
+                                repository.insert_review(review_id.clone(), store.clone());
+
                                 let ui_notes: Vec<_> = store.notes.iter().map(|note| SlintNote::from(note)).collect();
                                 let ui_file_diffs: Vec<_> = store.file_diff_list.iter().map(|file_diff| SlintFileDiff::from(file_diff)).collect();
 
