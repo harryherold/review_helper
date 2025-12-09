@@ -82,7 +82,7 @@ impl Repository {
         self.last_review_id.increment();
         self.last_review_id.clone()
     }
-    pub fn reserve_review(&mut self, review_name: ReviewName) -> ReviewId {
+    pub fn register_review_name(&mut self, review_name: ReviewName) -> ReviewId {
         let id = self.allocate_review_id();
         self.review_names.insert(id.clone(), review_name);
         id

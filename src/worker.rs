@@ -76,16 +76,6 @@ fn allocate_repository_id() -> usize {
     id
 }
 
-fn allocate_review_id() -> ReviewId {
-    static NEXT_ID: AtomicUsize = AtomicUsize::new(1);
-    let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
-    if id == usize::MAX {
-        eprintln!("Too many review ids allocated");
-        std::process::abort();
-    }
-    ReviewId::from(id)
-}
-
 fn allocate_note_id() -> usize {
     static NEXT_ID: AtomicUsize = AtomicUsize::new(1);
     let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
@@ -238,7 +228,7 @@ fn worker_loop(ui_weak: slint::Weak<ui::AppWindow>, mut rx: UnboundedReceiver<Wo
                         Ok(review_names) => {
                             let mut reviews = Vec::new();
                             review_names.into_iter().for_each(|review_name| {
-                                let id = repository.reserve_review(review_name.clone());
+                                let id = repository.register_review_name(review_name.clone());
                                 reviews.push((id.as_i32(), SharedString::from(review_name.as_str())));
                             });
                             set_ui_review_names(ui_weak.clone(), id, reviews);
@@ -301,6 +291,7 @@ fn set_ui_review(
             let mut review = review_model.get(review_id).expect("Review model is out of sync with cache");
             review.start_diff = SharedString::from(store.diff_range.start);
             review.end_diff = SharedString::from(store.diff_range.end);
+            review.is_loaded = true;
 
             let notes_model = review.note_model.as_any().downcast_ref::<IdModel<ui::SlintNote>>().unwrap();
             ui_notes.into_iter().for_each(|ui_note| notes_model.add(ui_note.id as usize, ui_note));
@@ -330,6 +321,7 @@ fn set_ui_review_names(ui_weak: slint::Weak<ui::AppWindow>, repository_id: usize
                         name: name.clone(),
                         note_model: Rc::new(IdModel::default()).into(),
                         file_diff_model: Rc::new(IdModel::default()).into(),
+                        is_loaded: false,
                         ..Default::default()
                     },
                 );
