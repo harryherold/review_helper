@@ -6,13 +6,13 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use slint::{ComponentHandle, Model, ModelExt, SharedString, VecModel};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
-use crate::storage::repository_storage::{FileDiffStore, NoteStore, ReviewName, ReviewStore};
+use crate::storage::repository_storage::{DiffRangeStore, FileDiffStore, NoteStore, ReviewName, ReviewStore};
 use crate::storage::{RepositoryName, RepositoryStore, create_storage};
 use crate::ui::{SlintFileDiff, SlintNote};
 use crate::{git_utils, ui};
 
 use crate::model::{IdModel, ReviewHelperSettings};
-use crate::review_helper_cache::{Review, ReviewHelperCache, ReviewHelperError, ReviewId};
+use crate::review_helper_cache::{FileDiffId, NoteId, Review, ReviewHelperCache, ReviewHelperError, ReviewId};
 
 pub type WorkerChannel = UnboundedSender<WorkerMessage>;
 
@@ -96,11 +96,10 @@ fn allocate_file_diff_id() -> usize {
     id
 }
 
-impl From<&NoteStore> for ui::SlintNote {
-    fn from(note_store: &NoteStore) -> Self {
-        let id = allocate_note_id();
+impl From<(&NoteId, &NoteStore)> for ui::SlintNote {
+    fn from((id, note_store): (&NoteId, &NoteStore)) -> Self {
         SlintNote {
-            id: id as i32,
+            id: id.as_i32(),
             context: SharedString::from(note_store.context.as_str()),
             is_fixed: note_store.is_done,
             text: SharedString::from(note_store.text.as_str()),
@@ -108,11 +107,10 @@ impl From<&NoteStore> for ui::SlintNote {
     }
 }
 
-impl From<&FileDiffStore> for ui::SlintFileDiff {
-    fn from(file_diff_store: &FileDiffStore) -> Self {
-        let id = allocate_file_diff_id();
+impl From<(&FileDiffId, &FileDiffStore)> for ui::SlintFileDiff {
+    fn from((id, file_diff_store): (&FileDiffId, &FileDiffStore)) -> Self {
         SlintFileDiff {
-            id: id as i32,
+            id: id.as_i32(),
             is_reviewed: file_diff_store.is_reviewed,
             text: SharedString::from(file_diff_store.file_path.to_string_lossy().as_ref()),
             ..Default::default()
@@ -256,12 +254,24 @@ fn worker_loop(ui_weak: slint::Weak<ui::AppWindow>, mut rx: UnboundedReceiver<Wo
                     match storage.load_review(&repository_name, review_name) {
                         Ok(opt_store) => {
                             if let Some(store) = opt_store {
-                                repository.insert_review(review_id.clone(), store.clone());
+                                let start_diff = SharedString::from(&store.diff_range.start);
+                                let end_diff = SharedString::from(&store.diff_range.end);
 
-                                let ui_notes: Vec<_> = store.notes.iter().map(|note| SlintNote::from(note)).collect();
-                                let ui_file_diffs: Vec<_> = store.file_diff_list.iter().map(|file_diff| SlintFileDiff::from(file_diff)).collect();
+                                let review = Review::new(store);
+                                let ui_notes: Vec<_> = review.notes.iter().map(|id_store_tuple| SlintNote::from(id_store_tuple)).collect();
+                                let ui_file_diffs: Vec<_> = review.file_diffs.iter().map(|id_store_tuple| SlintFileDiff::from(id_store_tuple)).collect();
 
-                                set_ui_review(ui_weak.clone(), repository_id, review_id.as_usize(), store, ui_notes, ui_file_diffs);
+                                repository.insert_review(review_id.clone(), review);
+
+                                set_ui_review(
+                                    ui_weak.clone(),
+                                    repository_id,
+                                    review_id.as_usize(),
+                                    start_diff,
+                                    end_diff,
+                                    ui_notes,
+                                    ui_file_diffs,
+                                );
                             }
                         }
                         Err(e) => report_error(ui_weak.clone(), ui::SlintResult::LoadReviewFailed, &e.to_string()),
@@ -278,7 +288,8 @@ fn set_ui_review(
     ui_weak: slint::Weak<ui::AppWindow>,
     repository_id: usize,
     review_id: usize,
-    store: ReviewStore,
+    start_diff: SharedString,
+    end_diff: SharedString,
     ui_notes: Vec<SlintNote>,
     ui_file_diffs: Vec<SlintFileDiff>,
 ) {
@@ -289,8 +300,8 @@ fn set_ui_review(
             let repository = repository_model.get(repository_id).expect("Repository model is out of sync with cache!");
             let review_model = repository.review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>().unwrap();
             let mut review = review_model.get(review_id).expect("Review model is out of sync with cache");
-            review.start_diff = SharedString::from(store.diff_range.start);
-            review.end_diff = SharedString::from(store.diff_range.end);
+            review.start_diff = start_diff;
+            review.end_diff = end_diff;
             review.is_loaded = true;
 
             let notes_model = review.note_model.as_any().downcast_ref::<IdModel<ui::SlintNote>>().unwrap();

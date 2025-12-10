@@ -12,37 +12,46 @@ use crate::{
     model::IdModel,
     storage::{
         RepositoryName, RepositoryStore,
-        repository_storage::{ReviewName, ReviewStore},
+        repository_storage::{DiffRangeStore, FileDiffStore, NoteStore, ReviewName, ReviewStore},
     },
     ui,
 };
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
-pub struct ReviewId(usize);
+macro_rules! create_id {
+    ($name:ident) => {
+        #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
+        pub struct $name(usize);
 
-impl ReviewId {
-    pub fn as_i32(&self) -> i32 {
-        self.0 as i32
-    }
-    pub fn as_usize(&self) -> usize {
-        self.0
-    }
-    pub fn increment(&mut self) {
-        self.0 += 1;
-    }
+        impl $name {
+            pub fn as_i32(&self) -> i32 {
+                self.0 as i32
+            }
+            pub fn as_usize(&self) -> usize {
+                self.0 as usize
+            }
+            pub fn increment(&mut self) {
+                self.0 += 1;
+            }
+            pub fn is_next_id_valid(&self) -> bool {
+                self.0 < usize::MAX
+            }
+        }
+        impl From<usize> for $name {
+            fn from(value: usize) -> Self {
+                $name(value)
+            }
+        }
+        impl From<i32> for $name {
+            fn from(value: i32) -> Self {
+                $name(value as usize)
+            }
+        }
+    };
 }
 
-impl From<usize> for ReviewId {
-    fn from(value: usize) -> Self {
-        ReviewId(value)
-    }
-}
-
-impl From<i32> for ReviewId {
-    fn from(value: i32) -> Self {
-        ReviewId(value as usize)
-    }
-}
+create_id!(ReviewId);
+create_id!(NoteId);
+create_id!(FileDiffId);
 
 #[derive(Debug, Clone)]
 pub enum ReviewHelperError {
@@ -52,7 +61,44 @@ pub enum ReviewHelperError {
 
 #[derive(Default, Clone)]
 pub struct Review {
-    pub store: ReviewStore,
+    diff_range: DiffRangeStore,
+    pub notes: HashMap<NoteId, NoteStore>,
+    pub file_diffs: HashMap<FileDiffId, FileDiffStore>,
+    last_note_id: NoteId,
+    last_file_diff_id: FileDiffId,
+}
+
+impl Review {
+    pub fn new(store: ReviewStore) -> Self {
+        let mut review = Review::default();
+        review.diff_range = store.diff_range;
+        store.notes.into_iter().for_each(|store| {
+            let id = review.allocate_note_id();
+            review.notes.insert(id, store);
+        });
+        store.file_diff_list.into_iter().for_each(|store| {
+            let id = review.allocate_file_diff_id();
+            review.file_diffs.insert(id, store);
+        });
+
+        review
+    }
+    fn allocate_note_id(&mut self) -> NoteId {
+        if !self.last_note_id.is_next_id_valid() {
+            eprintln!("Too many note ids allocated");
+            std::process::abort();
+        }
+        self.last_note_id.increment();
+        self.last_note_id.clone()
+    }
+    fn allocate_file_diff_id(&mut self) -> FileDiffId {
+        if !self.last_file_diff_id.is_next_id_valid() {
+            eprintln!("Too many file diff ids allocated");
+            std::process::abort();
+        }
+        self.last_file_diff_id.increment();
+        self.last_file_diff_id.clone()
+    }
 }
 
 #[derive(Default, Clone)]
@@ -75,7 +121,7 @@ impl Repository {
         }
     }
     fn allocate_review_id(&mut self) -> ReviewId {
-        if self.last_review_id.as_usize() == usize::MAX {
+        if !self.last_review_id.is_next_id_valid() {
             eprintln!("Too many review ids allocated");
             std::process::abort();
         }
@@ -87,8 +133,8 @@ impl Repository {
         self.review_names.insert(id.clone(), review_name);
         id
     }
-    pub fn insert_review(&mut self, review_id: ReviewId, store: ReviewStore) {
-        self.reviews.insert(review_id, Review { store });
+    pub fn insert_review(&mut self, review_id: ReviewId, review: Review) {
+        assert!(self.reviews.insert(review_id, review).is_none());
     }
     pub fn get_review_name(&self, id: &ReviewId) -> Option<&ReviewName> {
         self.review_names.get(id)
