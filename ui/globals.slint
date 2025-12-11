@@ -106,13 +106,13 @@ export global SlintErrors {
 }
 
 export global SlintReviewCallbacks {
-    callback load_review(int, string, int);
+    callback load_review(int, int);
     pure callback review_id_to_index(int, [SlintReview]) -> int;
 }
 
 export global SlintRepositoryCallbacks {
-    callback load_repository(int, string);
-    callback repository_changed(string, string);
+    callback load_repository(int);
+    callback repository_changed(int, string);
 }
 
 export global SlintReviewHelper {

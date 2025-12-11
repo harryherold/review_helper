@@ -6,7 +6,7 @@ use std::{
     rc::Rc,
 };
 
-use slint::{SharedString, VecModel};
+use slint::SharedString;
 
 use crate::{
     model::IdModel,
@@ -16,6 +16,30 @@ use crate::{
     },
     ui,
 };
+
+impl From<(usize, &RepositoryStore)> for ui::SlintRepository {
+    fn from((id, value): (usize, &RepositoryStore)) -> Self {
+        ui::SlintRepository {
+            id: id as i32,
+            first_commit: SharedString::from(&value.first_commit),
+            name: String::from(&value.name).into(),
+            path: value.path.as_os_str().to_str().unwrap_or_default().into(),
+            base_branch: SharedString::from(&value.base_branch),
+            review_model: Rc::new(IdModel::default()).into(),
+        }
+    }
+}
+
+impl From<&ui::SlintRepository> for RepositoryStore {
+    fn from(value: &ui::SlintRepository) -> Self {
+        RepositoryStore {
+            first_commit: String::from(value.first_commit.as_str()),
+            name: RepositoryName::from(value.name.as_str()),
+            path: PathBuf::from(value.path.as_str()),
+            base_branch: String::from(value.base_branch.as_str()),
+        }
+    }
+}
 
 macro_rules! create_id {
     ($name:ident) => {
@@ -49,6 +73,7 @@ macro_rules! create_id {
     };
 }
 
+create_id!(RepositoryId);
 create_id!(ReviewId);
 create_id!(NoteId);
 create_id!(FileDiffId);
@@ -143,57 +168,44 @@ impl Repository {
 
 #[derive(Default)]
 pub struct ReviewHelperCache {
-    pub repositories: HashMap<RepositoryName, Repository>,
+    pub repositories: HashMap<RepositoryId, Repository>,
     repository_paths: HashSet<PathBuf>,
-}
-
-impl From<(usize, &RepositoryStore)> for ui::SlintRepository {
-    fn from((id, value): (usize, &RepositoryStore)) -> Self {
-        ui::SlintRepository {
-            id: id as i32,
-            first_commit: SharedString::from(&value.first_commit),
-            name: String::from(&value.name).into(),
-            path: value.path.as_os_str().to_str().unwrap_or_default().into(),
-            base_branch: SharedString::from(&value.base_branch),
-            review_model: Rc::new(IdModel::default()).into(),
-        }
-    }
-}
-
-impl From<&ui::SlintRepository> for RepositoryStore {
-    fn from(value: &ui::SlintRepository) -> Self {
-        RepositoryStore {
-            first_commit: String::from(value.first_commit.as_str()),
-            name: RepositoryName::from(value.name.as_str()),
-            path: PathBuf::from(value.path.as_str()),
-            base_branch: String::from(value.base_branch.as_str()),
-        }
-    }
+    last_repository_id: RepositoryId,
 }
 
 impl ReviewHelperCache {
     pub fn set_repositories(&mut self, repository_stores: &Vec<RepositoryStore>) {
         self.repositories.clear();
+
         self.repository_paths.clear();
 
         repository_stores.iter().for_each(|item| {
             self.repository_paths.insert(item.path.clone());
-            self.repositories.insert(item.name.clone(), Repository::new(&item.name, item.clone()));
+
+            let id = self.allocate_repository_id();
+            self.repositories.insert(id, Repository::new(&item.name, item.clone()));
         });
     }
-    pub fn add_repository(&mut self, store: RepositoryStore) {
+    pub fn add_repository(&mut self, store: RepositoryStore) -> RepositoryId {
         self.repository_paths.insert(store.path.clone());
 
         let repository_name = store.name.clone();
 
         let repository = Repository::new(&repository_name, store);
 
-        self.repositories.insert(repository_name, repository);
+        let id = self.allocate_repository_id();
+        self.repositories.insert(id.clone(), repository);
+        id
     }
     pub fn contains_repository_path(&self, path: &PathBuf) -> bool {
         self.repository_paths.contains(path)
     }
-    pub fn get_mut_repository(&mut self, name: &RepositoryName) -> Option<&mut Repository> {
-        self.repositories.get_mut(name)
+    fn allocate_repository_id(&mut self) -> RepositoryId {
+        if !self.last_repository_id.is_next_id_valid() {
+            eprintln!("Too many repository ids allocated");
+            std::process::abort();
+        }
+        self.last_repository_id.increment();
+        self.last_repository_id.clone()
     }
 }

@@ -1,18 +1,17 @@
 use std::fs;
 use std::path::PathBuf;
 use std::rc::Rc;
-use std::sync::atomic::{AtomicUsize, Ordering};
 
 use slint::{ComponentHandle, Model, ModelExt, SharedString, VecModel};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
-use crate::storage::repository_storage::{DiffRangeStore, FileDiffStore, NoteStore, ReviewName, ReviewStore};
+use crate::storage::repository_storage::{FileDiffStore, NoteStore};
 use crate::storage::{RepositoryName, RepositoryStore, create_storage};
 use crate::ui::{SlintFileDiff, SlintNote};
 use crate::{git_utils, ui};
 
 use crate::model::{IdModel, ReviewHelperSettings};
-use crate::review_helper_cache::{FileDiffId, NoteId, Review, ReviewHelperCache, ReviewHelperError, ReviewId};
+use crate::review_helper_cache::{FileDiffId, NoteId, RepositoryId, Review, ReviewHelperCache, ReviewHelperError, ReviewId};
 
 pub type WorkerChannel = UnboundedSender<WorkerMessage>;
 
@@ -27,16 +26,14 @@ pub enum WorkerMessage {
     },
     NewRepository(PathBuf),
     ChangeRepository {
-        name: RepositoryName,
+        id: RepositoryId,
         base_branch: String,
     },
     LoadReviewNames {
-        id: usize,
-        name: RepositoryName,
+        id: RepositoryId,
     },
     LoadReview {
-        repository_id: usize,
-        repository_name: RepositoryName,
+        repository_id: RepositoryId,
         review_id: ReviewId,
     },
 }
@@ -66,36 +63,6 @@ impl Worker {
     }
 }
 
-fn allocate_repository_id() -> usize {
-    static NEXT_ID: AtomicUsize = AtomicUsize::new(1);
-    let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
-    if id == usize::MAX {
-        eprintln!("Too many repository ids allocated");
-        std::process::abort();
-    }
-    id
-}
-
-fn allocate_note_id() -> usize {
-    static NEXT_ID: AtomicUsize = AtomicUsize::new(1);
-    let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
-    if id == usize::MAX {
-        eprintln!("Too many review ids allocated");
-        std::process::abort();
-    }
-    id
-}
-
-fn allocate_file_diff_id() -> usize {
-    static NEXT_ID: AtomicUsize = AtomicUsize::new(1);
-    let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
-    if id == usize::MAX {
-        eprintln!("Too many review ids allocated");
-        std::process::abort();
-    }
-    id
-}
-
 impl From<(&NoteId, &NoteStore)> for ui::SlintNote {
     fn from((id, note_store): (&NoteId, &NoteStore)) -> Self {
         SlintNote {
@@ -114,6 +81,24 @@ impl From<(&FileDiffId, &FileDiffStore)> for ui::SlintFileDiff {
             is_reviewed: file_diff_store.is_reviewed,
             text: SharedString::from(file_diff_store.file_path.to_string_lossy().as_ref()),
             ..Default::default()
+        }
+    }
+}
+
+struct UiBasicRepository {
+    path: SharedString,
+    name: SharedString,
+    first_commit: SharedString,
+    base_branch: SharedString,
+}
+
+impl UiBasicRepository {
+    fn new(repository_store: &RepositoryStore) -> Self {
+        UiBasicRepository {
+            first_commit: SharedString::from(repository_store.first_commit.as_str()),
+            name: SharedString::from(repository_store.name.as_str()),
+            path: SharedString::from(repository_store.path.to_string_lossy().as_ref()),
+            base_branch: SharedString::from(repository_store.base_branch.as_str()),
         }
     }
 }
@@ -167,7 +152,12 @@ fn worker_loop(ui_weak: slint::Weak<ui::AppWindow>, mut rx: UnboundedReceiver<Wo
     match storage.load_repositories() {
         Ok(repositories) => {
             review_helper_cache.set_repositories(&repositories);
-            initialize_ui_repositories(ui_weak.clone(), repositories);
+            let ui_repositories: Vec<_> = review_helper_cache
+                .repositories
+                .iter()
+                .map(|(id, repo)| (id.as_i32(), UiBasicRepository::new(&repo.store)))
+                .collect();
+            initialize_ui_repositories(ui_weak.clone(), ui_repositories);
         }
         Err(_) => {
             panic!("Could not load repositories!")
@@ -202,47 +192,53 @@ fn worker_loop(ui_weak: slint::Weak<ui::AppWindow>, mut rx: UnboundedReceiver<Wo
                 match create_repository_store(path) {
                     Ok(store) => match storage.save_repository(&store) {
                         Ok(()) => {
-                            review_helper_cache.add_repository(store.clone());
-                            new_ui_repository(ui_weak.clone(), store);
+                            let ui_repository = UiBasicRepository::new(&store);
+                            let repository_id = review_helper_cache.add_repository(store);
+
+                            new_ui_repository(ui_weak.clone(), repository_id.as_i32(), ui_repository);
                         }
                         Err(e) => report_error(ui_weak.clone(), ui::SlintResult::StoreFailed, &e.to_string()),
                     },
                     Err(e) => report_review_helper_error(ui_weak.clone(), &e),
                 }
             }
-            WorkerMessage::ChangeRepository { name, base_branch } => {
-                if let Some(repository) = review_helper_cache.get_mut_repository(&name) {
+            WorkerMessage::ChangeRepository { id, base_branch } => {
+                if let Some(repository) = review_helper_cache.repositories.get_mut(&id) {
                     repository.store.base_branch = base_branch;
                     if let Err(_) = storage.save_repository(&repository.store) {
-                        report_error(ui_weak.clone(), ui::SlintResult::StoreFailed, name.as_str());
+                        report_error(ui_weak.clone(), ui::SlintResult::StoreFailed, repository.name.as_str());
                     }
                 } else {
-                    report_error(ui_weak.clone(), ui::SlintResult::ModelItemNotExists, &name.as_str());
+                    report_error(
+                        ui_weak.clone(),
+                        ui::SlintResult::ModelItemNotExists,
+                        &format!("repository  id {}", id.as_usize()),
+                    );
                 }
             }
-            WorkerMessage::LoadReviewNames { id, name } => {
-                if let Some(repository) = review_helper_cache.get_mut_repository(&name) {
-                    match storage.load_review_names(&name) {
+            WorkerMessage::LoadReviewNames { id } => {
+                if let Some(repository) = review_helper_cache.repositories.get_mut(&id) {
+                    match storage.load_review_names(&repository.name) {
                         Ok(review_names) => {
                             let mut reviews = Vec::new();
                             review_names.into_iter().for_each(|review_name| {
                                 let id = repository.register_review_name(review_name.clone());
                                 reviews.push((id.as_i32(), SharedString::from(review_name.as_str())));
                             });
-                            set_ui_review_names(ui_weak.clone(), id, reviews);
+                            set_ui_review_names(ui_weak.clone(), id.as_usize(), reviews);
                         }
                         Err(e) => report_error(ui_weak.clone(), ui::SlintResult::LoadReviewNamesFailed, &e.to_string()),
                     }
                 } else {
-                    report_error(ui_weak.clone(), ui::SlintResult::ModelItemNotExists, &name.as_str());
+                    report_error(
+                        ui_weak.clone(),
+                        ui::SlintResult::ModelItemNotExists,
+                        &format!("repository id {}", id.as_usize()),
+                    );
                 }
             }
-            WorkerMessage::LoadReview {
-                repository_id,
-                repository_name,
-                review_id,
-            } => {
-                if let Some(repository) = review_helper_cache.get_mut_repository(&repository_name) {
+            WorkerMessage::LoadReview { repository_id, review_id } => {
+                if let Some(repository) = review_helper_cache.repositories.get_mut(&repository_id) {
                     let Some(review_name) = repository.get_review_name(&review_id) else {
                         report_error(
                             ui_weak.clone(),
@@ -251,7 +247,7 @@ fn worker_loop(ui_weak: slint::Weak<ui::AppWindow>, mut rx: UnboundedReceiver<Wo
                         );
                         continue;
                     };
-                    match storage.load_review(&repository_name, review_name) {
+                    match storage.load_review(&repository.name, review_name) {
                         Ok(opt_store) => {
                             if let Some(store) = opt_store {
                                 let start_diff = SharedString::from(&store.diff_range.start);
@@ -265,7 +261,7 @@ fn worker_loop(ui_weak: slint::Weak<ui::AppWindow>, mut rx: UnboundedReceiver<Wo
 
                                 set_ui_review(
                                     ui_weak.clone(),
-                                    repository_id,
+                                    repository_id.as_usize(),
                                     review_id.as_usize(),
                                     start_diff,
                                     end_diff,
@@ -277,7 +273,11 @@ fn worker_loop(ui_weak: slint::Weak<ui::AppWindow>, mut rx: UnboundedReceiver<Wo
                         Err(e) => report_error(ui_weak.clone(), ui::SlintResult::LoadReviewFailed, &e.to_string()),
                     }
                 } else {
-                    report_error(ui_weak.clone(), ui::SlintResult::ModelItemNotExists, &repository_name.as_str());
+                    report_error(
+                        ui_weak.clone(),
+                        ui::SlintResult::ModelItemNotExists,
+                        &format!("repository id {}", repository_id.as_usize()),
+                    );
                 }
             }
         }
@@ -341,28 +341,46 @@ fn set_ui_review_names(ui_weak: slint::Weak<ui::AppWindow>, repository_id: usize
         .unwrap();
 }
 
-fn new_ui_repository(ui_weak: slint::Weak<ui::AppWindow>, store: RepositoryStore) {
+fn new_ui_repository(ui_weak: slint::Weak<ui::AppWindow>, repository_id: i32, ui_repository: UiBasicRepository) {
     ui_weak
         .upgrade_in_event_loop({
             move |app_window| {
                 let model_rc = app_window.global::<ui::SlintReviewHelper>().get_repositories();
                 let model = model_rc.as_any().downcast_ref::<IdModel<ui::SlintRepository>>().unwrap();
-                let id = allocate_repository_id();
-                model.add(id, ui::SlintRepository::from((id, &store)));
+                model.add(
+                    repository_id as usize,
+                    ui::SlintRepository {
+                        id: repository_id,
+                        base_branch: ui_repository.base_branch,
+                        first_commit: ui_repository.first_commit,
+                        name: ui_repository.name,
+                        path: ui_repository.path,
+                        review_model: Rc::new(IdModel::default()).into(),
+                    },
+                );
             }
         })
         .unwrap();
 }
 
-fn initialize_ui_repositories(ui_weak: slint::Weak<ui::AppWindow>, repositories: Vec<RepositoryStore>) {
+fn initialize_ui_repositories(ui_weak: slint::Weak<ui::AppWindow>, repositories: Vec<(i32, UiBasicRepository)>) {
     ui_weak
         .upgrade_in_event_loop({
             move |app_window| {
                 let model = IdModel::default();
 
-                repositories.iter().for_each(|store| {
-                    let id = allocate_repository_id();
-                    model.add(id, ui::SlintRepository::from((id, store)));
+                repositories.into_iter().for_each(|(id, ui_repository)| {
+                    model.add(
+                        id as usize,
+                        ui::SlintRepository {
+                            id,
+                            base_branch: ui_repository.base_branch,
+                            first_commit: ui_repository.first_commit,
+                            name: ui_repository.name,
+                            path: ui_repository.path,
+                            review_model: Rc::new(IdModel::default()).into(),
+                        },
+                    );
                 });
 
                 let model_rc = Rc::new(model);

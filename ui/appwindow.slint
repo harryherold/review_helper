@@ -89,7 +89,7 @@ export component AppWindow inherits Window {
         initial_y: (root.height / 2) - (self.height / 2);
         base-branch-changed(base-branch) => {
             SlintReviewHelper.repositories[root.selected_repository_index].base-branch = base-branch;
-            SlintRepositoryCallbacks.repository_changed(SlintReviewHelper.repositories[root.selected_repository_index].name, base-branch);
+            SlintRepositoryCallbacks.repository_changed(SlintReviewHelper.repositories[root.selected_repository_index].id, base-branch);
         }
     }
 
