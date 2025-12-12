@@ -55,6 +55,9 @@ export component ErrorPopup inherits Popup {
                     if (root.result == SlintResult.LoadReviewNamesFailed) {
                         return "Could not load review names of repository!";
                     }
+                    if (root.result == SlintResult.ReviewAlreadyExists) {
+                        return "Review already exists in the repository!";
+                    }
                     return "";
                 }
             }

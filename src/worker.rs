@@ -5,9 +5,9 @@ use std::rc::Rc;
 use slint::{ComponentHandle, Model, ModelExt, SharedString, VecModel};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
-use crate::storage::repository_storage::{FileDiffStore, NoteStore};
+use crate::storage::repository_storage::{FileDiffStore, NoteStore, ReviewName, ReviewStore};
 use crate::storage::{RepositoryName, RepositoryStore, create_storage};
-use crate::ui::{SlintFileDiff, SlintNote};
+use crate::ui::{SlintFileDiff, SlintNote, SlintReview};
 use crate::{git_utils, ui};
 
 use crate::model::{IdModel, ReviewHelperSettings};
@@ -35,6 +35,10 @@ pub enum WorkerMessage {
     LoadReview {
         repository_id: RepositoryId,
         review_id: ReviewId,
+    },
+    NewReview {
+        repository_id: RepositoryId,
+        name: String,
     },
 }
 
@@ -280,8 +284,59 @@ fn worker_loop(ui_weak: slint::Weak<ui::AppWindow>, mut rx: UnboundedReceiver<Wo
                     );
                 }
             }
+            WorkerMessage::NewReview { repository_id, name } => {
+                if let Some(repository) = review_helper_cache.repositories.get_mut(&repository_id) {
+                    let review_name = ReviewName::from(name.as_str());
+                    if repository.has_review_name(&review_name) {
+                        report_error(ui_weak.clone(), ui::SlintResult::ReviewAlreadyExists, &name);
+                        continue;
+                    }
+
+                    if let Err(e) = storage.save_review(&repository.name, &review_name, &ReviewStore::default()) {
+                        report_error(ui_weak.clone(), ui::SlintResult::ModelItemNotExists, &e.to_string());
+                        continue;
+                    }
+
+                    let review_id = repository.new_review(review_name);
+                    new_ui_review(
+                        ui_weak.clone(),
+                        repository_id.as_usize(),
+                        review_id.as_usize(),
+                        SharedString::from(name.as_str()),
+                    );
+                } else {
+                    report_error(
+                        ui_weak.clone(),
+                        ui::SlintResult::ModelItemNotExists,
+                        &format!("repository id {}", repository_id.as_usize()),
+                    );
+                }
+            }
         }
     }
+}
+
+fn new_ui_review(ui_weak: slint::Weak<ui::AppWindow>, repository_id: usize, review_id: usize, review_name: SharedString) {
+    ui_weak
+        .upgrade_in_event_loop(move |app_window| {
+            let repository_model = app_window.global::<ui::SlintReviewHelper>().get_repositories();
+            let repository_model = repository_model.as_any().downcast_ref::<IdModel<ui::SlintRepository>>().unwrap();
+            let repository = repository_model.get(repository_id).expect("Repository model is out of sync with cache!");
+            let review_model = repository.review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>().unwrap();
+
+            assert!(false == review_model.has(review_id));
+
+            review_model.add(
+                review_id,
+                SlintReview {
+                    id: review_id as i32,
+                    name: review_name,
+                    is_loaded: true,
+                    ..Default::default()
+                },
+            );
+        })
+        .unwrap();
 }
 
 fn set_ui_review(

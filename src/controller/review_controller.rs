@@ -29,4 +29,10 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
             let review_model = review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>().unwrap();
             review_model.id_to_index(review_id as usize)
         });
+    app_window.global::<ui::SlintReviewCallbacks>().on_new_review({
+        let channel = worker_channel.clone();
+        move |id, name| {
+            channel.send(crate::worker::WorkerMessage::NewReview { repository_id: RepositoryId::from(id), name: String::from(&name) }).unwrap();
+        }
+    })
 }

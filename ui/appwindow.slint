@@ -138,14 +138,7 @@ export component AppWindow inherits Window {
 
         tab-view := TabView {
             model: SlintReviewHelper.repository_names;
-            request-create => {
-                let result = SlintReviewHelper.new_repository();
-                if (result != SlintResult.Ok) {
-                    error-popup.show_error(result);
-                } else {
-                    self.set_current_index(self.model.length - 1);
-                }
-            }
+            request-create => { SlintReviewHelper.new_repository() }
             for repository[idx] in SlintReviewHelper.repositories: RepositoryTabViewItem {
                 index: idx;
                 current-index <=> parent.current-index;

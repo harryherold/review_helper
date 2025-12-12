@@ -99,6 +99,9 @@ impl<T: Clone> IdModel<T> {
             None => -1,
         }
     }
+    pub fn has(&self, id: usize) -> bool {
+        self.entity_map.borrow().contains_key(&id)
+    }
 }
 
 #[cfg(test)]

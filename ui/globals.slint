@@ -20,6 +20,7 @@ export enum SlintResult {
     QueryingDiffToolsFailed,
     ReviewAlreadyLoaded,
     LoadReviewFailed,
+    ReviewAlreadyExists,
 }
 
 export enum SlintChangeType {
@@ -106,6 +107,7 @@ export global SlintErrors {
 }
 
 export global SlintReviewCallbacks {
+    callback new_review(int, string);
     callback load_review(int, int);
     pure callback review_id_to_index(int, [SlintReview]) -> int;
 }
@@ -119,7 +121,7 @@ export global SlintReviewHelper {
     in property <[SlintRepository]> repositories;
     in property <[string]> repository_names;
     in property <int> last_repository_id;
-    callback new_repository() -> SlintResult;
+    callback new_repository();
 }
 
 export global Repository {
@@ -257,6 +259,7 @@ export global Notes {
 
 export global SlintStringUtils {
     pure callback filename(string) -> string;
+    pure callback is_valid_name(string) -> bool;
 }
 
 export global SlintModelUtils {

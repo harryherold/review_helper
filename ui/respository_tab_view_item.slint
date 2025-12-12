@@ -11,7 +11,7 @@ import {
     SlintReviewHelper,
     SlintRepositoryCallbacks,
     SlintReview,
-    SlintReviewCallbacks,
+    SlintReviewCallbacks, SlintStringUtils,
 } from "globals.slint";
 import { TabButton, TabCreateButton, TabViewItem } from "tabview.slint";
 
@@ -42,9 +42,42 @@ export component RepositoryTabViewItem inherits TabViewItem {
                     text: "Reviews";
                 }
 
+                private property <bool> enable-new-review: false;
                 TabCreateButton {
                     height: Style.size.control-height;
+                    clicked => {
+                        enable-new-review = true;
+                    }
                 }
+                if enable-new-review: HorizontalLayout {
+                    name-edit := LineEdit {
+                        changed has-focus => {
+                            if (!self.has-focus) {
+                                enable-new-review = false;
+                            }
+                        }
+                        input-type: text;
+                        accepted(text) => {
+                            if (SlintStringUtils.is_valid_name(text)) {
+                                SlintReviewCallbacks.new_review(root.repository_id, text);
+                                enable-new-review = false;
+                            }
+                        }
+                        key-pressed(event) => {
+                            if (event.text == Key.Escape) {
+                                enable-new-review = false;
+                                return EventResult.accept;
+                            }
+                            EventResult.reject
+                        }
+    
+                    }
+                    Image {
+                        source: SlintStringUtils.is_valid_name(name-edit.text) ? @image-url("../assets/icons/success.svg") : @image-url("../assets/icons/failed.svg");
+                        width: Style.size.image_width;
+                    }       
+                }
+                
 
                 ListView {
                     visible: root.review_model.length > 0; // NOTE workaround to get ListView visible with their elements

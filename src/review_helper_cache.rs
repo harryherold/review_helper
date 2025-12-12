@@ -132,7 +132,9 @@ pub struct Repository {
     pub store: RepositoryStore,
     reviews: HashMap<ReviewId, Review>,
     last_review_id: ReviewId,
+    // TODO refactor names to *_map names
     review_names: HashMap<ReviewId, ReviewName>,
+    review_name_set: HashSet<ReviewName>,
 }
 
 impl Repository {
@@ -143,6 +145,7 @@ impl Repository {
             reviews: HashMap::new(),
             last_review_id: ReviewId::from(0),
             review_names: HashMap::new(),
+            review_name_set: HashSet::new(),
         }
     }
     fn allocate_review_id(&mut self) -> ReviewId {
@@ -155,14 +158,23 @@ impl Repository {
     }
     pub fn register_review_name(&mut self, review_name: ReviewName) -> ReviewId {
         let id = self.allocate_review_id();
-        self.review_names.insert(id.clone(), review_name);
+        self.review_names.insert(id.clone(), review_name.clone());
+        self.review_name_set.insert(review_name);
         id
     }
     pub fn insert_review(&mut self, review_id: ReviewId, review: Review) {
         assert!(self.reviews.insert(review_id, review).is_none());
     }
+    pub fn new_review(&mut self, name: ReviewName) -> ReviewId {
+        let id = self.register_review_name(name);
+        self.insert_review(id.clone(), Review::default());
+        id
+    }
     pub fn get_review_name(&self, id: &ReviewId) -> Option<&ReviewName> {
         self.review_names.get(id)
+    }
+    pub fn has_review_name(&self, name: &ReviewName) -> bool {
+        self.review_name_set.contains(name)
     }
 }
 

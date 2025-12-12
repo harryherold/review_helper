@@ -16,7 +16,6 @@ pub fn setup_review_helper(app_window: &ui::AppWindow, worker_channel: WorkerCha
             {
                 channel.send(crate::worker::WorkerMessage::NewRepository(repository_path)).unwrap();
             }
-            ui::SlintResult::Ok
         }
     });
 }
