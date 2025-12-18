@@ -3,7 +3,7 @@ import {
     TabWidget,
     ListView,
     Palette,
-    LineEdit,
+    LineEdit, CheckBox,
 } from "std-widgets.slint";
 import { ToolButton } from "tool_button.slint";
 import { Style } from "style.slint";
@@ -12,6 +12,9 @@ import {
     SlintRepositoryCallbacks,
     SlintReview,
     SlintReviewCallbacks, SlintStringUtils,
+    SlintReviewIdParameters,
+    SlintFileDiffIdParamters,
+    SlintNoteIdParamters,
 } from "globals.slint";
 import { TabButton, TabCreateButton, TabViewItem } from "tabview.slint";
 
@@ -21,6 +24,10 @@ export component RepositoryTabViewItem inherits TabViewItem {
     in property <[SlintReview]> review_model;
     private property <bool> is_repository_loaded: false;
     private property <int> selected_review_id: -1;
+    private property <SlintReviewIdParameters> review_id_parameters: {
+        repository_id: root.repository_id,
+        review_id: root.selected_review_id,
+    };
 
     changed is_active => {
         if (root.is_active && !root.is_repository_loaded) {
@@ -140,17 +147,26 @@ export component RepositoryTabViewItem inherits TabViewItem {
                                             text: root.review_model[review_index].end_diff;
                                         }
                                     }
+                                    ListView {
+                                        for file_diff in root.review_model[review_index].file_diff_model: HorizontalLayout {
+                                            private property <SlintFileDiffIdParamters> id_parameters: {
+                                                review_id_parameters: root.review_id_parameters,
+                                                file_diff_id: file-diff.id,
+                                            };
 
-                                    HorizontalLayout {
-                                        alignment: start;
-                                        spacing: Style.size.spacing;
-
-                                        Text {
-                                            text: "FileDiffs count";
-                                        }
-
-                                        Text {
-                                            text: root.review_model[review_index].file_diff_model.length;
+                                            CheckBox {
+                                                private property <bool> is_reviewed: file_diff.is-reviewed;
+                                                changed is_reviewed => {
+                                                    self.checked = is_reviewed;
+                                                }
+                                                checked: is_reviewed;
+                                                toggled => {
+                                                    SlintReviewCallbacks.change_file_diff_is_reviewed(id_parameters, self.checked);
+                                                }
+                                            }
+                                            Text {
+                                                text: file-diff.file_path;
+                                            }
                                         }
                                     }
                                 }
@@ -161,17 +177,45 @@ export component RepositoryTabViewItem inherits TabViewItem {
                             title: "Notes";
                             Rectangle {
                                 VerticalLayout {
-                                    alignment: start;
                                     spacing: Style.size.spacing;
-                                    HorizontalLayout {
-                                        alignment: start;
-                                        spacing: Style.size.spacing;
-                                        Text {
-                                            text: "Notes count";
-                                        }
-
-                                        Text {
-                                            text: root.review_model[review_index].note_model.length;
+                                    ListView {
+                                        for note in root.review_model[review_index].note_model: HorizontalLayout {
+                                            private property <SlintNoteIdParamters> id_parameters: {
+                                                review_id_parameters: root.review_id_parameters,
+                                                note_id: note.id,
+                                            };
+                                            height: Style.size.control-height;
+                                            
+                                            CheckBox {
+                                                private property <bool> is_fixed: note.is-fixed;
+                                                changed is_fixed => {
+                                                    self.checked = is_fixed;
+                                                }
+                                                checked: is_fixed;
+                                                toggled => {
+                                                    SlintReviewCallbacks.change_note_is_done(id_parameters, self.checked);
+                                                }
+                                            }
+                                            LineEdit {
+                                                private property <string> note_text: note.text;
+                                                changed note_text => {
+                                                    self.text = note_text;
+                                                }
+                                                text: note.text;
+                                                accepted(text) => {
+                                                    SlintReviewCallbacks.change_note_text(id_parameters, text);
+                                                }
+                                            }
+                                            LineEdit {
+                                                private property <string> note_context: note.context;
+                                                changed note_context => {
+                                                    self.text = note_context;
+                                                }
+                                                text: note.context;
+                                                accepted(text) => {
+                                                    SlintReviewCallbacks.change_note_context(id_parameters, text);
+                                                }
+                                            }
                                         }
                                     }
                                 }

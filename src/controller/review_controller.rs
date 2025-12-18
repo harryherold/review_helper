@@ -1,8 +1,8 @@
 use crate::{
     model::IdModel,
-    review_helper_cache::{RepositoryId, ReviewId},
+    review_helper_cache::{FileDiffId, NoteId, RepositoryId, ReviewId},
     ui,
-    worker::WorkerChannel,
+    worker::{NoteChangeType, ReviewContentChange, WorkerChannel, WorkerMessage},
 };
 
 use slint::{ComponentHandle, Model};
@@ -32,7 +32,83 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
     app_window.global::<ui::SlintReviewCallbacks>().on_new_review({
         let channel = worker_channel.clone();
         move |id, name| {
-            channel.send(crate::worker::WorkerMessage::NewReview { repository_id: RepositoryId::from(id), name: String::from(&name) }).unwrap();
+            channel
+                .send(crate::worker::WorkerMessage::NewReview {
+                    repository_id: RepositoryId::from(id),
+                    name: String::from(&name),
+                })
+                .unwrap();
         }
-    })
+    });
+    app_window.global::<ui::SlintReviewCallbacks>().on_change_file_diff_is_reviewed({
+        let channel = worker_channel.clone();
+        move |ids, new_is_reviewed| {
+            let repository_id = RepositoryId::from(ids.review_id_parameters.repository_id);
+            let review_id = ReviewId::from(ids.review_id_parameters.review_id);
+            let content_change = ReviewContentChange::FileDiffChange {
+                id: FileDiffId::from(ids.file_diff_id),
+                is_reviewed: new_is_reviewed,
+            };
+            let message = WorkerMessage::ChangeReview {
+                repository_id,
+                review_id,
+                content_change,
+            };
+            channel.send(message).unwrap();
+        }
+    });
+    app_window.global::<ui::SlintReviewCallbacks>().on_change_note_text({
+        let channel = worker_channel.clone();
+        move |ids, new_text| {
+            let repository_id = RepositoryId::from(ids.review_id_parameters.repository_id);
+            let review_id = ReviewId::from(ids.review_id_parameters.review_id);
+            let note_id = NoteId::from(ids.note_id);
+            let content_change = ReviewContentChange::NoteChange {
+                id: note_id,
+                change_type: NoteChangeType::TextChanged(String::from(&new_text)),
+            };
+            let message = WorkerMessage::ChangeReview {
+                repository_id,
+                review_id,
+                content_change,
+            };
+            channel.send(message).unwrap();
+        }
+    });
+    app_window.global::<ui::SlintReviewCallbacks>().on_change_note_context({
+        let channel = worker_channel.clone();
+        move |ids, new_context| {
+            let repository_id = RepositoryId::from(ids.review_id_parameters.repository_id);
+            let review_id = ReviewId::from(ids.review_id_parameters.review_id);
+            let note_id = NoteId::from(ids.note_id);
+            let content_change = ReviewContentChange::NoteChange {
+                id: note_id,
+                change_type: NoteChangeType::ContextChanged(String::from(&new_context)),
+            };
+            let message = WorkerMessage::ChangeReview {
+                repository_id,
+                review_id,
+                content_change,
+            };
+            channel.send(message).unwrap();
+        }
+    });
+    app_window.global::<ui::SlintReviewCallbacks>().on_change_note_is_done({
+        let channel = worker_channel.clone();
+        move |ids, new_is_done| {
+            let repository_id = RepositoryId::from(ids.review_id_parameters.repository_id);
+            let review_id = ReviewId::from(ids.review_id_parameters.review_id);
+            let note_id = NoteId::from(ids.note_id);
+            let content_change = ReviewContentChange::NoteChange {
+                id: note_id,
+                change_type: NoteChangeType::IsDoneChanged(new_is_done),
+            };
+            let message = WorkerMessage::ChangeReview {
+                repository_id,
+                review_id,
+                content_change,
+            };
+            channel.send(message).unwrap();
+        }
+    });
 }

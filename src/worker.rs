@@ -99,7 +99,7 @@ impl From<(&FileDiffId, &FileDiffStore)> for ui::SlintFileDiff {
         SlintFileDiff {
             id: id.as_i32(),
             is_reviewed: file_diff_store.is_reviewed,
-            text: SharedString::from(file_diff_store.file_path.to_string_lossy().as_ref()),
+            file_path: SharedString::from(file_diff_store.file_path.to_string_lossy().as_ref()),
             ..Default::default()
         }
     }
