@@ -82,5 +82,12 @@ pub trait ReviewHelperStorage {
     fn save_repository(&self, repository_store: &RepositoryStore) -> anyhow::Result<()>;
     fn load_review_names(&self, repository_name: &RepositoryName) -> anyhow::Result<Vec<ReviewName>>;
     fn load_review(&self, repository_name: &RepositoryName, review_name: &ReviewName) -> anyhow::Result<Option<ReviewStore>>;
-    fn save_review(&self, repository_name: &RepositoryName, review_name: &ReviewName, review: &ReviewStore) -> anyhow::Result<()>;
+    fn save_review_notes(&self, repository_name: &RepositoryName, review_name: &ReviewName, notes: &[&NoteStore]) -> anyhow::Result<()>;
+    fn save_review_file_diffs(
+        &self,
+        repository_name: &RepositoryName,
+        review_name: &ReviewName,
+        diff_range: &DiffRangeStore,
+        file_diffs: &[&FileDiffStore],
+    ) -> anyhow::Result<()>;
 }

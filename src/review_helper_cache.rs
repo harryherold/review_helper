@@ -86,16 +86,17 @@ pub enum ReviewHelperError {
 
 #[derive(Default, Clone)]
 pub struct Review {
-    diff_range: DiffRangeStore,
+    pub diff_range: DiffRangeStore,
     pub notes: HashMap<NoteId, NoteStore>,
     pub file_diffs: HashMap<FileDiffId, FileDiffStore>,
     last_note_id: NoteId,
     last_file_diff_id: FileDiffId,
+    pub name: ReviewName,
 }
 
 impl Review {
-    pub fn new(store: ReviewStore) -> Self {
-        let mut review = Review::default();
+    pub fn new(store: ReviewStore, name: ReviewName) -> Self {
+        let mut review = Review { name, ..Default::default() };
         review.diff_range = store.diff_range;
         store.notes.into_iter().for_each(|store| {
             let id = review.allocate_note_id();
@@ -166,8 +167,8 @@ impl Repository {
         assert!(self.reviews.insert(review_id, review).is_none());
     }
     pub fn new_review(&mut self, name: ReviewName) -> ReviewId {
-        let id = self.register_review_name(name);
-        self.insert_review(id.clone(), Review::default());
+        let id = self.register_review_name(name.clone());
+        self.insert_review(id.clone(), Review { name, ..Default::default() });
         id
     }
     pub fn get_review_name(&self, id: &ReviewId) -> Option<&ReviewName> {
@@ -175,6 +176,9 @@ impl Repository {
     }
     pub fn has_review_name(&self, name: &ReviewName) -> bool {
         self.review_name_set.contains(name)
+    }
+    pub fn get_mut_review(&mut self, id: &ReviewId) -> Option<&mut Review> {
+        self.reviews.get_mut(id)
     }
 }
 

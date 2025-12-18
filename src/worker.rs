@@ -5,7 +5,7 @@ use std::rc::Rc;
 use slint::{ComponentHandle, Model, ModelExt, SharedString, VecModel};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
-use crate::storage::repository_storage::{FileDiffStore, NoteStore, ReviewName, ReviewStore};
+use crate::storage::repository_storage::{DiffRangeStore, FileDiffStore, NoteStore, ReviewName};
 use crate::storage::{RepositoryName, RepositoryStore, create_storage};
 use crate::ui::{SlintFileDiff, SlintNote, SlintReview};
 use crate::{git_utils, ui};
@@ -14,6 +14,17 @@ use crate::model::{IdModel, ReviewHelperSettings};
 use crate::review_helper_cache::{FileDiffId, NoteId, RepositoryId, Review, ReviewHelperCache, ReviewHelperError, ReviewId};
 
 pub type WorkerChannel = UnboundedSender<WorkerMessage>;
+
+pub enum NoteChangeType {
+    TextChanged(String),
+    ContextChanged(String),
+    IsDoneChanged(bool),
+}
+
+pub enum ReviewContentChange {
+    NoteChange { id: NoteId, change_type: NoteChangeType },
+    FileDiffChange { id: FileDiffId, is_reviewed: bool },
+}
 
 pub enum WorkerMessage {
     Quit,
@@ -39,6 +50,11 @@ pub enum WorkerMessage {
     NewReview {
         repository_id: RepositoryId,
         name: String,
+    },
+    ChangeReview {
+        repository_id: RepositoryId,
+        review_id: ReviewId,
+        content_change: ReviewContentChange,
     },
 }
 
@@ -257,7 +273,7 @@ fn worker_loop(ui_weak: slint::Weak<ui::AppWindow>, mut rx: UnboundedReceiver<Wo
                                 let start_diff = SharedString::from(&store.diff_range.start);
                                 let end_diff = SharedString::from(&store.diff_range.end);
 
-                                let review = Review::new(store);
+                                let review = Review::new(store, review_name.clone());
                                 let ui_notes: Vec<_> = review.notes.iter().map(|id_store_tuple| SlintNote::from(id_store_tuple)).collect();
                                 let ui_file_diffs: Vec<_> = review.file_diffs.iter().map(|id_store_tuple| SlintFileDiff::from(id_store_tuple)).collect();
 
@@ -291,8 +307,7 @@ fn worker_loop(ui_weak: slint::Weak<ui::AppWindow>, mut rx: UnboundedReceiver<Wo
                         report_error(ui_weak.clone(), ui::SlintResult::ReviewAlreadyExists, &name);
                         continue;
                     }
-
-                    if let Err(e) = storage.save_review(&repository.name, &review_name, &ReviewStore::default()) {
+                    if let Err(e) = storage.save_review_file_diffs(&repository.name, &review_name, &DiffRangeStore::default(), &[]) {
                         report_error(ui_weak.clone(), ui::SlintResult::ModelItemNotExists, &e.to_string());
                         continue;
                     }
@@ -310,6 +325,61 @@ fn worker_loop(ui_weak: slint::Weak<ui::AppWindow>, mut rx: UnboundedReceiver<Wo
                         ui::SlintResult::ModelItemNotExists,
                         &format!("repository id {}", repository_id.as_usize()),
                     );
+                }
+            }
+            WorkerMessage::ChangeReview {
+                repository_id,
+                review_id,
+                content_change,
+            } => {
+                let Some(repository) = review_helper_cache.repositories.get_mut(&repository_id) else {
+                    report_error(
+                        ui_weak.clone(),
+                        ui::SlintResult::ModelItemNotExists,
+                        &format!("repository id {}", repository_id.as_usize()),
+                    );
+                    continue;
+                };
+
+                let repository_name = repository.name.clone();
+
+                match repository.get_mut_review(&review_id) {
+                    Some(review) => match content_change {
+                        ReviewContentChange::FileDiffChange { id, is_reviewed } => {
+                            let Some(file_diff) = review.file_diffs.get_mut(&id) else {
+                                report_error(ui_weak.clone(), ui::SlintResult::ModelItemNotExists, &format!("file diff id {}", id.as_usize()));
+                                continue;
+                            };
+                            file_diff.is_reviewed = is_reviewed;
+                            if let Err(e) = storage.save_review_file_diffs(
+                                &repository_name,
+                                &review.name,
+                                &review.diff_range,
+                                &review.file_diffs.values().collect::<Vec<_>>(),
+                            ) {
+                                report_error(ui_weak.clone(), ui::SlintResult::StoreFailed, &e.to_string());
+                            }
+                        }
+                        ReviewContentChange::NoteChange { id, change_type } => {
+                            let Some(note) = review.notes.get_mut(&id) else {
+                                report_error(ui_weak.clone(), ui::SlintResult::ModelItemNotExists, &format!("note id {}", id.as_usize()));
+                                continue;
+                            };
+                            match change_type {
+                                NoteChangeType::TextChanged(new_text) => note.text = new_text,
+                                NoteChangeType::ContextChanged(new_context) => note.context = new_context,
+                                NoteChangeType::IsDoneChanged(new_is_done) => note.is_done = new_is_done,
+                            }
+                            if let Err(e) = storage.save_review_notes(&repository_name, &review.name, &review.notes.values().collect::<Vec<_>>()) {
+                                report_error(ui_weak.clone(), ui::SlintResult::StoreFailed, &e.to_string());
+                            }
+                        }
+                    },
+                    None => report_error(
+                        ui_weak.clone(),
+                        ui::SlintResult::ModelItemNotExists,
+                        &format!("repository id {} review id {}", repository_id.as_usize(), review_id.as_usize()),
+                    ),
                 }
             }
         }

@@ -39,6 +39,10 @@ import {
     SlintResult,
     SlintErrors,
     SlintErrorEntry,
+    SlintDiffRange,
+    SlintReviewIdParameters,
+    SlintNoteIdParamters,
+    SlintFileDiffIdParamters,
     SlintRepositoryCallbacks,
     SlintReviewCallbacks,
 } from "globals.slint";
@@ -47,7 +51,23 @@ import { ToolButton } from "tool_button.slint";
 import { RepositoryTabViewItem } from "respository_tab_view_item.slint";
 import { ErrorPopup } from "error_popup.slint";
 
-export { SlintReviewCallbacks, SlintRepositoryCallbacks, SlintReviewHelperSettings, FilePickerAdapter, CommitPickerAdapter, Notes, NoteItem, Diff, DiffFileItem, Repository, SlintStringUtils, OverallDiffStats, SlintModelUtils, SlintRepository, SlintReviewHelper, SlintResult, SlintErrors, SlintErrorEntry }
+export { 
+    SlintReviewCallbacks,
+    SlintRepositoryCallbacks,
+    SlintReviewHelperSettings,
+    FilePickerAdapter,
+    CommitPickerAdapter,
+    Notes,
+    NoteItem,
+    Diff,
+    DiffFileItem,
+    Repository,
+    SlintStringUtils,
+    OverallDiffStats,
+    SlintModelUtils,
+    SlintRepository,
+    SlintReviewHelper,
+    SlintResult, SlintErrors, SlintErrorEntry, SlintDiffRange, SlintReviewIdParameters, SlintNoteIdParamters, SlintFileDiffIdParamters }
 
 export component AppWindow inherits Window {
     private property <int> selected_repository_index <=> tab-view.current-index;

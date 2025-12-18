@@ -106,10 +106,35 @@ export global SlintErrors {
     in property <[SlintErrorEntry]> model;
 }
 
+export struct SlintDiffRange {
+    start: string,
+    end: string,
+}
+
+export struct SlintReviewIdParameters {
+    repository_id: int,
+    review_id: int,
+}
+
+export struct SlintNoteIdParamters {
+    review_id_parameters: SlintReviewIdParameters,
+    note_id: int,
+}
+
+export struct SlintFileDiffIdParamters {
+    review_id_parameters: SlintReviewIdParameters,
+    file_diff_id: int,
+}
+
 export global SlintReviewCallbacks {
     callback new_review(int, string);
     callback load_review(int, int);
     pure callback review_id_to_index(int, [SlintReview]) -> int;
+    callback find_file_changes(SlintReviewIdParameters, SlintDiffRange);
+    callback change_note_text(SlintNoteIdParamters, string);
+    callback change_note_context(SlintNoteIdParamters, string);
+    callback change_note_is_done(SlintNoteIdParamters, bool);
+    callback change_file_diff_is_reviewed(SlintFileDiffIdParamters, bool);
 }
 
 export global SlintRepositoryCallbacks {
