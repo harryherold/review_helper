@@ -5,6 +5,7 @@ use std::rc::Rc;
 use slint::{ComponentHandle, Model, ModelExt, SharedString, VecModel};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
+use crate::git_utils::{DiffStatus, FileDiffMap};
 use crate::storage::repository_storage::{DiffRangeStore, FileDiffStore, NoteStore, ReviewName};
 use crate::storage::{RepositoryName, RepositoryStore, create_storage};
 use crate::ui::{SlintFileDiff, SlintNote, SlintReview};
@@ -55,6 +56,11 @@ pub enum WorkerMessage {
         repository_id: RepositoryId,
         review_id: ReviewId,
         content_change: ReviewContentChange,
+    },
+    FindFileDifferences {
+        repository_id: RepositoryId,
+        review_id: ReviewId,
+        diff_range: DiffRangeStore,
     },
 }
 
@@ -382,8 +388,136 @@ fn worker_loop(ui_weak: slint::Weak<ui::AppWindow>, mut rx: UnboundedReceiver<Wo
                     ),
                 }
             }
+            WorkerMessage::FindFileDifferences {
+                repository_id,
+                review_id,
+                diff_range,
+            } => {
+                let Some(file_diff_map) = query_file_diffs(ui_weak.clone(), &repository_id, &review_helper_cache, &diff_range) else {
+                    continue;
+                };
+                if let Err(e) = update_file_diff_cache(&repository_id, &review_id, &mut review_helper_cache, &file_diff_map) {
+                    report_error(ui_weak.clone(), ui::SlintResult::ModelItemNotExists, &e.to_string());
+                    continue;
+                }
+                let repository = review_helper_cache.repositories.get_mut(&repository_id).unwrap();
+                let repository_name = repository.name.clone();
+                let review = repository.get_mut_review(&review_id).unwrap();
+
+                let ui_file_diffs = file_diff_map
+                    .into_iter()
+                    .map(|(file, diff_status)| {
+                        let id = review.file_id_map.get(&file).unwrap();
+                        let file_diff = review.file_diffs.get(id).unwrap();
+                        make_ui_slint_file_diff(id, &file, &diff_status, file_diff.is_reviewed)
+                    })
+                    .collect::<Vec<_>>();
+
+                set_ui_file_diffs(ui_weak.clone(), repository_id.as_usize(), review_id.as_usize(), ui_file_diffs);
+
+                review.diff_range = diff_range;
+
+                // TODO DRY!
+                if let Err(e) = storage.save_review_file_diffs(
+                    &repository_name,
+                    &review.name,
+                    &review.diff_range,
+                    &review.file_diffs.values().collect::<Vec<_>>(),
+                ) {
+                    report_error(ui_weak.clone(), ui::SlintResult::StoreFailed, &e.to_string());
+                }
+            }
         }
     }
+}
+
+fn change_type_to_ui(change_type: &git_utils::ChangeType) -> ui::SlintChangeType {
+    match change_type {
+        git_utils::ChangeType::Added => ui::SlintChangeType::Added,
+        git_utils::ChangeType::Broken => ui::SlintChangeType::Broken,
+        git_utils::ChangeType::Copied => ui::SlintChangeType::Copied,
+        git_utils::ChangeType::Deleted => ui::SlintChangeType::Deleted,
+        git_utils::ChangeType::Modified => ui::SlintChangeType::Modified,
+        git_utils::ChangeType::Renamed => ui::SlintChangeType::Renamed,
+        git_utils::ChangeType::TypChanged => ui::SlintChangeType::TypChanged,
+        git_utils::ChangeType::Unmerged => ui::SlintChangeType::Unmerged,
+        git_utils::ChangeType::Unknown => ui::SlintChangeType::Unknown,
+        git_utils::ChangeType::Invalid => ui::SlintChangeType::Invalid,
+    }
+}
+
+fn make_ui_slint_file_diff(id: &FileDiffId, file: &String, diff_status: &DiffStatus, is_reviewed: bool) -> SlintFileDiff {
+    SlintFileDiff {
+        id: id.as_i32(),
+        file_path: SharedString::from(file),
+        added_lines: diff_status.added_lines as i32,
+        removed_lines: diff_status.removed_lines as i32,
+        change_type: change_type_to_ui(&diff_status.change_type),
+        is_reviewed,
+    }
+}
+
+fn update_file_diff_cache(
+    repository_id: &RepositoryId,
+    review_id: &ReviewId,
+    review_helper_cache: &mut ReviewHelperCache,
+    file_diff_map: &FileDiffMap,
+) -> anyhow::Result<()> {
+    let Some(repository) = review_helper_cache.repositories.get_mut(repository_id) else {
+        return Err(anyhow::format_err!("Repository id {}", repository_id.as_usize()));
+    };
+    let Some(review) = repository.get_mut_review(review_id) else {
+        return Err(anyhow::format_err!("Review id {}", review_id.as_usize()));
+    };
+    review.update_file_diffs(file_diff_map);
+
+    Ok(())
+}
+
+fn query_file_diffs(
+    ui_weak: slint::Weak<ui::AppWindow>,
+    repository_id: &RepositoryId,
+    review_helper_cache: &ReviewHelperCache,
+    diff_range: &DiffRangeStore,
+) -> Option<FileDiffMap> {
+    match review_helper_cache.repositories.get(&repository_id) {
+        Some(repository) => match git_utils::diff_git_repo(&repository.store.path, &diff_range.start, &diff_range.end) {
+            Ok(file_diff_map) => Some(file_diff_map),
+            Err(e) => {
+                report_error(ui_weak.clone(), ui::SlintResult::FindFileDifferenceFailed, &e.to_string());
+                None
+            }
+        },
+        None => {
+            report_error(
+                ui_weak.clone(),
+                ui::SlintResult::ModelItemNotExists,
+                &format!("repository id {}", repository_id.as_usize()),
+            );
+            None
+        }
+    }
+}
+
+fn set_ui_file_diffs(ui_weak: slint::Weak<ui::AppWindow>, repository_id: usize, review_id: usize, ui_file_diffs: Vec<SlintFileDiff>) {
+    ui_weak
+        .upgrade_in_event_loop(move |app_window| {
+            let repository_model = app_window.global::<ui::SlintReviewHelper>().get_repositories();
+            let repository_model = repository_model.as_any().downcast_ref::<IdModel<ui::SlintRepository>>().unwrap();
+            let repository = repository_model.get(repository_id).expect("Repository model is out of sync with cache!");
+            let review_model = repository.review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>().unwrap();
+
+            assert!(review_model.has(review_id));
+
+            let review = review_model.get(review_id).unwrap();
+            let file_diff_model = review.file_diff_model.as_any().downcast_ref::<IdModel<ui::SlintFileDiff>>().unwrap();
+            file_diff_model.clear();
+
+            ui_file_diffs
+                .into_iter()
+                .for_each(|ui_file_diff| file_diff_model.add(ui_file_diff.id as usize, ui_file_diff));
+        })
+        .unwrap();
 }
 
 fn new_ui_review(ui_weak: slint::Weak<ui::AppWindow>, repository_id: usize, review_id: usize, review_name: SharedString) {

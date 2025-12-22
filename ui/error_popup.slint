@@ -58,6 +58,9 @@ export component ErrorPopup inherits Popup {
                     if (root.result == SlintResult.ReviewAlreadyExists) {
                         return "Review already exists in the repository!";
                     }
+                    if (root.result == SlintResult.FindFileDifferenceFailed) {
+                        return "Could not determine file difference!";
+                    }
                     return "";
                 }
             }

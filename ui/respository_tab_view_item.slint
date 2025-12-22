@@ -8,6 +8,8 @@ import {
 import { ToolButton } from "tool_button.slint";
 import { Style } from "style.slint";
 import {
+    SlintChangeTypeUtils,
+    SlintDiffRange,
     SlintReviewHelper,
     SlintRepositoryCallbacks,
     SlintReview,
@@ -124,27 +126,40 @@ export component RepositoryTabViewItem inherits TabViewItem {
                             title: "FileDiff";
                             Rectangle {
                                 VerticalLayout {
-                                    alignment: start;
+                                    // alignment: start;
                                     spacing: Style.size.spacing;
                                     HorizontalLayout {
                                         spacing: Style.size.spacing;
-                                        Text {
-                                            text: "start";
-                                        }
 
-                                        LineEdit {
+                                        private property <SlintDiffRange> diff_range: {
+                                            start: start-range-edit.text,
+                                            end: end-range-edit.text,
+                                        };
+
+                                        start-range-edit := LineEdit {
+                                            private property <string> commit: root.review_model[review_index].start_diff;
+                                            changed commit => {
+                                                self.text = commit;
+                                            }
                                             text: root.review_model[review_index].start_diff;
-                                        }
-                                    }
-
-                                    HorizontalLayout {
-                                        spacing: Style.size.spacing;
-                                        Text {
-                                            text: "end";
+                                            placeholder-text: "start";
                                         }
 
-                                        LineEdit {
+                                        ToolButton {
+                                            text: "<=>";
+                                            clicked => {
+                                                SlintReviewCallbacks.find_file_changes(root.review_id_parameters, diff_range);
+                                            }
+                                        }
+
+                                        end-range-edit := LineEdit {
+                                            private property <string> commit: root.review_model[review_index].end_diff;
+                                            changed commit => {
+                                                self.text = commit;
+                                            }
+
                                             text: root.review_model[review_index].end_diff;
+                                            placeholder-text: "end";
                                         }
                                     }
                                     ListView {
@@ -166,6 +181,17 @@ export component RepositoryTabViewItem inherits TabViewItem {
                                             }
                                             Text {
                                                 text: file-diff.file_path;
+                                            }
+                                            Text {
+                                                text: file-diff.added_lines;
+                                            }
+                                            Text {
+                                                text: file-diff.removed_lines;
+                                            }
+                                            Image {
+                                                source: SlintChangeTypeUtils.to_icon(file-diff.change_type);
+                                                colorize: Palette.foreground;
+                                                width: Style.size.image_width;
                                             }
                                         }
                                     }

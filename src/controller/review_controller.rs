@@ -1,6 +1,7 @@
 use crate::{
     model::IdModel,
     review_helper_cache::{FileDiffId, NoteId, RepositoryId, ReviewId},
+    storage::repository_storage::DiffRangeStore,
     ui,
     worker::{NoteChangeType, ReviewContentChange, WorkerChannel, WorkerMessage},
 };
@@ -107,6 +108,22 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
                 repository_id,
                 review_id,
                 content_change,
+            };
+            channel.send(message).unwrap();
+        }
+    });
+    app_window.global::<ui::SlintReviewCallbacks>().on_find_file_changes({
+        let channel = worker_channel.clone();
+        move |ids, diff_range| {
+            let repository_id = RepositoryId::from(ids.repository_id);
+            let review_id = ReviewId::from(ids.review_id);
+            let message = WorkerMessage::FindFileDifferences {
+                repository_id,
+                review_id,
+                diff_range: DiffRangeStore {
+                    start: String::from(diff_range.start.as_str()),
+                    end: String::from(diff_range.end.as_str()),
+                },
             };
             channel.send(message).unwrap();
         }

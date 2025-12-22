@@ -9,6 +9,7 @@ use std::{
 use slint::SharedString;
 
 use crate::{
+    git_utils::FileDiffMap,
     model::IdModel,
     storage::{
         RepositoryName, RepositoryStore,
@@ -89,6 +90,7 @@ pub struct Review {
     pub diff_range: DiffRangeStore,
     pub notes: HashMap<NoteId, NoteStore>,
     pub file_diffs: HashMap<FileDiffId, FileDiffStore>,
+    pub file_id_map: HashMap<String, FileDiffId>,
     last_note_id: NoteId,
     last_file_diff_id: FileDiffId,
     pub name: ReviewName,
@@ -104,7 +106,9 @@ impl Review {
         });
         store.file_diff_list.into_iter().for_each(|store| {
             let id = review.allocate_file_diff_id();
-            review.file_diffs.insert(id, store);
+            let path_string = store.file_path.to_string_lossy().as_ref().to_string();
+            review.file_diffs.insert(id.clone(), store);
+            review.file_id_map.insert(path_string, id);
         });
 
         review
@@ -124,6 +128,47 @@ impl Review {
         }
         self.last_file_diff_id.increment();
         self.last_file_diff_id.clone()
+    }
+    fn add_new_file_diff(&mut self, file: String) {
+        let id = self.allocate_file_diff_id();
+
+        self.file_diffs.insert(
+            id.clone(),
+            FileDiffStore {
+                file_path: PathBuf::from(&file),
+                is_reviewed: false,
+            },
+        );
+
+        self.file_id_map.insert(file, id);
+    }
+
+    fn remove_file_diff(&mut self, file: &String) {
+        if let Some(id) = self.file_id_map.get(file) {
+            self.file_diffs.remove(id);
+            self.file_id_map.remove(file);
+        }
+    }
+
+    pub fn update_file_diffs(&mut self, file_diff_map: &FileDiffMap) {
+        let old_keys = self.file_id_map.keys().cloned().collect::<HashSet<_>>();
+        let new_keys = file_diff_map.keys().cloned().collect::<HashSet<_>>();
+
+        if old_keys == new_keys {
+            return;
+        }
+
+        if new_keys.is_disjoint(&old_keys) {
+            self.file_diffs.clear();
+            self.file_id_map.clear();
+            new_keys.into_iter().for_each(|file| self.add_new_file_diff(file));
+        } else {
+            let deleted_files = old_keys.difference(&new_keys).collect::<HashSet<_>>();
+            deleted_files.into_iter().for_each(|deleted_file| self.remove_file_diff(deleted_file));
+
+            let new_subset: HashSet<_> = new_keys.difference(&old_keys).collect();
+            new_subset.into_iter().cloned().for_each(|file| self.add_new_file_diff(file));
+        }
     }
 }
 
