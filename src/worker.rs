@@ -2,7 +2,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use slint::{ComponentHandle, Model, ModelExt, SharedString, VecModel};
+use slint::{ComponentHandle, Model, ModelExt, ModelRc, SharedString, VecModel};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 use crate::git_utils::{DiffStatus, FileDiffMap};
@@ -16,6 +16,7 @@ use crate::review_helper_cache::{FileDiffId, NoteId, RepositoryId, Review, Revie
 
 pub type WorkerChannel = UnboundedSender<WorkerMessage>;
 
+#[derive(Clone)]
 pub enum NoteChangeType {
     TextChanged(String),
     ContextChanged(String),
@@ -351,9 +352,13 @@ fn worker_loop(ui_weak: slint::Weak<ui::AppWindow>, mut rx: UnboundedReceiver<Wo
 
                 match repository.get_mut_review(&review_id) {
                     Some(review) => match content_change {
-                        ReviewContentChange::FileDiffChange { id, is_reviewed } => {
-                            let Some(file_diff) = review.file_diffs.get_mut(&id) else {
-                                report_error(ui_weak.clone(), ui::SlintResult::ModelItemNotExists, &format!("file diff id {}", id.as_usize()));
+                        ReviewContentChange::FileDiffChange { id: file_diff_id, is_reviewed } => {
+                            let Some(file_diff) = review.file_diffs.get_mut(&file_diff_id) else {
+                                report_error(
+                                    ui_weak.clone(),
+                                    ui::SlintResult::ModelItemNotExists,
+                                    &format!("file diff id {}", file_diff_id.as_usize()),
+                                );
                                 continue;
                             };
                             file_diff.is_reviewed = is_reviewed;
@@ -364,21 +369,31 @@ fn worker_loop(ui_weak: slint::Weak<ui::AppWindow>, mut rx: UnboundedReceiver<Wo
                                 &review.file_diffs.values().collect::<Vec<_>>(),
                             ) {
                                 report_error(ui_weak.clone(), ui::SlintResult::StoreFailed, &e.to_string());
+                                continue;
                             }
+                            set_ui_is_reviewed(
+                                ui_weak.clone(),
+                                repository_id.as_usize(),
+                                review_id.as_usize(),
+                                file_diff_id.as_usize(),
+                                is_reviewed,
+                            );
                         }
                         ReviewContentChange::NoteChange { id, change_type } => {
                             let Some(note) = review.notes.get_mut(&id) else {
                                 report_error(ui_weak.clone(), ui::SlintResult::ModelItemNotExists, &format!("note id {}", id.as_usize()));
                                 continue;
                             };
-                            match change_type {
+                            match change_type.clone() {
                                 NoteChangeType::TextChanged(new_text) => note.text = new_text,
                                 NoteChangeType::ContextChanged(new_context) => note.context = new_context,
                                 NoteChangeType::IsDoneChanged(new_is_done) => note.is_done = new_is_done,
                             }
                             if let Err(e) = storage.save_review_notes(&repository_name, &review.name, &review.notes.values().collect::<Vec<_>>()) {
                                 report_error(ui_weak.clone(), ui::SlintResult::StoreFailed, &e.to_string());
+                                continue;
                             }
+                            update_ui_note(ui_weak.clone(), repository_id.as_usize(), review_id.as_usize(), id.as_usize(), change_type);
                         }
                     },
                     None => report_error(
@@ -497,6 +512,70 @@ fn query_file_diffs(
             None
         }
     }
+}
+
+fn get_file_diff_model(app_window: &ui::AppWindow, repository_id: usize, review_id: usize) -> ModelRc<ui::SlintFileDiff> {
+    let repository_model = app_window.global::<ui::SlintReviewHelper>().get_repositories();
+    let repository_model = repository_model.as_any().downcast_ref::<IdModel<ui::SlintRepository>>().unwrap();
+
+    assert!(repository_model.has(repository_id));
+
+    let repository = repository_model.get(repository_id).unwrap();
+    let review_model = repository.review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>().unwrap();
+
+    assert!(review_model.has(review_id));
+
+    let review = review_model.get(review_id).unwrap();
+
+    review.file_diff_model
+}
+
+fn get_note_model(app_window: &ui::AppWindow, repository_id: usize, review_id: usize) -> ModelRc<ui::SlintNote> {
+    let repository_model = app_window.global::<ui::SlintReviewHelper>().get_repositories();
+    let repository_model = repository_model.as_any().downcast_ref::<IdModel<ui::SlintRepository>>().unwrap();
+
+    assert!(repository_model.has(repository_id));
+
+    let repository = repository_model.get(repository_id).unwrap();
+    let review_model = repository.review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>().unwrap();
+
+    assert!(review_model.has(review_id));
+
+    let review = review_model.get(review_id).unwrap();
+
+    review.note_model
+}
+
+fn update_ui_note(ui_weak: slint::Weak<ui::AppWindow>, repository_id: usize, review_id: usize, note_id: usize, note_change_type: NoteChangeType) {
+    ui_weak
+        .upgrade_in_event_loop(move |app_window| {
+            let note_model = get_note_model(&app_window, repository_id, review_id);
+            let note_model = note_model.as_any().downcast_ref::<IdModel<ui::SlintNote>>().unwrap();
+
+            if let Some(mut note) = note_model.get(note_id) {
+                match note_change_type {
+                    NoteChangeType::TextChanged(new_text) => note.text = SharedString::from(new_text),
+                    NoteChangeType::ContextChanged(new_context) => note.context = SharedString::from(new_context),
+                    NoteChangeType::IsDoneChanged(new_is_done) => note.is_fixed = new_is_done,
+                }
+                note_model.update(note_id, note);
+            }
+        })
+        .unwrap();
+}
+
+fn set_ui_is_reviewed(ui_weak: slint::Weak<ui::AppWindow>, repository_id: usize, review_id: usize, file_diff_id: usize, is_reviewed: bool) {
+    ui_weak
+        .upgrade_in_event_loop(move |app_window| {
+            let file_diff_model = get_file_diff_model(&app_window, repository_id, review_id);
+            let file_diff_model = file_diff_model.as_any().downcast_ref::<IdModel<ui::SlintFileDiff>>().unwrap();
+
+            if let Some(mut file_diff) = file_diff_model.get(file_diff_id) {
+                file_diff.is_reviewed = is_reviewed;
+                file_diff_model.update(file_diff_id, file_diff);
+            }
+        })
+        .unwrap();
 }
 
 fn set_ui_file_diffs(ui_weak: slint::Weak<ui::AppWindow>, repository_id: usize, review_id: usize, ui_file_diffs: Vec<SlintFileDiff>) {
