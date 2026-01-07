@@ -7,6 +7,6 @@ pub use worker_impl::WorkerChannel;
 pub use worker_impl::WorkerMessage;
 
 mod review_helper_settings;
-mod worker_ui_impl;
+mod ui_updater;
 
 use review_helper_settings::ReviewHelperSettings;

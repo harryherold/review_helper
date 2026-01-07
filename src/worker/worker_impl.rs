@@ -11,9 +11,9 @@ use crate::ui::{SlintFileDiff, SlintNote};
 use crate::{git_utils, ui};
 
 use crate::repositories::{FileDiffId, NoteId, Repositories, RepositoryId, Review, ReviewId};
-use crate::worker::ReviewHelperSettings;
+use crate::worker::{ReviewHelperSettings, ui_updater};
 
-use crate::worker::worker_ui_impl as ui_impl;
+use crate::worker::ui_updater::{UiBasicRepository, UiUpdater};
 
 pub type WorkerChannel = UnboundedSender<WorkerMessage>;
 
@@ -140,6 +140,9 @@ fn worker_loop(ui_weak: slint::Weak<ui::AppWindow>, mut rx: UnboundedReceiver<Wo
             ReviewHelperSettings::default()
         }
     };
+
+    let ui_updater = UiUpdater::new(ui_weak.clone());
+
     let storage = create_storage(app_data_path);
 
     let mut repositories = Repositories::new(storage.load_repositories().expect("Could not load repositories!"));
@@ -147,19 +150,19 @@ fn worker_loop(ui_weak: slint::Weak<ui::AppWindow>, mut rx: UnboundedReceiver<Wo
     {
         let ui_repositories: Vec<_> = repositories
             .iter()
-            .map(|(id, repo)| (id.as_i32(), ui_impl::UiBasicRepository::new(&repo.store())))
+            .map(|(id, repo)| (id.as_i32(), UiBasicRepository::new(&repo.store())))
             .collect();
 
-        ui_impl::initialize_repositories(ui_weak.clone(), ui_repositories);
+        ui_updater.initialize_repositories(ui_repositories);
     }
 
-    ui_impl::initialize_review_helper_settings(ui_weak.clone(), &review_helper_settings);
-    query_diff_tools(ui_weak.clone());
+    ui_updater.initialize_review_helper_settings(&review_helper_settings);
+    query_diff_tools(&ui_updater);
 
     while let Some(message) = rx.blocking_recv() {
         match message {
             WorkerMessage::Quit => return,
-            WorkerMessage::QueryDiffTools => query_diff_tools(ui_weak.clone()),
+            WorkerMessage::QueryDiffTools => query_diff_tools(&ui_updater),
             WorkerMessage::SaveReviewHelperSettings {
                 diff_tool,
                 editor,
@@ -171,39 +174,35 @@ fn worker_loop(ui_weak: slint::Weak<ui::AppWindow>, mut rx: UnboundedReceiver<Wo
                 review_helper_settings.editor_args = editor_args;
                 review_helper_settings.color_scheme = color_scheme;
                 if let Err(e) = review_helper_settings.save() {
-                    ui_impl::report_error(ui_weak.clone(), ui::SlintResult::StoreFailed, &e.to_string());
+                    ui_updater.report_error(ui::SlintResult::StoreFailed, &e.to_string());
                 }
             }
             WorkerMessage::NewRepository(path) => {
                 if repositories.contains_repository_path(&path) {
-                    ui_impl::report_error(ui_weak.clone(), ui::SlintResult::RepositoryExists, &path.to_string_lossy().as_ref());
+                    ui_updater.report_error(ui::SlintResult::RepositoryExists, &path.to_string_lossy().as_ref());
                     continue;
                 }
                 match create_repository_store(path) {
                     Ok(store) => match storage.save_repository(&store) {
                         Ok(()) => {
-                            let ui_repository = ui_impl::UiBasicRepository::new(&store);
+                            let ui_repository = UiBasicRepository::new(&store);
                             let repository_id = repositories.add_repository(store);
 
-                            ui_impl::new_repository(ui_weak.clone(), repository_id.as_i32(), ui_repository);
+                            ui_updater.new_repository(repository_id.as_i32(), ui_repository);
                         }
-                        Err(e) => ui_impl::report_error(ui_weak.clone(), ui::SlintResult::StoreFailed, &e.to_string()),
+                        Err(e) => ui_updater.report_error(ui::SlintResult::StoreFailed, &e.to_string()),
                     },
-                    Err(e) => report_review_helper_error(ui_weak.clone(), &e),
+                    Err(e) => report_review_helper_error(&ui_updater, &e),
                 }
             }
             WorkerMessage::ChangeRepository { id, base_branch } => {
                 if let Some(repository) = repositories.get_mut(&id) {
                     repository.set_base_branch(base_branch);
                     if let Err(_) = storage.save_repository(&repository.store()) {
-                        ui_impl::report_error(ui_weak.clone(), ui::SlintResult::StoreFailed, repository.name().as_str());
+                        ui_updater.report_error(ui::SlintResult::StoreFailed, repository.name().as_str());
                     }
                 } else {
-                    ui_impl::report_error(
-                        ui_weak.clone(),
-                        ui::SlintResult::ModelItemNotExists,
-                        &format!("repository  id {}", id.as_usize()),
-                    );
+                    ui_updater.report_error(ui::SlintResult::ModelItemNotExists, &format!("repository  id {}", id.as_usize()));
                 }
             }
             WorkerMessage::LoadReviewNames { id } => {
@@ -215,26 +214,18 @@ fn worker_loop(ui_weak: slint::Weak<ui::AppWindow>, mut rx: UnboundedReceiver<Wo
                                 let id = repository.reviews.register_review_name(review_name.clone());
                                 reviews.push((id.as_i32(), SharedString::from(review_name.as_str())));
                             });
-                            ui_impl::set_review_names(ui_weak.clone(), id.as_usize(), reviews);
+                            ui_updater.set_review_names(id.as_usize(), reviews);
                         }
-                        Err(e) => ui_impl::report_error(ui_weak.clone(), ui::SlintResult::LoadReviewNamesFailed, &e.to_string()),
+                        Err(e) => ui_updater.report_error(ui::SlintResult::LoadReviewNamesFailed, &e.to_string()),
                     }
                 } else {
-                    ui_impl::report_error(
-                        ui_weak.clone(),
-                        ui::SlintResult::ModelItemNotExists,
-                        &format!("repository id {}", id.as_usize()),
-                    );
+                    ui_updater.report_error(ui::SlintResult::ModelItemNotExists, &format!("repository id {}", id.as_usize()));
                 }
             }
             WorkerMessage::LoadReview { repository_id, review_id } => {
                 if let Some(repository) = repositories.get_mut(&repository_id) {
                     let Some(review_name) = repository.reviews.review_name(&review_id) else {
-                        ui_impl::report_error(
-                            ui_weak.clone(),
-                            ui::SlintResult::ModelItemNotExists,
-                            &format!("review_id {} not found!", review_id.as_usize()),
-                        );
+                        ui_updater.report_error(ui::SlintResult::ModelItemNotExists, &format!("review_id {} not found!", review_id.as_usize()));
                         continue;
                     };
                     match storage.load_review(&repository.name(), review_name) {
@@ -249,52 +240,31 @@ fn worker_loop(ui_weak: slint::Weak<ui::AppWindow>, mut rx: UnboundedReceiver<Wo
 
                                 repository.reviews.insert_review(review_id.clone(), review);
 
-                                ui_impl::set_review(
-                                    ui_weak.clone(),
-                                    repository_id.as_usize(),
-                                    review_id.as_usize(),
-                                    start_diff,
-                                    end_diff,
-                                    ui_notes,
-                                    ui_file_diffs,
-                                );
+                                ui_updater.set_review(repository_id.as_usize(), review_id.as_usize(), start_diff, end_diff, ui_notes, ui_file_diffs);
                             }
                         }
-                        Err(e) => ui_impl::report_error(ui_weak.clone(), ui::SlintResult::LoadReviewFailed, &e.to_string()),
+                        Err(e) => ui_updater.report_error(ui::SlintResult::LoadReviewFailed, &e.to_string()),
                     }
                 } else {
-                    ui_impl::report_error(
-                        ui_weak.clone(),
-                        ui::SlintResult::ModelItemNotExists,
-                        &format!("repository id {}", repository_id.as_usize()),
-                    );
+                    ui_updater.report_error(ui::SlintResult::ModelItemNotExists, &format!("repository id {}", repository_id.as_usize()));
                 }
             }
             WorkerMessage::NewReview { repository_id, name } => {
                 if let Some(repository) = repositories.get_mut(&repository_id) {
                     let review_name = ReviewName::from(name.as_str());
                     if repository.reviews.has_review_name(&review_name) {
-                        ui_impl::report_error(ui_weak.clone(), ui::SlintResult::ReviewAlreadyExists, &name);
+                        ui_updater.report_error(ui::SlintResult::ReviewAlreadyExists, &name);
                         continue;
                     }
                     if let Err(e) = storage.save_review_file_diffs(repository.name(), &review_name, &DiffRangeStore::default(), &[]) {
-                        ui_impl::report_error(ui_weak.clone(), ui::SlintResult::ModelItemNotExists, &e.to_string());
+                        ui_updater.report_error(ui::SlintResult::ModelItemNotExists, &e.to_string());
                         continue;
                     }
 
                     let review_id = repository.reviews.new_review(review_name);
-                    ui_impl::new_review(
-                        ui_weak.clone(),
-                        repository_id.as_usize(),
-                        review_id.as_usize(),
-                        SharedString::from(name.as_str()),
-                    );
+                    ui_updater.new_review(repository_id.as_usize(), review_id.as_usize(), SharedString::from(name.as_str()));
                 } else {
-                    ui_impl::report_error(
-                        ui_weak.clone(),
-                        ui::SlintResult::ModelItemNotExists,
-                        &format!("repository id {}", repository_id.as_usize()),
-                    );
+                    ui_updater.report_error(ui::SlintResult::ModelItemNotExists, &format!("repository id {}", repository_id.as_usize()));
                 }
             }
             WorkerMessage::ChangeReview {
@@ -303,11 +273,7 @@ fn worker_loop(ui_weak: slint::Weak<ui::AppWindow>, mut rx: UnboundedReceiver<Wo
                 content_change,
             } => {
                 let Some(repository) = repositories.get_mut(&repository_id) else {
-                    ui_impl::report_error(
-                        ui_weak.clone(),
-                        ui::SlintResult::ModelItemNotExists,
-                        &format!("repository id {}", repository_id.as_usize()),
-                    );
+                    ui_updater.report_error(ui::SlintResult::ModelItemNotExists, &format!("repository id {}", repository_id.as_usize()));
                     continue;
                 };
 
@@ -319,20 +285,14 @@ fn worker_loop(ui_weak: slint::Weak<ui::AppWindow>, mut rx: UnboundedReceiver<Wo
                             review.file_diffs.set_is_reviewed(&file_diff_id, is_reviewed);
                             if let Err(e) = storage.save_review_file_diffs(&repository_name, &review.name(), &review.diff_range(), &review.file_diffs.stores())
                             {
-                                ui_impl::report_error(ui_weak.clone(), ui::SlintResult::StoreFailed, &e.to_string());
+                                ui_updater.report_error(ui::SlintResult::StoreFailed, &e.to_string());
                                 continue;
                             }
-                            ui_impl::set_file_diff_is_reviewed(
-                                ui_weak.clone(),
-                                repository_id.as_usize(),
-                                review_id.as_usize(),
-                                file_diff_id.as_usize(),
-                                is_reviewed,
-                            );
+                            ui_updater.set_file_diff_is_reviewed(repository_id.as_usize(), review_id.as_usize(), file_diff_id.as_usize(), is_reviewed);
                         }
                         ReviewContentChange::NoteChange { id, change_type } => {
                             let Some(note) = review.notes.get_mut(&id) else {
-                                ui_impl::report_error(ui_weak.clone(), ui::SlintResult::ModelItemNotExists, &format!("note id {}", id.as_usize()));
+                                ui_updater.report_error(ui::SlintResult::ModelItemNotExists, &format!("note id {}", id.as_usize()));
                                 continue;
                             };
                             match change_type.clone() {
@@ -341,14 +301,13 @@ fn worker_loop(ui_weak: slint::Weak<ui::AppWindow>, mut rx: UnboundedReceiver<Wo
                                 NoteChangeType::IsDoneChanged(new_is_done) => note.is_done = new_is_done,
                             }
                             if let Err(e) = storage.save_review_notes(&repository_name, &review.name(), &review.notes.stores()) {
-                                ui_impl::report_error(ui_weak.clone(), ui::SlintResult::StoreFailed, &e.to_string());
+                                ui_updater.report_error(ui::SlintResult::StoreFailed, &e.to_string());
                                 continue;
                             }
-                            ui_impl::update_note(ui_weak.clone(), repository_id.as_usize(), review_id.as_usize(), id.as_usize(), change_type);
+                            ui_updater.update_note(repository_id.as_usize(), review_id.as_usize(), id.as_usize(), change_type);
                         }
                     },
-                    None => ui_impl::report_error(
-                        ui_weak.clone(),
+                    None => ui_updater.report_error(
                         ui::SlintResult::ModelItemNotExists,
                         &format!("repository id {} review id {}", repository_id.as_usize(), review_id.as_usize()),
                     ),
@@ -360,28 +319,20 @@ fn worker_loop(ui_weak: slint::Weak<ui::AppWindow>, mut rx: UnboundedReceiver<Wo
                 diff_range,
             } => {
                 let Some(repository) = repositories.get_mut(&repository_id) else {
-                    ui_impl::report_error(
-                        ui_weak.clone(),
-                        ui::SlintResult::ModelItemNotExists,
-                        &format!("repository id {}", repository_id.as_usize()),
-                    );
+                    ui_updater.report_error(ui::SlintResult::ModelItemNotExists, &format!("repository id {}", repository_id.as_usize()));
                     continue;
                 };
                 let repository_name = repository.name().clone();
 
                 let Ok(file_diff_map) = git_utils::diff_git_repo(&repository.path(), &diff_range.start, &diff_range.end) else {
-                    ui_impl::report_error(ui_weak.clone(), ui::SlintResult::FindFileDifferenceFailed, &"".to_string());
+                    ui_updater.report_error(ui::SlintResult::FindFileDifferenceFailed, &"".to_string());
                     continue;
                 };
 
                 let new_files = file_diff_map.keys().cloned().collect::<HashSet<_>>();
 
                 let Some(review) = repository.reviews.get_mut(&review_id) else {
-                    ui_impl::report_error(
-                        ui_weak.clone(),
-                        ui::SlintResult::ModelItemNotExists,
-                        &format!("review id {}", review_id.as_usize()),
-                    );
+                    ui_updater.report_error(ui::SlintResult::ModelItemNotExists, &format!("review id {}", review_id.as_usize()));
                     continue;
                 };
                 review.file_diffs.update_file_diffs(new_files);
@@ -393,35 +344,35 @@ fn worker_loop(ui_weak: slint::Weak<ui::AppWindow>, mut rx: UnboundedReceiver<Wo
                     .map(|(id, store)| {
                         let file = store.file_path.to_string_lossy().to_string();
                         let diff_status = file_diff_map.get(&file).expect("Could not found Diff-Status of cached file!");
-                        ui_impl::make_slint_file_diff(id, &file, &diff_status, store.is_reviewed)
+                        ui_updater::make_slint_file_diff(id, &file, &diff_status, store.is_reviewed)
                     })
                     .collect::<Vec<_>>();
 
-                ui_impl::set_file_diffs(ui_weak.clone(), repository_id.as_usize(), review_id.as_usize(), ui_file_diffs);
+                ui_updater.set_file_diffs(repository_id.as_usize(), review_id.as_usize(), ui_file_diffs);
 
                 // TODO DRY!
                 if let Err(e) = storage.save_review_file_diffs(&repository_name, &review.name(), review.diff_range(), &review.file_diffs.stores()) {
-                    ui_impl::report_error(ui_weak.clone(), ui::SlintResult::StoreFailed, &e.to_string());
+                    ui_updater.report_error(ui::SlintResult::StoreFailed, &e.to_string());
                 }
             }
         }
     }
 }
 
-fn query_diff_tools(ui_weak: slint::Weak<ui::AppWindow>) {
+fn query_diff_tools(ui_updater: &UiUpdater) {
     let result = git_utils::query_diff_tools();
     match result {
-        Err(e) => ui_impl::report_error(ui_weak.clone(), ui::SlintResult::QueryingDiffToolsFailed, &e.to_string()),
-        Ok(diff_tools) => ui_impl::set_diff_tools(ui_weak.clone(), diff_tools),
+        Err(e) => ui_updater.report_error(ui::SlintResult::QueryingDiffToolsFailed, &e.to_string()),
+        Ok(diff_tools) => ui_updater.set_diff_tools(diff_tools),
     }
 }
 
-fn report_review_helper_error(ui_weak: slint::Weak<ui::AppWindow>, error: &ReviewHelperError) {
+fn report_review_helper_error(ui_updater: &UiUpdater, error: &ReviewHelperError) {
     use ReviewHelperError::*;
 
     let (ui_error, ui_error_text) = match error {
         GitCommandFailed(t) => (ui::SlintResult::GitCommandFailed, t.as_str()),
         NoGitDirectory(t) => (ui::SlintResult::NoGitDirectory, t.as_str()),
     };
-    ui_impl::report_error(ui_weak, ui_error, ui_error_text);
+    ui_updater.report_error(ui_error, ui_error_text);
 }
