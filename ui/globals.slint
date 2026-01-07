@@ -22,6 +22,7 @@ export enum SlintResult {
     LoadReviewFailed,
     ReviewAlreadyExists,
     FindFileDifferenceFailed,
+    ShowFileDifferencesFailed,
 }
 
 export enum SlintChangeType {
@@ -136,6 +137,7 @@ export global SlintReviewCallbacks {
     callback change_note_context(SlintNoteIdParamters, string);
     callback change_note_is_done(SlintNoteIdParamters, bool);
     callback change_file_diff_is_reviewed(SlintFileDiffIdParamters, bool);
+    callback show_file_differences(SlintFileDiffIdParamters);
 }
 
 export global SlintRepositoryCallbacks {

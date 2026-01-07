@@ -107,6 +107,9 @@ impl FileDiffs {
     pub fn stores(&self) -> Vec<&FileDiffStore> {
         self.id_store_map.values().collect::<Vec<_>>()
     }
+    pub fn get(&self, file_diff_id: &FileDiffId) -> Option<&FileDiffStore> {
+        self.id_store_map.get(file_diff_id)
+    }
     pub fn set_is_reviewed(&mut self, file_diff_id: &FileDiffId, is_reviewed: bool) {
         if let Some(file_diff) = self.id_store_map.get_mut(file_diff_id) {
             file_diff.is_reviewed = is_reviewed;
@@ -215,6 +218,9 @@ impl Reviews {
     pub fn has_review_name(&self, name: &ReviewName) -> bool {
         self.review_name_set.contains(name)
     }
+    pub fn get(&self, id: &ReviewId) -> Option<&Review> {
+        self.id_review_map.get(id)
+    }
     pub fn register_review_name(&mut self, review_name: ReviewName) -> ReviewId {
         let id = self.allocate_review_id();
         self.id_review_name_map.insert(id.clone(), review_name.clone());
@@ -300,6 +306,9 @@ impl Repositories {
     }
     pub fn contains_repository_path(&self, path: &PathBuf) -> bool {
         self.repository_path_set.contains(path)
+    }
+    pub fn get(&self, id: &RepositoryId) -> Option<&Repository> {
+        self.id_repository_map.get(id)
     }
     pub fn get_mut(&mut self, id: &RepositoryId) -> Option<&mut Repository> {
         self.id_repository_map.get_mut(id)

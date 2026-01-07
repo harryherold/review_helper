@@ -70,6 +70,11 @@ pub enum WorkerMessage {
         review_id: ReviewId,
         diff_range: DiffRangeStore,
     },
+    ShowFileDifferences {
+        repository_id: RepositoryId,
+        review_id: ReviewId,
+        file_diff_id: FileDiffId,
+    },
 }
 
 pub struct Worker {
@@ -194,6 +199,41 @@ impl WorkerImpl {
         };
         self.ui_updater.report_error(ui_error, ui_error_text);
     }
+    fn show_file_differences(&self, repository_id: RepositoryId, review_id: ReviewId, file_diff_id: FileDiffId) {
+        let Some(repository) = self.repositories.get(&repository_id) else {
+            self.ui_updater
+                .report_error(ui::SlintResult::ModelItemNotExists, &format!("repository  id {}", repository_id.as_usize()));
+            return;
+        };
+        let Some(review) = repository.reviews.get(&review_id) else {
+            self.ui_updater.report_error(
+                ui::SlintResult::ModelItemNotExists,
+                &format!("repository id {} review id {}", repository_id.as_usize(), review_id.as_usize()),
+            );
+            return;
+        };
+        let Some(file_diff) = review.file_diffs.get(&file_diff_id) else {
+            self.ui_updater.report_error(
+                ui::SlintResult::ModelItemNotExists,
+                &format!(
+                    "repository id {} review id {} file diff id {}",
+                    repository_id.as_usize(),
+                    review_id.as_usize(),
+                    file_diff_id.as_usize()
+                ),
+            );
+            return;
+        };
+        let start_commit = review.diff_range().start.as_str();
+        let end_commit = review.diff_range().end.as_str();
+        let file = &file_diff.file_path.to_string_lossy();
+        let file = file.as_ref();
+        let diff_tool = self.settings.diff_tool.as_str();
+
+        if let Err(e) = git_utils::diff_file(repository.path(), start_commit, end_commit, file, diff_tool) {
+            self.ui_updater.report_error(ui::SlintResult::ShowFileDifferencesFailed, &e.to_string());
+        }
+    }
     fn worker_loop(&mut self, mut rx: UnboundedReceiver<WorkerMessage>) {
         while let Some(message) = rx.blocking_recv() {
             match message {
@@ -220,6 +260,11 @@ impl WorkerImpl {
                     review_id,
                     diff_range,
                 } => self.find_file_difference(repository_id, review_id, diff_range),
+                WorkerMessage::ShowFileDifferences {
+                    repository_id,
+                    review_id,
+                    file_diff_id,
+                } => self.show_file_differences(repository_id, review_id, file_diff_id),
             }
         }
     }

@@ -3,7 +3,7 @@ import {
     TabWidget,
     ListView,
     Palette,
-    LineEdit, CheckBox,
+    LineEdit, CheckBox, Button,
 } from "std-widgets.slint";
 import { ToolButton } from "tool_button.slint";
 import { Style } from "style.slint";
@@ -192,6 +192,12 @@ export component RepositoryTabViewItem inherits TabViewItem {
                                                 source: SlintChangeTypeUtils.to_icon(file-diff.change_type);
                                                 colorize: Palette.foreground;
                                                 width: Style.size.image_width;
+                                            }
+                                            Button {
+                                                text: "open";
+                                                clicked => {
+                                                    SlintReviewCallbacks.show_file_differences(id_parameters);
+                                                }
                                             }
                                         }
                                     }

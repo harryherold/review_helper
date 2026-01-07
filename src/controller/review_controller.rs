@@ -128,4 +128,15 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
             channel.send(message).unwrap();
         }
     });
+    app_window.global::<ui::SlintReviewCallbacks>().on_show_file_differences({
+        let channel = worker_channel.clone();
+        move |ids| {
+            let message = WorkerMessage::ShowFileDifferences {
+                repository_id: RepositoryId::from(ids.review_id_parameters.repository_id),
+                review_id: ReviewId::from(ids.review_id_parameters.review_id),
+                file_diff_id: FileDiffId::from(ids.file_diff_id),
+            };
+            channel.send(message).unwrap();
+        }
+    })
 }
