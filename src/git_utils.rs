@@ -342,7 +342,7 @@ pub fn current_branch(repo_path: &PathBuf) -> anyhow::Result<String> {
 mod tests {
     use std::{collections::HashMap, path::PathBuf};
 
-    use mockcmd::{mock, was_command_executed, CommandMockBuilder};
+    use mockcmd::{CommandMockBuilder, mock, was_command_executed};
 
     use crate::git_utils::*;
 

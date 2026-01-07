@@ -1,6 +1,6 @@
 use crate::{
     model::IdModel,
-    review_helper_cache::{FileDiffId, NoteId, RepositoryId, ReviewId},
+    repositories::{FileDiffId, NoteId, RepositoryId, ReviewId},
     storage::repository_storage::DiffRangeStore,
     ui,
     worker::{NoteChangeType, ReviewContentChange, WorkerChannel, WorkerMessage},

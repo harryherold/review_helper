@@ -595,11 +595,6 @@ file_name = "foo.md"
             }],
         };
         let review_name = ReviewName::from("fancy_stuff");
-        let notes = vec![NoteStore {
-            context: "/foo/bar.txt".to_string(),
-            text: "Fix bug".to_string(),
-            is_done: true,
-        }];
         let result = repository_storage.save_review_notes(&repository_name, &review_name, &review_store.notes.iter().collect::<Vec<_>>());
         assert!(result.is_ok());
 

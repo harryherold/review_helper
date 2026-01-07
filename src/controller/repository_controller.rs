@@ -1,4 +1,4 @@
-use crate::{review_helper_cache::RepositoryId, ui, worker::WorkerChannel};
+use crate::{repositories::RepositoryId, ui, worker::WorkerChannel};
 
 use slint::ComponentHandle;
 
