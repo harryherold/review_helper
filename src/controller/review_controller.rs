@@ -11,11 +11,11 @@ use slint::{ComponentHandle, Model};
 pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: WorkerChannel) {
     app_window.global::<ui::SlintReviewCallbacks>().on_load_review({
         let channel = worker_channel.clone();
-        move |repository_id, review_id| {
+        move |ids| {
             channel
                 .send(crate::worker::WorkerMessage::LoadReview {
-                    repository_id: RepositoryId::from(repository_id),
-                    review_id: ReviewId::from(review_id),
+                    repository_id: RepositoryId::from(ids.repository_id),
+                    review_id: ReviewId::from(ids.review_id),
                 })
                 .unwrap();
         }
@@ -30,17 +30,6 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
             let review_model = review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>().unwrap();
             review_model.id_to_index(review_id as usize)
         });
-    app_window.global::<ui::SlintReviewCallbacks>().on_new_review({
-        let channel = worker_channel.clone();
-        move |id, name| {
-            channel
-                .send(crate::worker::WorkerMessage::NewReview {
-                    repository_id: RepositoryId::from(id),
-                    name: String::from(&name),
-                })
-                .unwrap();
-        }
-    });
     app_window.global::<ui::SlintReviewCallbacks>().on_change_file_diff_is_reviewed({
         let channel = worker_channel.clone();
         move |ids, new_is_reviewed| {

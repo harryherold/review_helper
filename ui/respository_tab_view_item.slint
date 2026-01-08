@@ -3,7 +3,7 @@ import {
     TabWidget,
     ListView,
     Palette,
-    LineEdit, CheckBox, Button,
+    LineEdit, CheckBox, Button, HorizontalBox,
 } from "std-widgets.slint";
 import { ToolButton } from "tool_button.slint";
 import { Style } from "style.slint";
@@ -68,7 +68,7 @@ export component RepositoryTabViewItem inherits TabViewItem {
                         input-type: text;
                         accepted(text) => {
                             if (SlintStringUtils.is_valid_name(text)) {
-                                SlintReviewCallbacks.new_review(root.repository_id, text);
+                                SlintRepositoryCallbacks.new_review(root.repository_id, text);
                                 enable-new-review = false;
                             }
                         }
@@ -90,8 +90,8 @@ export component RepositoryTabViewItem inherits TabViewItem {
 
                 ListView {
                     visible: root.review_model.length > 0; // NOTE workaround to get ListView visible with their elements
-                    for review[idx] in root.review_model: Rectangle {
-                        height: Style.size.control-height + Style.size.spacing;
+                    for review[idx] in root.review_model: HorizontalBox {
+                        // height: Style.size.control-height + Style.size.spacing;
                         TabButton {
                             tab-text: review.name;
                             height: Style.size.control-height;
@@ -99,8 +99,15 @@ export component RepositoryTabViewItem inherits TabViewItem {
                             clicked => {
                                 root.selected_review_id = review.id;
                                 if (!review.is_loaded) {
-                                    SlintReviewCallbacks.load_review(root.repository_id, review.id);
+                                    SlintReviewCallbacks.load_review(root.review_id_parameters);
                                 }
+                            }
+                        }
+                        Button {
+                            width: Style.size.control-small-width;
+                            text: "del";
+                            clicked => {
+                                SlintRepositoryCallbacks.delete_review(root.review_id_parameters);
                             }
                         }
                     }

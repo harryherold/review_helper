@@ -244,6 +244,12 @@ impl Reviews {
         self.insert_review(id.clone(), Review { name, ..Default::default() });
         id
     }
+    pub fn delete_review(&mut self, review_id: &ReviewId) -> ReviewName {
+        let review_name = self.id_review_name_map.remove(review_id).unwrap_or_default();
+        self.review_name_set.remove(&review_name);
+        self.id_review_map.remove(review_id);
+        review_name
+    }
     pub fn get_mut(&mut self, id: &ReviewId) -> Option<&mut Review> {
         self.id_review_map.get_mut(id)
     }

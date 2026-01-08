@@ -185,10 +185,8 @@ impl UiUpdater {
     ) {
         self.ui_weak
             .upgrade_in_event_loop(move |app_window| {
-                let repository_model = app_window.global::<ui::SlintReviewHelper>().get_repositories();
-                let repository_model = repository_model.as_any().downcast_ref::<IdModel<ui::SlintRepository>>().unwrap();
-                let repository = repository_model.get(repository_id).expect("Repository model is out of sync with cache!");
-                let review_model = repository.review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>().unwrap();
+                let review_model = get_review_model(&app_window, repository_id);
+                let review_model = review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>().unwrap();
                 let mut review = review_model.get(review_id).expect("Review model is out of sync with cache");
                 review.start_diff = start_diff;
                 review.end_diff = end_diff;
@@ -209,10 +207,8 @@ impl UiUpdater {
     pub fn set_review_names(&self, repository_id: usize, reviews: Vec<(i32, SharedString)>) {
         self.ui_weak
             .upgrade_in_event_loop(move |app_window| {
-                let model_rc = app_window.global::<ui::SlintReviewHelper>().get_repositories();
-                let model = model_rc.as_any().downcast_ref::<IdModel<ui::SlintRepository>>().unwrap();
-                let repository = model.get(repository_id).unwrap();
-                let review_model = repository.review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>().unwrap();
+                let review_model = get_review_model(&app_window, repository_id);
+                let review_model = review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>().unwrap();
                 reviews.into_iter().for_each(|(id, name)| {
                     review_model.add(
                         id as usize,
@@ -232,10 +228,8 @@ impl UiUpdater {
     pub fn new_review(&self, repository_id: usize, review_id: usize, review_name: SharedString) {
         self.ui_weak
             .upgrade_in_event_loop(move |app_window| {
-                let repository_model = app_window.global::<ui::SlintReviewHelper>().get_repositories();
-                let repository_model = repository_model.as_any().downcast_ref::<IdModel<ui::SlintRepository>>().unwrap();
-                let repository = repository_model.get(repository_id).expect("Repository model is out of sync with cache!");
-                let review_model = repository.review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>().unwrap();
+                let review_model = get_review_model(&app_window, repository_id);
+                let review_model = review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>().unwrap();
 
                 assert!(false == review_model.has(review_id));
 
@@ -248,6 +242,15 @@ impl UiUpdater {
                         ..Default::default()
                     },
                 );
+            })
+            .unwrap();
+    }
+    pub fn delete_review(&self, repository_id: usize, review_id: usize) {
+        self.ui_weak
+            .upgrade_in_event_loop(move |app_window| {
+                let review_model = get_review_model(&app_window, repository_id);
+                let review_model = review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>().unwrap();
+                review_model.remove(review_id);
             })
             .unwrap();
     }
@@ -283,15 +286,8 @@ impl UiUpdater {
     pub fn set_file_diffs(&self, repository_id: usize, review_id: usize, ui_file_diffs: Vec<SlintFileDiff>) {
         self.ui_weak
             .upgrade_in_event_loop(move |app_window| {
-                let repository_model = app_window.global::<ui::SlintReviewHelper>().get_repositories();
-                let repository_model = repository_model.as_any().downcast_ref::<IdModel<ui::SlintRepository>>().unwrap();
-                let repository = repository_model.get(repository_id).expect("Repository model is out of sync with cache!");
-                let review_model = repository.review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>().unwrap();
-
-                assert!(review_model.has(review_id));
-
-                let review = review_model.get(review_id).unwrap();
-                let file_diff_model = review.file_diff_model.as_any().downcast_ref::<IdModel<ui::SlintFileDiff>>().unwrap();
+                let file_diff_model = get_file_diff_model(&app_window, repository_id, review_id);
+                let file_diff_model = file_diff_model.as_any().downcast_ref::<IdModel<ui::SlintFileDiff>>().unwrap();
                 file_diff_model.clear();
 
                 ui_file_diffs
@@ -325,14 +321,19 @@ impl UiUpdater {
     }
 }
 
-fn get_note_model(app_window: &ui::AppWindow, repository_id: usize, review_id: usize) -> ModelRc<ui::SlintNote> {
+fn get_review_model(app_window: &ui::AppWindow, repository_id: usize) -> ModelRc<ui::SlintReview> {
     let repository_model = app_window.global::<ui::SlintReviewHelper>().get_repositories();
     let repository_model = repository_model.as_any().downcast_ref::<IdModel<ui::SlintRepository>>().unwrap();
 
     assert!(repository_model.has(repository_id));
 
     let repository = repository_model.get(repository_id).unwrap();
-    let review_model = repository.review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>().unwrap();
+
+    repository.review_model
+}
+fn get_note_model(app_window: &ui::AppWindow, repository_id: usize, review_id: usize) -> ModelRc<ui::SlintNote> {
+    let review_model = get_review_model(app_window, repository_id);
+    let review_model = review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>().unwrap();
 
     assert!(review_model.has(review_id));
 
@@ -341,13 +342,8 @@ fn get_note_model(app_window: &ui::AppWindow, repository_id: usize, review_id: u
     review.note_model
 }
 fn get_file_diff_model(app_window: &ui::AppWindow, repository_id: usize, review_id: usize) -> ModelRc<ui::SlintFileDiff> {
-    let repository_model = app_window.global::<ui::SlintReviewHelper>().get_repositories();
-    let repository_model = repository_model.as_any().downcast_ref::<IdModel<ui::SlintRepository>>().unwrap();
-
-    assert!(repository_model.has(repository_id));
-
-    let repository = repository_model.get(repository_id).unwrap();
-    let review_model = repository.review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>().unwrap();
+    let review_model = get_review_model(app_window, repository_id);
+    let review_model = review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>().unwrap();
 
     assert!(review_model.has(review_id));
 

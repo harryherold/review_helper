@@ -60,6 +60,10 @@ pub enum WorkerMessage {
         repository_id: RepositoryId,
         name: String,
     },
+    DeleteReview {
+        repository_id: RepositoryId,
+        review_id: ReviewId,
+    },
     ChangeReview {
         repository_id: RepositoryId,
         review_id: ReviewId,
@@ -261,6 +265,7 @@ impl WorkerImpl {
                 WorkerMessage::LoadReviewNames { id } => self.load_review_names(id),
                 WorkerMessage::LoadReview { repository_id, review_id } => self.load_review(repository_id, review_id),
                 WorkerMessage::NewReview { repository_id, name } => self.new_review(repository_id, name),
+                WorkerMessage::DeleteReview { repository_id, review_id } => self.delete_review(repository_id, review_id),
                 WorkerMessage::ChangeReview {
                     repository_id,
                     review_id,
@@ -406,6 +411,20 @@ impl WorkerImpl {
         let review_id = repository.reviews.new_review(review_name);
         self.ui_updater
             .new_review(repository_id.as_usize(), review_id.as_usize(), SharedString::from(name.as_str()));
+    }
+    fn delete_review(&mut self, repository_id: RepositoryId, review_id: ReviewId) {
+        let Some(repository) = self.repositories.get_mut(&repository_id) else {
+            self.ui_updater
+                .report_error(ui::SlintResult::ModelItemNotExists, &format!("repository id {}", repository_id.as_usize()));
+            return;
+        };
+        let review_name = repository.reviews.delete_review(&review_id);
+
+        if let Err(e) = self.storage.delete_review(&repository.name, &review_name) {
+            self.ui_updater.report_error(ui::SlintResult::DeleteReviewFailed, &e.to_string());
+        }
+
+        self.ui_updater.delete_review(repository_id.as_usize(), review_id.as_usize());
     }
     fn change_review(&mut self, repository_id: RepositoryId, review_id: ReviewId, content_change: ReviewContentChange) {
         let Some(repository) = self.repositories.get_mut(&repository_id) else {

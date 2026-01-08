@@ -23,6 +23,7 @@ export enum SlintResult {
     ReviewAlreadyExists,
     FindFileDifferenceFailed,
     ShowFileDifferencesFailed,
+    DeleteReviewFailed,
 }
 
 export enum SlintChangeType {
@@ -129,8 +130,7 @@ export struct SlintFileDiffIdParamters {
 }
 
 export global SlintReviewCallbacks {
-    callback new_review(int, string);
-    callback load_review(int, int);
+    callback load_review(SlintReviewIdParameters);
     pure callback review_id_to_index(int, [SlintReview]) -> int;
     callback find_file_changes(SlintReviewIdParameters, SlintDiffRange);
     callback change_note_text(SlintNoteIdParamters, string);
@@ -143,6 +143,8 @@ export global SlintReviewCallbacks {
 }
 
 export global SlintRepositoryCallbacks {
+    callback delete_review(SlintReviewIdParameters);
+    callback new_review(int, string);
     callback load_repository(int);
     callback repository_changed(int, string);
 }
@@ -150,7 +152,6 @@ export global SlintRepositoryCallbacks {
 export global SlintReviewHelper {
     in property <[SlintRepository]> repositories;
     in property <[string]> repository_names;
-    in property <int> last_repository_id;
     callback new_repository();
 }
 
