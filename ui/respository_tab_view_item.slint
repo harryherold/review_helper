@@ -248,6 +248,12 @@ export component RepositoryTabViewItem inherits TabViewItem {
                                                     SlintReviewCallbacks.change_note_context(id_parameters, text);
                                                 }
                                             }
+                                            Button {
+                                                text: "del";
+                                                clicked => {
+                                                    SlintReviewCallbacks.delete_note(id_parameters);
+                                                }
+                                            }
                                         }
                                     }
                                 }

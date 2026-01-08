@@ -138,5 +138,16 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
             };
             channel.send(message).unwrap();
         }
-    })
+    });
+    app_window.global::<ui::SlintReviewCallbacks>().on_delete_note({
+        let channel = worker_channel.clone();
+        move |ids| {
+            let message = WorkerMessage::DeleteNote {
+                repository_id: RepositoryId::from(ids.review_id_parameters.repository_id),
+                review_id: ReviewId::from(ids.review_id_parameters.review_id),
+                note_id: NoteId::from(ids.note_id),
+            };
+            channel.send(message).unwrap();
+        }
+    });
 }

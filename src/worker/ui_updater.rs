@@ -252,6 +252,16 @@ impl UiUpdater {
             .unwrap();
     }
 
+    pub fn delete_note(&self, repository_id: usize, review_id: usize, note_id: usize) {
+        self.ui_weak
+            .upgrade_in_event_loop(move |app_window| {
+                let note_model = get_note_model(&app_window, repository_id, review_id);
+                let note_model = note_model.as_any().downcast_ref::<IdModel<ui::SlintNote>>().unwrap();
+
+                note_model.remove(note_id);
+            })
+            .unwrap();
+    }
     pub fn update_note(&self, repository_id: usize, review_id: usize, note_id: usize, note_change_type: NoteChangeType) {
         self.ui_weak
             .upgrade_in_event_loop(move |app_window| {

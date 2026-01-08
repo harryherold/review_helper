@@ -80,6 +80,9 @@ impl Notes {
     pub fn get_mut(&mut self, id: &NoteId) -> Option<&mut NoteStore> {
         self.id_note_map.get_mut(id)
     }
+    pub fn delete_note(&mut self, id: &NoteId) {
+        self.id_note_map.remove(id);
+    }
 }
 
 #[derive(Default, Clone)]
@@ -251,7 +254,7 @@ impl Reviews {
 #[derive(Default, Clone)]
 pub struct Repository {
     pub reviews: Reviews,
-    name: RepositoryName,
+    pub name: RepositoryName,
     store: RepositoryStore,
 }
 
@@ -269,9 +272,6 @@ impl Repository {
     }
     pub fn store(&self) -> &RepositoryStore {
         &self.store
-    }
-    pub fn name(&self) -> &RepositoryName {
-        &self.name
     }
     pub fn set_base_branch(&mut self, new_base_branch: String) {
         self.store.base_branch = new_base_branch;

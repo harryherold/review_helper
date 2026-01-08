@@ -75,6 +75,11 @@ pub enum WorkerMessage {
         review_id: ReviewId,
         file_diff_id: FileDiffId,
     },
+    DeleteNote {
+        repository_id: RepositoryId,
+        review_id: ReviewId,
+        note_id: NoteId,
+    },
 }
 
 pub struct Worker {
@@ -265,6 +270,11 @@ impl WorkerImpl {
                     review_id,
                     file_diff_id,
                 } => self.show_file_differences(repository_id, review_id, file_diff_id),
+                WorkerMessage::DeleteNote {
+                    repository_id,
+                    review_id,
+                    note_id,
+                } => self.delete_note(repository_id, review_id, note_id),
             }
         }
     }
@@ -305,7 +315,7 @@ impl WorkerImpl {
 
         repository.set_base_branch(base_branch);
         if let Err(_) = self.storage.save_repository(&repository.store()) {
-            self.ui_updater.report_error(ui::SlintResult::StoreFailed, repository.name().as_str());
+            self.ui_updater.report_error(ui::SlintResult::StoreFailed, &repository.name.as_str());
         }
     }
     fn load_review_names(&mut self, repository_id: RepositoryId) {
@@ -315,7 +325,7 @@ impl WorkerImpl {
             return;
         };
 
-        match self.storage.load_review_names(&repository.name()) {
+        match self.storage.load_review_names(&repository.name) {
             Ok(review_names) => {
                 let mut reviews = Vec::new();
                 review_names.into_iter().for_each(|review_name| {
@@ -340,7 +350,7 @@ impl WorkerImpl {
             return;
         };
 
-        let load_result = self.storage.load_review(&repository.name(), review_name);
+        let load_result = self.storage.load_review(&repository.name, review_name);
         if let Err(e) = load_result {
             self.ui_updater.report_error(ui::SlintResult::LoadReviewFailed, &e.to_string());
             return;
@@ -375,7 +385,7 @@ impl WorkerImpl {
         }
         if let Err(e) = self
             .storage
-            .save_review_file_diffs(repository.name(), &review_name, &DiffRangeStore::default(), &[])
+            .save_review_file_diffs(&repository.name, &review_name, &DiffRangeStore::default(), &[])
         {
             self.ui_updater.report_error(ui::SlintResult::ModelItemNotExists, &e.to_string());
             return;
@@ -392,7 +402,6 @@ impl WorkerImpl {
             return;
         };
 
-        let repository_name = repository.name().clone();
         let Some(review) = repository.reviews.get_mut(&review_id) else {
             self.ui_updater.report_error(
                 ui::SlintResult::ModelItemNotExists,
@@ -405,7 +414,7 @@ impl WorkerImpl {
             review.file_diffs.set_is_reviewed(&file_diff_id, is_reviewed);
             if let Err(e) = self
                 .storage
-                .save_review_file_diffs(&repository_name, &review.name(), &review.diff_range(), &review.file_diffs.stores())
+                .save_review_file_diffs(&repository.name, &review.name(), &review.diff_range(), &review.file_diffs.stores())
             {
                 self.ui_updater.report_error(ui::SlintResult::StoreFailed, &e.to_string());
                 return;
@@ -424,7 +433,7 @@ impl WorkerImpl {
                 NoteChangeType::ContextChanged(new_context) => note.context = new_context,
                 NoteChangeType::IsDoneChanged(new_is_done) => note.is_done = new_is_done,
             }
-            if let Err(e) = self.storage.save_review_notes(&repository_name, &review.name(), &review.notes.stores()) {
+            if let Err(e) = self.storage.save_review_notes(&repository.name, &review.name(), &review.notes.stores()) {
                 self.ui_updater.report_error(ui::SlintResult::StoreFailed, &e.to_string());
                 return;
             }
@@ -442,7 +451,6 @@ impl WorkerImpl {
                 .report_error(ui::SlintResult::ModelItemNotExists, &format!("repository id {}", repository_id.as_usize()));
             return;
         };
-        let repository_name = repository.name().clone();
 
         let Ok(file_diff_map) = git_utils::diff_git_repo(&repository.path(), &diff_range.start, &diff_range.end) else {
             self.ui_updater.report_error(ui::SlintResult::FindFileDifferenceFailed, &"".to_string());
@@ -473,9 +481,32 @@ impl WorkerImpl {
 
         if let Err(e) = self
             .storage
-            .save_review_file_diffs(&repository_name, &review.name(), review.diff_range(), &review.file_diffs.stores())
+            .save_review_file_diffs(&repository.name, &review.name(), review.diff_range(), &review.file_diffs.stores())
         {
             self.ui_updater.report_error(ui::SlintResult::StoreFailed, &e.to_string());
         }
+    }
+    fn delete_note(&mut self, repository_id: RepositoryId, review_id: ReviewId, note_id: NoteId) {
+        let Some(repository) = self.repositories.get_mut(&repository_id) else {
+            self.ui_updater
+                .report_error(ui::SlintResult::ModelItemNotExists, &format!("repository id {}", repository_id.as_usize()));
+            return;
+        };
+
+        let Some(review) = repository.reviews.get_mut(&review_id) else {
+            self.ui_updater.report_error(
+                ui::SlintResult::ModelItemNotExists,
+                &format!("repository id {} review id {}", repository_id.as_usize(), review_id.as_usize()),
+            );
+            return;
+        };
+        review.notes.delete_note(&note_id);
+
+        if let Err(e) = self.storage.save_review_notes(&repository.name, &review.name(), &review.notes.stores()) {
+            self.ui_updater.report_error(ui::SlintResult::StoreFailed, &e.to_string());
+            return;
+        }
+
+        self.ui_updater.delete_note(repository_id.as_usize(), review_id.as_usize(), note_id.as_usize());
     }
 }
