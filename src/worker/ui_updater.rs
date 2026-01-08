@@ -313,6 +313,16 @@ impl UiUpdater {
             })
             .unwrap();
     }
+    pub fn add_note(&self, repository_id: usize, review_id: usize, note: SlintNote) {
+        self.ui_weak
+            .upgrade_in_event_loop(move |app_window| {
+                let note_model = get_note_model(&app_window, repository_id, review_id);
+                let note_model = note_model.as_any().downcast_ref::<IdModel<ui::SlintNote>>().unwrap();
+
+                note_model.add(note.id.clone() as usize, note);
+            })
+            .unwrap();
+    }
 }
 
 fn get_note_model(app_window: &ui::AppWindow, repository_id: usize, review_id: usize) -> ModelRc<ui::SlintNote> {

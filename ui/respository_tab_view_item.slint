@@ -210,6 +210,22 @@ export component RepositoryTabViewItem inherits TabViewItem {
                             Rectangle {
                                 VerticalLayout {
                                     spacing: Style.size.spacing;
+                                    HorizontalLayout {
+                                        note-text-edit := LineEdit {
+                                            placeholder-text: "note-text";
+                                        }
+                                        note-context-edit := LineEdit {
+                                            placeholder-text: "note-context";
+                                        }
+                                        Button {
+                                            text: "add";
+                                            clicked => {
+                                                SlintReviewCallbacks.add_note(root.review_id_parameters, note-text-edit.text, note-context-edit.text);
+                                                note-context-edit.text = "";
+                                                note-text-edit.text = "";
+                                            }
+                                        }
+                                    }
                                     ListView {
                                         for note in root.review_model[review_index].note_model: HorizontalLayout {
                                             private property <SlintNoteIdParamters> id_parameters: {

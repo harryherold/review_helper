@@ -83,6 +83,12 @@ impl Notes {
     pub fn delete_note(&mut self, id: &NoteId) {
         self.id_note_map.remove(id);
     }
+    pub fn add_note(&mut self, text: String, context: String) -> NoteId {
+        let store = NoteStore { text, context, is_done: false };
+        let id = self.allocate_note_id();
+        self.id_note_map.insert(id.clone(), store);
+        id
+    }
 }
 
 #[derive(Default, Clone)]

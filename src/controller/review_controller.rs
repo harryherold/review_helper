@@ -150,4 +150,16 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
             channel.send(message).unwrap();
         }
     });
+    app_window.global::<ui::SlintReviewCallbacks>().on_add_note({
+        let channel = worker_channel.clone();
+        move |ids, note_text, note_context| {
+            let message = WorkerMessage::AddNote {
+                repository_id: RepositoryId::from(ids.repository_id),
+                review_id: ReviewId::from(ids.review_id),
+                text: String::from(note_text.as_str()),
+                context: String::from(note_context.as_str()),
+            };
+            channel.send(message).unwrap();
+        }
+    });
 }

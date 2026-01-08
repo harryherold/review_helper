@@ -80,6 +80,12 @@ pub enum WorkerMessage {
         review_id: ReviewId,
         note_id: NoteId,
     },
+    AddNote {
+        repository_id: RepositoryId,
+        review_id: ReviewId,
+        text: String,
+        context: String,
+    },
 }
 
 pub struct Worker {
@@ -275,6 +281,12 @@ impl WorkerImpl {
                     review_id,
                     note_id,
                 } => self.delete_note(repository_id, review_id, note_id),
+                WorkerMessage::AddNote {
+                    repository_id,
+                    review_id,
+                    text,
+                    context,
+                } => self.add_note(repository_id, review_id, text, context),
             }
         }
     }
@@ -508,5 +520,36 @@ impl WorkerImpl {
         }
 
         self.ui_updater.delete_note(repository_id.as_usize(), review_id.as_usize(), note_id.as_usize());
+    }
+    fn add_note(&mut self, repository_id: RepositoryId, review_id: ReviewId, text: String, context: String) {
+        let Some(repository) = self.repositories.get_mut(&repository_id) else {
+            self.ui_updater
+                .report_error(ui::SlintResult::ModelItemNotExists, &format!("repository id {}", repository_id.as_usize()));
+            return;
+        };
+        let Some(review) = repository.reviews.get_mut(&review_id) else {
+            self.ui_updater.report_error(
+                ui::SlintResult::ModelItemNotExists,
+                &format!("repository id {} review id {}", repository_id.as_usize(), review_id.as_usize()),
+            );
+            return;
+        };
+
+        let ui_text = SharedString::from(text.as_str());
+        let ui_context = SharedString::from(context.as_str());
+
+        let note_id = review.notes.add_note(text, context);
+
+        if let Err(e) = self.storage.save_review_notes(&repository.name, &review.name(), &review.notes.stores()) {
+            self.ui_updater.report_error(ui::SlintResult::StoreFailed, &e.to_string());
+            return;
+        }
+        let ui_note = SlintNote {
+            id: note_id.as_i32(),
+            text: ui_text,
+            context: ui_context,
+            is_fixed: false,
+        };
+        self.ui_updater.add_note(repository_id.as_usize(), review_id.as_usize(), ui_note);
     }
 }
