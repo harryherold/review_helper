@@ -44,6 +44,13 @@ export component RepositoryTabViewItem inherits TabViewItem {
                 padding-left: 5px;
                 padding-right: 5px;
                 spacing: Style.size.spacing;
+
+                Button {
+                    text: "delete";
+                    clicked => {
+                        SlintReviewHelper.delete_repository(root.repository_id);
+                    }
+                }
                 Text {
                     height: Style.size.control-height;
                     vertical-alignment: center;

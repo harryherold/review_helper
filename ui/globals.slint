@@ -24,6 +24,7 @@ export enum SlintResult {
     FindFileDifferenceFailed,
     ShowFileDifferencesFailed,
     DeleteReviewFailed,
+    DeleteRepositoryFailed,
 }
 
 export enum SlintChangeType {
@@ -153,6 +154,7 @@ export global SlintReviewHelper {
     in property <[SlintRepository]> repositories;
     in property <[string]> repository_names;
     callback new_repository();
+    callback delete_repository(int);
 }
 
 export global Repository {

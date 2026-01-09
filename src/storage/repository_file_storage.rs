@@ -106,6 +106,15 @@ impl ReviewHelperStorage for ReviewHelperFileStorage {
         Ok(())
     }
 
+    fn delete_repository(&self, repository_name: &RepositoryName) -> anyhow::Result<()> {
+        let repository_path = self.storage_path.join(repository_name.as_str());
+        if !repository_path.exists() {
+            return Err(anyhow::format_err!("Respository does not exist!"));
+        }
+        fs::remove_dir_all(repository_path)?;
+        Ok(())
+    }
+
     fn load_review_names(&self, repository_name: &RepositoryName) -> anyhow::Result<Vec<ReviewName>> {
         let mut repository_path = self.storage_path.clone();
         repository_path.push(PathBuf::from(String::from(repository_name)));
@@ -193,9 +202,6 @@ impl ReviewHelperStorage for ReviewHelperFileStorage {
             return Err(anyhow::format_err!("Respository does not exist!"));
         }
         let review_dir_path = repository_path.join(review_name.as_str());
-        if !review_dir_path.exists() {
-            fs::create_dir(&review_dir_path)?;
-        }
         fs::remove_dir_all(review_dir_path)?;
         Ok(())
     }
@@ -485,6 +491,33 @@ file_name = "foo.md"
         assert!(load_result.is_ok());
 
         assert_eq!(load_result.unwrap_or_default(), vec![expected_repository_store]);
+    }
+
+    #[serial]
+    #[test]
+    fn test_removing_repository() {
+        struct Context(PathBuf);
+        impl Drop for Context {
+            fn drop(&mut self) {
+                let _ = fs::remove_dir_all(&self.0);
+            }
+        }
+
+        let context = Context(create_test_dir());
+        create_test_repos(&context.0);
+
+        let repository_storage = ReviewHelperFileStorage::new(context.0.clone());
+
+        let repository_name = RepositoryName::from("review_helper");
+
+        let repository_path = context.0.join(repository_name.as_str());
+
+        assert!(repository_path.exists());
+
+        let result = repository_storage.delete_repository(&repository_name);
+        assert!(result.is_ok());
+
+        assert!(!repository_path.exists());
     }
 
     #[serial]

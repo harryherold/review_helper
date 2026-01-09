@@ -336,6 +336,12 @@ impl Repositories {
         self.id_repository_map.insert(id.clone(), repository);
         id
     }
+    pub fn delete_repository(&mut self, repository_id: &RepositoryId) -> Option<RepositoryName> {
+        let repository = self.id_repository_map.remove(repository_id)?;
+        let path = repository.store.path;
+        self.repository_path_set.remove(&path);
+        Some(repository.name)
+    }
     fn allocate_repository_id(&mut self) -> RepositoryId {
         if !self.last_repository_id.is_next_id_valid() {
             eprintln!("Too many repository ids allocated");

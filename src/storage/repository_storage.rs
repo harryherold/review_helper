@@ -80,6 +80,7 @@ pub struct ReviewStore {
 pub trait ReviewHelperStorage {
     fn load_repositories(&self) -> anyhow::Result<Vec<RepositoryStore>>;
     fn save_repository(&self, repository_store: &RepositoryStore) -> anyhow::Result<()>;
+    fn delete_repository(&self, repository_name: &RepositoryName) -> anyhow::Result<()>;
     fn load_review_names(&self, repository_name: &RepositoryName) -> anyhow::Result<Vec<ReviewName>>;
     fn load_review(&self, repository_name: &RepositoryName, review_name: &ReviewName) -> anyhow::Result<Option<ReviewStore>>;
     fn delete_review(&self, repository_name: &RepositoryName, review_name: &ReviewName) -> anyhow::Result<()>;

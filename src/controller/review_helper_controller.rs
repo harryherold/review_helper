@@ -2,6 +2,7 @@ use native_dialog::FileDialog;
 
 use slint::ComponentHandle;
 
+use crate::repositories::RepositoryId;
 use crate::ui;
 use crate::worker::WorkerChannel;
 
@@ -16,6 +17,13 @@ pub fn setup_review_helper(app_window: &ui::AppWindow, worker_channel: WorkerCha
             {
                 channel.send(crate::worker::WorkerMessage::NewRepository(repository_path)).unwrap();
             }
+        }
+    });
+    app_window.global::<ui::SlintReviewHelper>().on_delete_repository({
+        let channel = worker_channel.clone();
+        move |repository_id| {
+            let message = crate::worker::WorkerMessage::DeleteRepository(RepositoryId::from(repository_id));
+            channel.send(message).unwrap();
         }
     });
 }

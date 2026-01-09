@@ -45,6 +45,7 @@ pub enum WorkerMessage {
         color_scheme: String,
     },
     NewRepository(PathBuf),
+    DeleteRepository(RepositoryId),
     ChangeRepository {
         id: RepositoryId,
         base_branch: String,
@@ -292,6 +293,7 @@ impl WorkerImpl {
                     text,
                     context,
                 } => self.add_note(repository_id, review_id, text, context),
+                WorkerMessage::DeleteRepository(repository_id) => self.delete_repository(repository_id),
             }
         }
     }
@@ -322,6 +324,16 @@ impl WorkerImpl {
             },
             Err(e) => self.report_review_helper_error(&e),
         }
+    }
+    fn delete_repository(&mut self, repository_id: RepositoryId) {
+        let Some(repository_name) = self.repositories.delete_repository(&repository_id) else {
+            return;
+        };
+        if let Err(e) = self.storage.delete_repository(&repository_name) {
+            self.ui_updater.report_error(ui::SlintResult::DeleteRepositoryFailed, &e.to_string());
+            return;
+        }
+        self.ui_updater.delete_repository(repository_id.as_usize());
     }
     fn change_repository(&mut self, repository_id: RepositoryId, base_branch: String) {
         let Some(repository) = self.repositories.get_mut(&repository_id) else {

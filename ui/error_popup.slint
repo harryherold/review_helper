@@ -64,6 +64,9 @@ export component ErrorPopup inherits Popup {
                     if (root.result == SlintResult.ShowFileDifferencesFailed) {
                         return "Could not show file difference!";
                     }
+                    if (root.result == SlintResult.DeleteRepositoryFailed) {
+                        return "Could not delete repository!";
+                    }
                     return "";
                 }
             }

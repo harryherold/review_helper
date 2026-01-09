@@ -173,7 +173,17 @@ impl UiUpdater {
             })
             .unwrap();
     }
-
+    pub fn delete_repository(&self, repository_id: usize) {
+        self.ui_weak
+            .upgrade_in_event_loop({
+                move |app_window| {
+                    let repository_model = app_window.global::<ui::SlintReviewHelper>().get_repositories();
+                    let repository_model = repository_model.as_any().downcast_ref::<IdModel<ui::SlintRepository>>().unwrap();
+                    repository_model.remove(repository_id);
+                }
+            })
+            .unwrap();
+    }
     pub fn set_review(
         &self,
         repository_id: usize,
