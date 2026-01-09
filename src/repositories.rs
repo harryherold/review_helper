@@ -69,6 +69,10 @@ impl Notes {
     pub fn iter(&self) -> hash_map::Iter<'_, NoteId, NoteStore> {
         self.id_note_map.iter()
     }
+    pub fn has(&self, id: &NoteId) -> bool {
+        self.id_note_map.contains_key(id)
+    }
+
     fn allocate_note_id(&mut self) -> NoteId {
         if !self.last_note_id.is_next_id_valid() {
             eprintln!("Too many note ids allocated");
@@ -80,8 +84,9 @@ impl Notes {
     pub fn get_mut(&mut self, id: &NoteId) -> Option<&mut NoteStore> {
         self.id_note_map.get_mut(id)
     }
-    pub fn delete_note(&mut self, id: &NoteId) {
-        self.id_note_map.remove(id);
+    pub fn delete_note(&mut self, id: &NoteId) -> bool {
+        let result = self.id_note_map.remove(id);
+        result.is_some()
     }
     pub fn add_note(&mut self, text: String, context: String) -> NoteId {
         let store = NoteStore { text, context, is_done: false };
@@ -244,11 +249,11 @@ impl Reviews {
         self.insert_review(id.clone(), Review { name, ..Default::default() });
         id
     }
-    pub fn delete_review(&mut self, review_id: &ReviewId) -> ReviewName {
-        let review_name = self.id_review_name_map.remove(review_id).unwrap_or_default();
+    pub fn delete_review(&mut self, review_id: &ReviewId) -> Option<ReviewName> {
+        let review_name = self.id_review_name_map.remove(review_id)?;
         self.review_name_set.remove(&review_name);
         self.id_review_map.remove(review_id);
-        review_name
+        Some(review_name)
     }
     pub fn get_mut(&mut self, id: &ReviewId) -> Option<&mut Review> {
         self.id_review_map.get_mut(id)

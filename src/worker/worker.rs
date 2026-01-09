@@ -430,10 +430,17 @@ impl WorkerImpl {
                 .report_error(ui::SlintResult::ModelItemNotExists, &format!("repository id {}", repository_id.as_usize()));
             return;
         };
-        let review_name = repository.reviews.delete_review(&review_id);
+        let Some(review_name) = repository.reviews.delete_review(&review_id) else {
+            self.ui_updater.report_error(
+                ui::SlintResult::ModelItemNotExists,
+                &format!("repository id {} review id {}", repository_id.as_usize(), review_id.as_usize()),
+            );
+            return;
+        };
 
         if let Err(e) = self.storage.delete_review(&repository.name, &review_name) {
             self.ui_updater.report_error(ui::SlintResult::DeleteReviewFailed, &e.to_string());
+            return;
         }
 
         self.ui_updater.delete_review(repository_id.as_usize(), review_id.as_usize());
@@ -543,7 +550,19 @@ impl WorkerImpl {
             );
             return;
         };
-        review.notes.delete_note(&note_id);
+
+        if !review.notes.delete_note(&note_id) {
+            self.ui_updater.report_error(
+                ui::SlintResult::ModelItemNotExists,
+                &format!(
+                    "repository id {} review id {} note id {}",
+                    repository_id.as_usize(),
+                    review_id.as_usize(),
+                    note_id.as_usize()
+                ),
+            );
+            return;
+        }
 
         if let Err(e) = self.storage.save_review_notes(&repository.name, &review.name(), &review.notes.stores()) {
             self.ui_updater.report_error(ui::SlintResult::StoreFailed, &e.to_string());
