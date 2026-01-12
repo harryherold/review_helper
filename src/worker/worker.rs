@@ -37,6 +37,7 @@ pub enum ReviewContentChange {
 
 pub enum WorkerMessage {
     Quit,
+    QueryCommits(RepositoryId),
     QueryDiffTools,
     SaveReviewHelperSettings {
         diff_tool: String,
@@ -50,7 +51,7 @@ pub enum WorkerMessage {
         id: RepositoryId,
         base_branch: String,
     },
-    LoadReviewNames {
+    LoadRepository {
         id: RepositoryId,
     },
     LoadReview {
@@ -250,10 +251,22 @@ impl WorkerImpl {
             self.ui_updater.report_error(ui::SlintResult::ShowFileDifferencesFailed, &e.to_string());
         }
     }
+    fn load_commits(&self, repository_id: &RepositoryId) {
+        let Some(repository) = self.repositories.get(repository_id) else {
+            self.ui_updater
+                .report_error(ui::SlintResult::ModelItemNotExists, &format!("repository  id {}", repository_id.as_usize()));
+            return;
+        };
+        match git_utils::query_commits(repository.path()) {
+            Ok(commits) => self.ui_updater.set_commits(commits),
+            Err(e) => self.ui_updater.report_error(ui::SlintResult::QueryingCommitsFailed, &e.to_string()),
+        }
+    }
     fn worker_loop(&mut self, mut rx: UnboundedReceiver<WorkerMessage>) {
         while let Some(message) = rx.blocking_recv() {
             match message {
                 WorkerMessage::Quit => return,
+                WorkerMessage::QueryCommits(repository_id) => self.load_commits(&repository_id),
                 WorkerMessage::QueryDiffTools => self.query_diff_tools(),
                 WorkerMessage::SaveReviewHelperSettings {
                     diff_tool,
@@ -263,7 +276,10 @@ impl WorkerImpl {
                 } => self.save_settings(diff_tool, editor, editor_args, color_scheme),
                 WorkerMessage::NewRepository(path) => self.new_repository(path),
                 WorkerMessage::ChangeRepository { id, base_branch } => self.change_repository(id, base_branch),
-                WorkerMessage::LoadReviewNames { id } => self.load_review_names(id),
+                WorkerMessage::LoadRepository { id } => {
+                    self.load_commits(&id);
+                    self.load_review_names(id);
+                }
                 WorkerMessage::LoadReview { repository_id, review_id } => self.load_review(repository_id, review_id),
                 WorkerMessage::NewReview { repository_id, name } => self.new_review(repository_id, name),
                 WorkerMessage::DeleteReview { repository_id, review_id } => self.delete_review(repository_id, review_id),

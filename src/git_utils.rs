@@ -240,16 +240,22 @@ pub fn query_commits(repo_path: &PathBuf) -> anyhow::Result<Vec<Commit>> {
     let mut commits = Vec::<Commit>::new();
     let args = vec!["--no-pager", "log", "--first-parent", "--pretty=format:\"%h¦%an¦%aI¦%s\""];
     let output = git_command!(repo_path, args).output()?;
-    let output_string = String::from_utf8(output.stdout.trim_ascii().to_vec())?;
+    let output = output.stdout.trim_ascii().to_vec();
+
+    if output.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let output_string = String::from_utf8(output)?;
 
     for line in output_string.split("\n") {
         let line = line.trim_matches('"');
         let mut iter = line.splitn(4, "¦");
 
-        let hash = iter.next().expect("Could get read sha!").to_string();
-        let author = iter.next().expect("Could get read author!").to_string();
-        let date = iter.next().expect("Could get read date!").to_string();
-        let message = iter.next().expect("Could get read message!").to_string();
+        let hash = iter.next().expect("Could not get read sha!").to_string();
+        let author = iter.next().expect("Could not get read author!").to_string();
+        let date = iter.next().expect("Could not get read date!").to_string();
+        let message = iter.next().expect("Could not get read message!").to_string();
 
         let date_time = DateTime::parse_from_rfc3339(&date).expect("Could parse date!");
 

@@ -25,6 +25,7 @@ export enum SlintResult {
     ShowFileDifferencesFailed,
     DeleteReviewFailed,
     DeleteRepositoryFailed,
+    QueryingCommitsFailed,
 }
 
 export enum SlintChangeType {
@@ -91,6 +92,13 @@ export struct SlintReview {
     is_loaded: bool,
 }
 
+export struct SlintCommit {
+    commit_id: string,
+    message: string,
+    author: string,
+    date: string,
+}
+
 export struct SlintRepository {
     id: int,
     name: string,
@@ -98,7 +106,6 @@ export struct SlintRepository {
     first_commit: string,
     base_branch: string,
     review_model: [SlintReview],
-    // commit_model: [[StandardListViewItem]],
 }
 
 export struct SlintErrorEntry {
@@ -148,6 +155,22 @@ export global SlintRepositoryCallbacks {
     callback new_review(int, string);
     callback load_repository(int);
     callback repository_changed(int, string);
+}
+
+export enum SlintCommitSortCriterion {
+    Text,
+    Author,
+    Date,
+}
+
+export global SlintCommitPickerAdapter {
+    in property <[SlintCommit]> commit_source_model;
+
+    pure callback ui_commit_model() -> [SlintCommit];
+    callback filter_commits(string);
+    callback sort_commits(SlintCommitSortCriterion, bool);
+    callback refresh(int);
+    callback index_of_merge_base(int) -> int;
 }
 
 export global SlintReviewHelper {

@@ -19,6 +19,7 @@ import {
     SlintNoteIdParamters,
 } from "globals.slint";
 import { TabButton, TabCreateButton, TabViewItem } from "tabview.slint";
+import { CommitPicker } from "commit_picker.slint";
 
 export component RepositoryTabViewItem inherits TabViewItem {
     in property <int> repository_id;
@@ -40,11 +41,22 @@ export component RepositoryTabViewItem inherits TabViewItem {
     HorizontalLayout {
         Rectangle {
             width: 15%;
+
+            commit-picker := CommitPicker {
+                repository_id: root.repository_id;
+            }
+
             VerticalLayout {
                 padding-left: 5px;
                 padding-right: 5px;
                 spacing: Style.size.spacing;
 
+                Button {
+                    text: "commit";
+                    clicked => {
+                        commit-picker.show();
+                    }
+                }
                 Button {
                     text: "delete";
                     clicked => {

@@ -18,7 +18,7 @@ pub fn setup_repository_callbacks(app_window: &ui::AppWindow, worker_channel: Wo
     app_window.global::<ui::SlintRepositoryCallbacks>().on_load_repository({
         let channel = worker_channel.clone();
         move |id| {
-            channel.send(WorkerMessage::LoadReviewNames { id: RepositoryId::from(id) }).unwrap();
+            channel.send(WorkerMessage::LoadRepository { id: RepositoryId::from(id) }).unwrap();
         }
     });
     app_window.global::<ui::SlintRepositoryCallbacks>().on_new_review({

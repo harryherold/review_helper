@@ -329,6 +329,36 @@ impl UiUpdater {
             })
             .unwrap();
     }
+
+    pub fn set_commits(&self, commits: Vec<git_utils::Commit>) {
+        self.ui_weak
+            .upgrade_in_event_loop(move |app_window| {
+                let ui_commits = commits.into_iter().map(|commit| ui::SlintCommit::from(commit)).collect::<Vec<_>>();
+
+                let commit_model = get_commit_model(&app_window);
+                let commit_model = commit_model.as_any().downcast_ref::<VecModel<ui::SlintCommit>>().unwrap();
+
+                commit_model.clear();
+                commit_model.set_vec(ui_commits);
+            })
+            .unwrap();
+    }
+}
+
+impl From<git_utils::Commit> for ui::SlintCommit {
+    fn from(value: git_utils::Commit) -> Self {
+        ui::SlintCommit {
+            commit_id: SharedString::from(value.hash.as_str()),
+            author: SharedString::from(value.author.as_str()),
+            date: SharedString::from(value.date.as_str()),
+            message: SharedString::from(value.message.as_str()),
+        }
+    }
+}
+
+fn get_commit_model(app_window: &ui::AppWindow) -> ModelRc<ui::SlintCommit> {
+    let commit_model = app_window.global::<ui::SlintCommitPickerAdapter>().get_commit_source_model();
+    commit_model
 }
 
 fn get_review_model(app_window: &ui::AppWindow, repository_id: usize) -> ModelRc<ui::SlintReview> {
