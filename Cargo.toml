@@ -14,7 +14,7 @@ wildcard = "=0.3.0"
 toml = "0.8.19"
 serde = "1.0.215"
 serde_derive = "1.0.215"
-slint = { version = "1.13.1", default-features = false, features = [
+slint = { version = "1.14.1", default-features = false, features = [
     "std",
     "backend-winit",
     "compat-1-2",
@@ -34,5 +34,5 @@ serial_test = "3.2.0"
 mockcmd = { git = "https://github.com/harryherold/mockcmd.git", features = ["test"], rev = "0e2d6aaf8787f90071fade81585910b84dfd69c9" }
 
 [build-dependencies]
-slint-build = "1.13.1"
+slint-build = "1.14.1"
 winresource = "0.1.23"
