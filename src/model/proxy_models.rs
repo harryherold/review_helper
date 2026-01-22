@@ -3,22 +3,27 @@ use std::rc::Rc;
 
 use slint::{ComponentHandle, ModelRc, VecModel};
 
-use crate::model::{CommitProxyModel, FilesProxyModel};
+use crate::model::{CommitProxyModels, FileDiffProxyModels, FilesProxyModel};
 use crate::repositories::{RepositoryId, ReviewId};
 use crate::ui::{self, SlintCommit};
 
 pub struct ReviewProxyModels {
     files_proxy_model: Rc<FilesProxyModel>,
+    file_diff_proxy_model: Rc<FileDiffProxyModels>,
 }
 
 impl ReviewProxyModels {
     fn new(files_source_model: ModelRc<ui::SlintFileDiff>) -> Self {
         Self {
-            files_proxy_model: Rc::new(FilesProxyModel::new(files_source_model)),
+            files_proxy_model: Rc::new(FilesProxyModel::new(files_source_model.clone())),
+            file_diff_proxy_model: Rc::new(FileDiffProxyModels::new(files_source_model)),
         }
     }
     pub fn files_proxy_model(&self) -> Rc<FilesProxyModel> {
         self.files_proxy_model.clone()
+    }
+    pub fn file_diff_proxy_model(&self) -> Rc<FileDiffProxyModels> {
+        self.file_diff_proxy_model.clone()
     }
 }
 
@@ -46,7 +51,7 @@ impl RepositoryProxyModels {
 pub struct ProxyModels {
     id_repository_models_map: BTreeMap<RepositoryId, RepositoryProxyModels>,
     // TODO It is may be better to extract commit_proxy_model
-    pub commit_proxy_model: Rc<CommitProxyModel>,
+    pub commit_proxy_models: Rc<CommitProxyModels>,
 }
 
 impl ProxyModels {
@@ -57,7 +62,7 @@ impl ProxyModels {
             .set_commit_source_model(commit_model.clone());
         Self {
             id_repository_models_map: BTreeMap::new(),
-            commit_proxy_model: Rc::new(CommitProxyModel::new(commit_model)),
+            commit_proxy_models: Rc::new(CommitProxyModels::new(commit_model)),
         }
     }
     pub fn mut_repository_proxy_models(&mut self, repository_id: &RepositoryId) -> Option<&mut RepositoryProxyModels> {

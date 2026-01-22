@@ -15,14 +15,14 @@ struct SortCriteria {
     is_sort_ascending: bool,
 }
 
-pub struct CommitProxyModel {
+pub struct CommitProxyModels {
     filter_model: CommitFilterModel,
     filter_text: Rc<RefCell<SharedString>>,
     sort_criteria: Rc<RefCell<SortCriteria>>,
     sort_model: CommitSortModel,
 }
 
-impl CommitProxyModel {
+impl CommitProxyModels {
     fn get_sort_callback(criteria: ui::SlintCommitSortCriterion, is_sort_ascending: bool) -> Box<dyn Fn(&ui::SlintCommit, &ui::SlintCommit) -> Ordering> {
         Box::new(move |lhs: &ui::SlintCommit, rhs: &ui::SlintCommit| -> Ordering {
             use ui::SlintCommitSortCriterion::*;
@@ -82,7 +82,7 @@ impl CommitProxyModel {
             }),
         ));
 
-        CommitProxyModel {
+        CommitProxyModels {
             filter_model: fm.clone(),
             filter_text: clone_filter_text,
             sort_criteria: sort_criteria,

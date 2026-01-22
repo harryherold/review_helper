@@ -1,14 +1,88 @@
+use std::{cell::RefCell, rc::Rc};
+
 use crate::{
-    model::IdModel,
+    model::{FileDiffProxyModels, IdModel, ProxyModels, model_utils},
     repositories::{FileDiffId, NoteId, RepositoryId, ReviewId},
     storage::repository_storage::DiffRangeStore,
     ui,
     worker::{NoteChangeType, ReviewContentChange, WorkerChannel, WorkerMessage},
 };
 
-use slint::{ComponentHandle, Model};
+use slint::{ComponentHandle, Model, ModelRc, SharedString};
 
-pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: WorkerChannel) {
+pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: WorkerChannel, proxy_models: Rc<RefCell<ProxyModels>>) {
+    fn get_file_diff_proxy_model(ids: ui::SlintReviewIdParameters, proxy_models: &Rc<RefCell<ProxyModels>>) -> Rc<FileDiffProxyModels> {
+        let repository_id = RepositoryId::from(ids.repository_id);
+        let review_id = ReviewId::from(ids.review_id);
+
+        let proxy_models = proxy_models.borrow();
+
+        let repository_proxy_models = proxy_models.repository_proxy_models(&repository_id).expect("Could not find repository!");
+
+        repository_proxy_models
+            .review_proxy_models(&review_id)
+            .expect("Could not find review!")
+            .file_diff_proxy_model()
+    }
+
+    app_window.global::<ui::SlintReviewCallbacks>().on_file_diff_ui_model({
+        let proxy_models = proxy_models.clone();
+        move |ids| -> ModelRc<ui::SlintFileDiff> {
+            let file_diff_proxy_model = get_file_diff_proxy_model(ids, &proxy_models);
+            file_diff_proxy_model.ui_model()
+        }
+    });
+
+    app_window.global::<ui::SlintReviewCallbacks>().on_set_file_diff_file_pattern({
+        let proxy_models = proxy_models.clone();
+        move |ids, file_pattern| {
+            let file_diff_proxy_model = get_file_diff_proxy_model(ids, &proxy_models);
+            file_diff_proxy_model.set_filter_pattern(file_pattern);
+        }
+    });
+
+    app_window.global::<ui::SlintReviewCallbacks>().on_set_file_diff_review_state({
+        let proxy_models = proxy_models.clone();
+        move |ids, filter_review_state| {
+            let file_diff_proxy_model = get_file_diff_proxy_model(ids, &proxy_models);
+            file_diff_proxy_model.set_filter_review_state(filter_review_state);
+        }
+    });
+
+    app_window.global::<ui::SlintReviewCallbacks>().on_set_file_diff_sort_criteria({
+        let proxy_models = proxy_models.clone();
+        move |ids, sort_criteria| {
+            let file_diff_proxy_model = get_file_diff_proxy_model(ids, &proxy_models);
+            file_diff_proxy_model.set_sort_by(sort_criteria);
+        }
+    });
+
+    app_window.global::<ui::SlintReviewCallbacks>().on_initialize_ui_models({
+        let ui_weak = app_window.as_weak();
+        let proxy_models = proxy_models.clone();
+        move |ids| {
+            let repository_id = RepositoryId::from(ids.repository_id);
+            let review_id = ReviewId::from(ids.review_id);
+
+            let mut proxy_models = proxy_models.borrow_mut();
+
+            if !proxy_models.has_repository_proxy_models(&repository_id) {
+                proxy_models.add_repository_proxy_models(repository_id.clone());
+            }
+
+            let repository_proxy_models = proxy_models.mut_repository_proxy_models(&repository_id).expect("Add repository failed!");
+
+            if !repository_proxy_models.has_review_proxy_models(&review_id) {
+                let ui = ui_weak.unwrap();
+                let file_diff_model = model_utils::get_file_diff_model(&ui, repository_id.as_usize(), review_id.as_usize());
+                if model_utils::is_model_set::<IdModel<ui::SlintFileDiff>>(&file_diff_model) {
+                    repository_proxy_models.add_review_proxy_models(review_id.clone(), file_diff_model);
+                } else {
+                    model_utils::report_error(&ui, ui::SlintResult::InvalidModel, SharedString::from("IdModel<ui::SlintFileDiff>"));
+                }
+            }
+        }
+    });
     app_window.global::<ui::SlintReviewCallbacks>().on_load_review({
         let channel = worker_channel.clone();
         move |ids| {

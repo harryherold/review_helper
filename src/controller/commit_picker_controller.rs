@@ -2,14 +2,14 @@ use std::{path::PathBuf, rc::Rc};
 
 use crate::{
     git_utils,
-    model::{CommitProxyModel, IdModel},
+    model::{CommitProxyModels, IdModel},
     repositories::RepositoryId,
     ui::{self, SlintCommit},
     worker::{WorkerChannel, WorkerMessage},
 };
 use slint::{ComponentHandle, Model, ModelRc};
 
-pub fn setup_commit_picker(app_window: &ui::AppWindow, commit_proxy_model: Rc<CommitProxyModel>, worker_channel: WorkerChannel) {
+pub fn setup_commit_picker(app_window: &ui::AppWindow, commit_proxy_model: Rc<CommitProxyModels>, worker_channel: WorkerChannel) {
     app_window.global::<ui::SlintCommitPickerAdapter>().on_ui_commit_model({
         let commit_proxy_model = commit_proxy_model.clone();
         move || -> ModelRc<SlintCommit> { commit_proxy_model.ui_model() }

@@ -138,7 +138,25 @@ export struct SlintFileDiffIdParamters {
     file_diff_id: int,
 }
 
+export enum SlintFilterReviewState {
+    Unfiltered,
+    Done,
+    Open
+}
+
+export enum SlintSortCriteria {
+    Name,
+    Extension,
+    IsDone
+}
+
 export global SlintReviewCallbacks {
+    pure callback file_diff_ui_model(SlintReviewIdParameters) -> [SlintFileDiff];
+    callback set_file_diff_sort-criteria(SlintReviewIdParameters, SlintSortCriteria);
+    callback set_file_diff_file_pattern(SlintReviewIdParameters, string);
+    callback set_file_diff_review_state(SlintReviewIdParameters, SlintFilterReviewState);
+
+    callback initialize_ui_models(SlintReviewIdParameters);
     callback load_review(SlintReviewIdParameters);
     pure callback review_id_to_index(int, [SlintReview]) -> int;
     callback find_file_changes(SlintReviewIdParameters, SlintDiffRange);

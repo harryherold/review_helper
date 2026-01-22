@@ -121,6 +121,7 @@ export component RepositoryTabViewItem inherits TabViewItem {
                                 root.selected_review_id = review.id;
                                 if (!review.is_loaded) {
                                     SlintReviewCallbacks.load_review(root.review_id_parameters);
+                                    SlintReviewCallbacks.initialize_ui_models(root.review_id_parameters);
                                 }
                             }
                         }

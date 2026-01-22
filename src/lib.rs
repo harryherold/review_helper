@@ -30,11 +30,11 @@ pub fn main() {
 
     controller::setup_repository_callbacks(&app_window, worker.channel.clone());
 
-    controller::setup_review_callbacks(&app_window, worker.channel.clone());
+    controller::setup_review_callbacks(&app_window, worker.channel.clone(), proxy_models.clone());
 
     controller::setup_utils(&app_window);
 
-    controller::setup_commit_picker(&app_window, proxy_models.borrow().commit_proxy_model.clone(), worker.channel.clone());
+    controller::setup_commit_picker(&app_window, proxy_models.borrow().commit_proxy_models.clone(), worker.channel.clone());
 
     controller::setup_file_picker(&app_window, proxy_models.clone());
 

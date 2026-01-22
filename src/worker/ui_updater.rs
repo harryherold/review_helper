@@ -249,6 +249,13 @@ impl UiUpdater {
                         ..Default::default()
                     },
                 );
+
+                app_window
+                    .global::<ui::SlintReviewCallbacks>()
+                    .invoke_initialize_ui_models(ui::SlintReviewIdParameters {
+                        repository_id: repository_id as i32,
+                        review_id: review_id as i32,
+                    });
             })
             .unwrap();
     }
