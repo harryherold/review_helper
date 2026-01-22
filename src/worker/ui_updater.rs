@@ -1,9 +1,10 @@
 use std::rc::Rc;
 
-use slint::{ComponentHandle, Model, ModelExt, ModelRc, SharedString, VecModel};
+use slint::{ComponentHandle, Model, ModelExt, SharedString, VecModel};
 
 use crate::git_utils;
 use crate::model::IdModel;
+use crate::model::model_utils;
 use crate::repositories::{FileDiffId, NoteId};
 use crate::storage::RepositoryStore;
 use crate::storage::repository_storage::{FileDiffStore, NoteStore};
@@ -74,13 +75,7 @@ impl UiUpdater {
         let detail_text = SharedString::from(detail_text);
         self.ui_weak
             .upgrade_in_event_loop(move |app_window| {
-                let model_rc = app_window.global::<ui::SlintErrors>().get_model();
-                let model = model_rc.as_any().downcast_ref::<VecModel<ui::SlintErrorEntry>>().unwrap();
-                model.push(ui::SlintErrorEntry {
-                    error_type: error.clone(),
-                    text: detail_text,
-                });
-                app_window.invoke_request_show_error(error);
+                model_utils::report_error(&app_window, error, detail_text);
             })
             .unwrap();
     }
@@ -195,7 +190,7 @@ impl UiUpdater {
     ) {
         self.ui_weak
             .upgrade_in_event_loop(move |app_window| {
-                let review_model = get_review_model(&app_window, repository_id);
+                let review_model = model_utils::get_review_model(&app_window, repository_id);
                 let review_model = review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>().unwrap();
                 let mut review = review_model.get(review_id).expect("Review model is out of sync with cache");
                 review.start_diff = start_diff;
@@ -214,10 +209,10 @@ impl UiUpdater {
             })
             .unwrap();
     }
-    pub fn set_review_names(&self, repository_id: usize, reviews: Vec<(i32, SharedString)>) {
+    pub fn initialize_reviews(&self, repository_id: usize, reviews: Vec<(i32, SharedString)>) {
         self.ui_weak
             .upgrade_in_event_loop(move |app_window| {
-                let review_model = get_review_model(&app_window, repository_id);
+                let review_model = model_utils::get_review_model(&app_window, repository_id);
                 let review_model = review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>().unwrap();
                 reviews.into_iter().for_each(|(id, name)| {
                     review_model.add(
@@ -238,7 +233,7 @@ impl UiUpdater {
     pub fn new_review(&self, repository_id: usize, review_id: usize, review_name: SharedString) {
         self.ui_weak
             .upgrade_in_event_loop(move |app_window| {
-                let review_model = get_review_model(&app_window, repository_id);
+                let review_model = model_utils::get_review_model(&app_window, repository_id);
                 let review_model = review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>().unwrap();
 
                 assert!(false == review_model.has(review_id));
@@ -248,6 +243,8 @@ impl UiUpdater {
                     SlintReview {
                         id: review_id as i32,
                         name: review_name,
+                        note_model: Rc::new(IdModel::default()).into(),
+                        file_diff_model: Rc::new(IdModel::default()).into(),
                         is_loaded: true,
                         ..Default::default()
                     },
@@ -258,7 +255,7 @@ impl UiUpdater {
     pub fn delete_review(&self, repository_id: usize, review_id: usize) {
         self.ui_weak
             .upgrade_in_event_loop(move |app_window| {
-                let review_model = get_review_model(&app_window, repository_id);
+                let review_model = model_utils::get_review_model(&app_window, repository_id);
                 let review_model = review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>().unwrap();
                 review_model.remove(review_id);
             })
@@ -268,7 +265,7 @@ impl UiUpdater {
     pub fn delete_note(&self, repository_id: usize, review_id: usize, note_id: usize) {
         self.ui_weak
             .upgrade_in_event_loop(move |app_window| {
-                let note_model = get_note_model(&app_window, repository_id, review_id);
+                let note_model = model_utils::get_note_model(&app_window, repository_id, review_id);
                 let note_model = note_model.as_any().downcast_ref::<IdModel<ui::SlintNote>>().unwrap();
 
                 note_model.remove(note_id);
@@ -278,7 +275,7 @@ impl UiUpdater {
     pub fn update_note(&self, repository_id: usize, review_id: usize, note_id: usize, note_change_type: NoteChangeType) {
         self.ui_weak
             .upgrade_in_event_loop(move |app_window| {
-                let note_model = get_note_model(&app_window, repository_id, review_id);
+                let note_model = model_utils::get_note_model(&app_window, repository_id, review_id);
                 let note_model = note_model.as_any().downcast_ref::<IdModel<ui::SlintNote>>().unwrap();
 
                 if let Some(mut note) = note_model.get(note_id) {
@@ -296,7 +293,7 @@ impl UiUpdater {
     pub fn set_file_diffs(&self, repository_id: usize, review_id: usize, ui_file_diffs: Vec<SlintFileDiff>) {
         self.ui_weak
             .upgrade_in_event_loop(move |app_window| {
-                let file_diff_model = get_file_diff_model(&app_window, repository_id, review_id);
+                let file_diff_model = model_utils::get_file_diff_model(&app_window, repository_id, review_id);
                 let file_diff_model = file_diff_model.as_any().downcast_ref::<IdModel<ui::SlintFileDiff>>().unwrap();
                 file_diff_model.clear();
 
@@ -309,7 +306,7 @@ impl UiUpdater {
     pub fn set_file_diff_is_reviewed(&self, repository_id: usize, review_id: usize, file_diff_id: usize, is_reviewed: bool) {
         self.ui_weak
             .upgrade_in_event_loop(move |app_window| {
-                let file_diff_model = get_file_diff_model(&app_window, repository_id, review_id);
+                let file_diff_model = model_utils::get_file_diff_model(&app_window, repository_id, review_id);
                 let file_diff_model = file_diff_model.as_any().downcast_ref::<IdModel<ui::SlintFileDiff>>().unwrap();
 
                 if let Some(mut file_diff) = file_diff_model.get(file_diff_id) {
@@ -322,7 +319,7 @@ impl UiUpdater {
     pub fn add_note(&self, repository_id: usize, review_id: usize, note: SlintNote) {
         self.ui_weak
             .upgrade_in_event_loop(move |app_window| {
-                let note_model = get_note_model(&app_window, repository_id, review_id);
+                let note_model = model_utils::get_note_model(&app_window, repository_id, review_id);
                 let note_model = note_model.as_any().downcast_ref::<IdModel<ui::SlintNote>>().unwrap();
 
                 note_model.add(note.id.clone() as usize, note);
@@ -335,7 +332,7 @@ impl UiUpdater {
             .upgrade_in_event_loop(move |app_window| {
                 let ui_commits = commits.into_iter().map(|commit| ui::SlintCommit::from(commit)).collect::<Vec<_>>();
 
-                let commit_model = get_commit_model(&app_window);
+                let commit_model = model_utils::get_commit_model(&app_window);
                 let commit_model = commit_model.as_any().downcast_ref::<VecModel<ui::SlintCommit>>().unwrap();
 
                 commit_model.clear();
@@ -356,41 +353,6 @@ impl From<git_utils::Commit> for ui::SlintCommit {
     }
 }
 
-fn get_commit_model(app_window: &ui::AppWindow) -> ModelRc<ui::SlintCommit> {
-    let commit_model = app_window.global::<ui::SlintCommitPickerAdapter>().get_commit_source_model();
-    commit_model
-}
-
-fn get_review_model(app_window: &ui::AppWindow, repository_id: usize) -> ModelRc<ui::SlintReview> {
-    let repository_model = app_window.global::<ui::SlintReviewHelper>().get_repositories();
-    let repository_model = repository_model.as_any().downcast_ref::<IdModel<ui::SlintRepository>>().unwrap();
-
-    assert!(repository_model.has(repository_id));
-
-    let repository = repository_model.get(repository_id).unwrap();
-
-    repository.review_model
-}
-fn get_note_model(app_window: &ui::AppWindow, repository_id: usize, review_id: usize) -> ModelRc<ui::SlintNote> {
-    let review_model = get_review_model(app_window, repository_id);
-    let review_model = review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>().unwrap();
-
-    assert!(review_model.has(review_id));
-
-    let review = review_model.get(review_id).unwrap();
-
-    review.note_model
-}
-fn get_file_diff_model(app_window: &ui::AppWindow, repository_id: usize, review_id: usize) -> ModelRc<ui::SlintFileDiff> {
-    let review_model = get_review_model(app_window, repository_id);
-    let review_model = review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>().unwrap();
-
-    assert!(review_model.has(review_id));
-
-    let review = review_model.get(review_id).unwrap();
-
-    review.file_diff_model
-}
 fn change_type_to_ui(change_type: &git_utils::ChangeType) -> ui::SlintChangeType {
     match change_type {
         git_utils::ChangeType::Added => ui::SlintChangeType::Added,

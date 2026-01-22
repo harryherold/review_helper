@@ -278,7 +278,7 @@ impl WorkerImpl {
                 WorkerMessage::ChangeRepository { id, base_branch } => self.change_repository(id, base_branch),
                 WorkerMessage::LoadRepository { id } => {
                     self.load_commits(&id);
-                    self.load_review_names(id);
+                    self.initialize_reviews(id);
                 }
                 WorkerMessage::LoadReview { repository_id, review_id } => self.load_review(repository_id, review_id),
                 WorkerMessage::NewReview { repository_id, name } => self.new_review(repository_id, name),
@@ -363,7 +363,7 @@ impl WorkerImpl {
             self.ui_updater.report_error(ui::SlintResult::StoreFailed, &repository.name.as_str());
         }
     }
-    fn load_review_names(&mut self, repository_id: RepositoryId) {
+    fn initialize_reviews(&mut self, repository_id: RepositoryId) {
         let Some(repository) = self.repositories.get_mut(&repository_id) else {
             self.ui_updater
                 .report_error(ui::SlintResult::ModelItemNotExists, &format!("repository id {}", repository_id.as_usize()));
@@ -377,7 +377,7 @@ impl WorkerImpl {
                     let id = repository.reviews.register_review_name(review_name.clone());
                     reviews.push((id.as_i32(), SharedString::from(review_name.as_str())));
                 });
-                self.ui_updater.set_review_names(repository_id.as_usize(), reviews);
+                self.ui_updater.initialize_reviews(repository_id.as_usize(), reviews);
             }
             Err(e) => self.ui_updater.report_error(ui::SlintResult::LoadReviewNamesFailed, &e.to_string()),
         }

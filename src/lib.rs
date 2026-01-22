@@ -1,5 +1,5 @@
 use slint::ComponentHandle;
-use std::process;
+use std::{cell::RefCell, process, rc::Rc};
 
 use crate::{model::ProxyModels, worker::Worker};
 
@@ -18,7 +18,7 @@ pub mod ui;
 pub fn main() {
     let app_window = ui::AppWindow::new().expect("Error while creating app window!");
 
-    let proxy_models = ProxyModels::new(&app_window);
+    let proxy_models = Rc::new(RefCell::new(ProxyModels::new(&app_window)));
 
     let worker = Worker::new(&app_window);
 
@@ -34,7 +34,9 @@ pub fn main() {
 
     controller::setup_utils(&app_window);
 
-    controller::setup_commit_picker(&app_window, proxy_models.commit_proxy_model.clone(), worker.channel.clone());
+    controller::setup_commit_picker(&app_window, proxy_models.borrow().commit_proxy_model.clone(), worker.channel.clone());
+
+    controller::setup_file_picker(&app_window, proxy_models.clone());
 
     app_window.run().unwrap();
     worker.join().unwrap();

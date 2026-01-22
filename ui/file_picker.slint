@@ -1,12 +1,14 @@
 import { VerticalBox, LineEdit, ListView, HorizontalBox, Button, Palette } from "std-widgets.slint";
 
 import { Style } from "style.slint";
-import { FilePickerAdapter } from "globals.slint";
 import { Popup } from "popup.slint";
 
 export component FilePicker inherits Popup {
-    callback accepted(string);
+    in property <[string]> file_model;
     in-out property <string> selected_file: "";
+    
+    callback accepted(string);
+    callback set_filter(string);
 
     title: "File Picker";
 
@@ -14,15 +16,15 @@ export component FilePicker inherits Popup {
         LineEdit {
             preferred-width: 300px;
             placeholder-text: "filter file";
-            enabled: FilePickerAdapter.files_model.length > 0;
+            enabled: root.file_model.length > 0;
             edited(text) => {
-                FilePickerAdapter.set-filter(text)
+                root.set_filter(text)
             }
         }
 
         ListView {
-            preferred-height: Math.min(FilePickerAdapter.files_model.length * Style.size.image-width, 300px);
-            for file in FilePickerAdapter.files_model: Rectangle {
+            preferred-height: Math.min(root.file_model.length * Style.size.image-width, 300px);
+            for file in root.file_model: Rectangle {
                 states [
                     is_selected_file when file == root.selected_file: {
                         background: Style.palette.selected;

@@ -43,7 +43,7 @@ export component CommitPicker inherits PopupWindow {
                 LineEdit {
                     placeholder-text: "text filter";
                     edited(text) => {
-                        SlintCommitPickerAdapter.filter_commits(text)
+                        SlintCommitPickerAdapter.filter_commits(text);
                     }
                 }
 

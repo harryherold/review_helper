@@ -17,9 +17,11 @@ import {
     SlintReviewIdParameters,
     SlintFileDiffIdParamters,
     SlintNoteIdParamters,
+    SlintFilePickerAdapter,
 } from "globals.slint";
 import { TabButton, TabCreateButton, TabViewItem } from "tabview.slint";
 import { CommitPicker } from "commit_picker.slint";
+import { FilePicker } from "file_picker.slint";
 
 export component RepositoryTabViewItem inherits TabViewItem {
     in property <int> repository_id;
@@ -144,7 +146,26 @@ export component RepositoryTabViewItem inherits TabViewItem {
             private property <int> review_index: SlintReviewCallbacks.review_id_to_index(root.selected_review_id, root.review_model);
             width: 85%;
 
+            file-picker := FilePicker {
+                initial_x: 0;
+                initial_y: 0;
+                states [
+                    file_model_loaded when review_index != -1 && root.review_model[review_index].is_loaded: {
+                        file-picker.file_model: SlintFilePickerAdapter.file_model(root.review_id_parameters);
+                    }
+                ]
+                set_filter (pattern) => {
+                    SlintFilePickerAdapter.set_filter(root.review_id_parameters, pattern);
+                }
+            }
+
             if review_index != -1: VerticalLayout {
+                Button {
+                    text: "file-picker";
+                    clicked => {
+                        file-picker.open();
+                    }
+                }
                 HorizontalLayout {
                     spacing: Style.size.spacing;
                     TabWidget {

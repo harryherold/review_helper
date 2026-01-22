@@ -12,7 +12,7 @@ use crate::storage::{
 
 macro_rules! create_id {
     ($name:ident) => {
-        #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
+        #[derive(Debug, Default, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
         pub struct $name(usize);
 
         impl $name {
@@ -68,9 +68,6 @@ impl Notes {
     }
     pub fn iter(&self) -> hash_map::Iter<'_, NoteId, NoteStore> {
         self.id_note_map.iter()
-    }
-    pub fn has(&self, id: &NoteId) -> bool {
-        self.id_note_map.contains_key(id)
     }
 
     fn allocate_note_id(&mut self) -> NoteId {

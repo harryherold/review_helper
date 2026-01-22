@@ -67,6 +67,12 @@ export component ErrorPopup inherits Popup {
                     if (root.result == SlintResult.DeleteRepositoryFailed) {
                         return "Could not delete repository!";
                     }
+                    if (root.result == SlintResult.QueryingCommitsFailed) {
+                        return "Querying commits failed!";
+                    }
+                    if (root.result == SlintResult.InvalidModel) {
+                        return "Found invalid model!";
+                    }
                     return "";
                 }
             }

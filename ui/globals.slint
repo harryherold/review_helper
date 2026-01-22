@@ -26,6 +26,7 @@ export enum SlintResult {
     DeleteReviewFailed,
     DeleteRepositoryFailed,
     QueryingCommitsFailed,
+    InvalidModel,
 }
 
 export enum SlintChangeType {
@@ -148,6 +149,11 @@ export global SlintReviewCallbacks {
     callback add_note(SlintReviewIdParameters, string, string);
     callback change_file_diff_is_reviewed(SlintFileDiffIdParamters, bool);
     callback show_file_differences(SlintFileDiffIdParamters);
+}
+
+export global SlintFilePickerAdapter {
+    pure callback file_model(SlintReviewIdParameters) -> [string];
+    callback set_filter(SlintReviewIdParameters, string);
 }
 
 export global SlintRepositoryCallbacks {

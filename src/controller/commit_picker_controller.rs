@@ -3,7 +3,7 @@ use std::{path::PathBuf, rc::Rc};
 use crate::{
     git_utils,
     model::{CommitProxyModel, IdModel},
-    repositories::{self, RepositoryId},
+    repositories::RepositoryId,
     ui::{self, SlintCommit},
     worker::{WorkerChannel, WorkerMessage},
 };
