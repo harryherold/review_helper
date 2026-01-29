@@ -150,7 +150,22 @@ export enum SlintSortCriteria {
     IsDone
 }
 
+export enum SlintNoteSortCriteria {
+    Text,
+    Context
+}
+
+export enum SlintSortOrder {
+    Ascending,
+    Descending
+}
+
 export global SlintReviewCallbacks {
+    pure callback note_ui_model(SlintReviewIdParameters) -> [SlintNote];
+    callback set_notes_text_filter(SlintReviewIdParameters, string);
+    callback set_notes_context-filter(SlintReviewIdParameters, string);
+    callback set_notes_sort_parameter(SlintReviewIdParameters, SlintNoteSortCriteria, SlintSortOrder);
+
     pure callback file_diff_ui_model(SlintReviewIdParameters) -> [SlintFileDiff];
     callback set_file_diff_sort-criteria(SlintReviewIdParameters, SlintSortCriteria);
     callback set_file_diff_file_pattern(SlintReviewIdParameters, string);

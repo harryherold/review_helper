@@ -1,7 +1,7 @@
 use std::{cell::RefCell, rc::Rc};
 
 use crate::{
-    model::{FileDiffProxyModels, IdModel, ProxyModels, model_utils},
+    model::{FileDiffProxyModels, IdModel, NotesProxyModels, ProxyModels, ReviewProxyModels, model_utils},
     repositories::{FileDiffId, NoteId, RepositoryId, ReviewId},
     storage::repository_storage::DiffRangeStore,
     ui,
@@ -23,6 +23,19 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
             .review_proxy_models(&review_id)
             .expect("Could not find review!")
             .file_diff_proxy_model()
+    }
+    fn get_notes_proxy_models(ids: ui::SlintReviewIdParameters, proxy_models: &Rc<RefCell<ProxyModels>>) -> Rc<NotesProxyModels> {
+        let repository_id = RepositoryId::from(ids.repository_id);
+        let review_id = ReviewId::from(ids.review_id);
+
+        let proxy_models = proxy_models.borrow();
+
+        let repository_proxy_models = proxy_models.repository_proxy_models(&repository_id).expect("Could not find repository!");
+
+        repository_proxy_models
+            .review_proxy_models(&review_id)
+            .expect("Could not find review!")
+            .notes_proxy_model()
     }
 
     app_window.global::<ui::SlintReviewCallbacks>().on_file_diff_ui_model({
@@ -74,11 +87,16 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
 
             if !repository_proxy_models.has_review_proxy_models(&review_id) {
                 let ui = ui_weak.unwrap();
-                let file_diff_model = model_utils::get_file_diff_model(&ui, repository_id.as_usize(), review_id.as_usize());
-                if model_utils::is_model_set::<IdModel<ui::SlintFileDiff>>(&file_diff_model) {
-                    repository_proxy_models.add_review_proxy_models(review_id.clone(), file_diff_model);
+
+                if let Some(review) = get_slint_review(&ui, repository_id.as_usize(), review_id.as_usize()) {
+                    let review_proxy_models = ReviewProxyModels::new(review.file_diff_model.clone(), review.note_model.clone());
+                    repository_proxy_models.add_review_proxy_models(review_id.clone(), review_proxy_models);
                 } else {
-                    model_utils::report_error(&ui, ui::SlintResult::InvalidModel, SharedString::from("IdModel<ui::SlintFileDiff>"));
+                    model_utils::report_error(
+                        &ui,
+                        ui::SlintResult::ModelItemNotExists,
+                        SharedString::from(format!("repository id {} review id {}", repository_id.as_usize(), review_id.as_usize())),
+                    );
                 }
             }
         }
@@ -225,4 +243,39 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
             channel.send(message).unwrap();
         }
     });
+    app_window.global::<ui::SlintReviewCallbacks>().on_note_ui_model({
+        let proxy_models = proxy_models.clone();
+        move |ids| -> ModelRc<ui::SlintNote> {
+            let notes_proxy_model = get_notes_proxy_models(ids, &proxy_models);
+            notes_proxy_model.ui_model()
+        }
+    });
+    app_window.global::<ui::SlintReviewCallbacks>().on_set_notes_text_filter({
+        let proxy_models = proxy_models.clone();
+        move |ids, text_pattern| {
+            let notes_proxy_model = get_notes_proxy_models(ids, &proxy_models);
+            notes_proxy_model.set_text_filter(text_pattern);
+        }
+    });
+    app_window.global::<ui::SlintReviewCallbacks>().on_set_notes_context_filter({
+        let proxy_models = proxy_models.clone();
+        move |ids, context_pattern| {
+            let notes_proxy_model = get_notes_proxy_models(ids, &proxy_models);
+            notes_proxy_model.set_context_filter(context_pattern);
+        }
+    });
+    app_window.global::<ui::SlintReviewCallbacks>().on_set_notes_sort_parameter({
+        let proxy_models = proxy_models.clone();
+        move |ids, criteria, order| {
+            let notes_proxy_model = get_notes_proxy_models(ids, &proxy_models);
+            notes_proxy_model.set_sort_parameter(criteria, order);
+        }
+    });
+}
+
+pub fn get_slint_review(app_window: &ui::AppWindow, repository_id: usize, review_id: usize) -> Option<ui::SlintReview> {
+    let review_model = model_utils::get_review_model(app_window, repository_id);
+    let review_model = review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>()?;
+
+    review_model.get(review_id)
 }

@@ -3,7 +3,7 @@ import {
     TabWidget,
     ListView,
     Palette,
-    LineEdit, CheckBox, Button, HorizontalBox,
+    LineEdit, CheckBox, Button, HorizontalBox, ComboBox,
 } from "std-widgets.slint";
 import { ToolButton } from "tool_button.slint";
 import { Style } from "style.slint";
@@ -18,6 +18,7 @@ import {
     SlintFileDiffIdParamters,
     SlintNoteIdParamters,
     SlintFilePickerAdapter,
+    SlintFilterReviewState,
 } from "globals.slint";
 import { TabButton, TabCreateButton, TabViewItem } from "tabview.slint";
 import { CommitPicker } from "commit_picker.slint";
@@ -210,8 +211,30 @@ export component RepositoryTabViewItem inherits TabViewItem {
                                             placeholder-text: "end";
                                         }
                                     }
+                                    HorizontalLayout {
+                                        LineEdit {
+                                            placeholder-text: "file pattern";
+                                            edited(text) => {
+                                                SlintReviewCallbacks.set_file_diff_file_pattern(root.review_id_parameters, text);
+                                            }
+                                        }
+                                        ComboBox {
+                                            model: ["Unfiltered", "Done", "Open"];
+                                            selected(current-value) => {
+                                                if (current-value == "Unfiltered") {
+                                                    SlintReviewCallbacks.set_file_diff_review_state(root.review_id_parameters, SlintFilterReviewState.Unfiltered);
+                                                }
+                                                else if (current-value == "Done") {
+                                                    SlintReviewCallbacks.set_file_diff_review_state(root.review_id_parameters, SlintFilterReviewState.Done);
+                                                }
+                                                else {
+                                                    SlintReviewCallbacks.set_file_diff_review_state(root.review_id_parameters, SlintFilterReviewState.Open);
+                                                }
+                                            }
+                                        }
+                                    }
                                     ListView {
-                                        for file_diff in root.review_model[review_index].file_diff_model: HorizontalLayout {
+                                        for file_diff in SlintReviewCallbacks.file_diff_ui_model(root.review_id_parameters): HorizontalLayout {
                                             private property <SlintFileDiffIdParamters> id_parameters: {
                                                 review_id_parameters: root.review_id_parameters,
                                                 file_diff_id: file-diff.id,
@@ -274,8 +297,22 @@ export component RepositoryTabViewItem inherits TabViewItem {
                                             }
                                         }
                                     }
+                                    HorizontalLayout {
+                                        LineEdit {
+                                            placeholder-text: "filter text";
+                                            edited(text) => {
+                                                SlintReviewCallbacks.set_notes_text_filter(root.review_id_parameters, text);
+                                            }
+                                        }
+                                        LineEdit {
+                                            placeholder-text: "filter context";
+                                            edited(text) => {
+                                                SlintReviewCallbacks.set_notes_context_filter(root.review_id_parameters, text);
+                                            }
+                                        }
+                                    }
                                     ListView {
-                                        for note in root.review_model[review_index].note_model: HorizontalLayout {
+                                        for note in SlintReviewCallbacks.note_ui_model(root.review_id_parameters): HorizontalLayout {
                                             private property <SlintNoteIdParamters> id_parameters: {
                                                 review_id_parameters: root.review_id_parameters,
                                                 note_id: note.id,

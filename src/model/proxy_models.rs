@@ -3,20 +3,22 @@ use std::rc::Rc;
 
 use slint::{ComponentHandle, ModelRc, VecModel};
 
-use crate::model::{CommitProxyModels, FileDiffProxyModels, FilesProxyModel};
+use crate::model::{CommitProxyModels, FileDiffProxyModels, FilesProxyModel, NotesProxyModels};
 use crate::repositories::{RepositoryId, ReviewId};
 use crate::ui::{self, SlintCommit};
 
 pub struct ReviewProxyModels {
     files_proxy_model: Rc<FilesProxyModel>,
     file_diff_proxy_model: Rc<FileDiffProxyModels>,
+    notes_proxy_models: Rc<NotesProxyModels>,
 }
 
 impl ReviewProxyModels {
-    fn new(files_source_model: ModelRc<ui::SlintFileDiff>) -> Self {
+    pub fn new(files_source_model: ModelRc<ui::SlintFileDiff>, notes_source_model: ModelRc<ui::SlintNote>) -> Self {
         Self {
             files_proxy_model: Rc::new(FilesProxyModel::new(files_source_model.clone())),
             file_diff_proxy_model: Rc::new(FileDiffProxyModels::new(files_source_model)),
+            notes_proxy_models: Rc::new(NotesProxyModels::new(notes_source_model)),
         }
     }
     pub fn files_proxy_model(&self) -> Rc<FilesProxyModel> {
@@ -24,6 +26,9 @@ impl ReviewProxyModels {
     }
     pub fn file_diff_proxy_model(&self) -> Rc<FileDiffProxyModels> {
         self.file_diff_proxy_model.clone()
+    }
+    pub fn notes_proxy_model(&self) -> Rc<NotesProxyModels> {
+        self.notes_proxy_models.clone()
     }
 }
 
@@ -40,8 +45,8 @@ impl RepositoryProxyModels {
     pub fn review_proxy_models(&self, review_id: &ReviewId) -> Option<&ReviewProxyModels> {
         self.id_review_models_map.get(review_id)
     }
-    pub fn add_review_proxy_models(&mut self, review_id: ReviewId, files_source_model: ModelRc<ui::SlintFileDiff>) {
-        self.id_review_models_map.insert(review_id, ReviewProxyModels::new(files_source_model));
+    pub fn add_review_proxy_models(&mut self, review_id: ReviewId, review_proxy_models: ReviewProxyModels) {
+        self.id_review_models_map.insert(review_id, review_proxy_models);
     }
     pub fn has_review_proxy_models(&self, review_id: &ReviewId) -> bool {
         self.id_review_models_map.contains_key(review_id)
