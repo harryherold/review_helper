@@ -20,6 +20,12 @@ pub fn setup_commit_picker(app_window: &ui::AppWindow, commit_proxy_model: Rc<Co
             commit_proxy_model.set_filter_text(pattern);
         }
     });
+    app_window.global::<ui::SlintCommitPickerAdapter>().on_sort_commits({
+        let commit_proxy_model = commit_proxy_model.clone();
+        move |criterion, is_sort_ascending| {
+            commit_proxy_model.set_sort_criteria(criterion, is_sort_ascending);
+        }
+    });
     app_window.global::<ui::SlintCommitPickerAdapter>().on_refresh({
         let channel = worker_channel.clone();
         move |repository_id| {

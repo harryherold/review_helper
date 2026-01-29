@@ -90,7 +90,7 @@ impl CommitProxyModels {
         }
     }
 
-    pub fn set_sort_by(&self, criterion: ui::SlintCommitSortCriterion, is_sort_ascending: bool) {
+    pub fn set_sort_criteria(&self, criterion: ui::SlintCommitSortCriterion, is_sort_ascending: bool) {
         *self.sort_criteria.borrow_mut() = SortCriteria { criterion, is_sort_ascending };
         // TODO add reset
     }
