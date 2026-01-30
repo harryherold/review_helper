@@ -22,6 +22,12 @@ pub fn get_review_model(app_window: &ui::AppWindow, repository_id: usize) -> Mod
         None => ModelRc::<ui::SlintReview>::default(),
     }
 }
+pub fn get_slint_review(app_window: &ui::AppWindow, repository_id: usize, review_id: usize) -> Option<ui::SlintReview> {
+    let review_model = get_review_model(app_window, repository_id);
+    let review_model = review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>()?;
+
+    review_model.get(review_id)
+}
 pub fn get_note_model(app_window: &ui::AppWindow, repository_id: usize, review_id: usize) -> ModelRc<ui::SlintNote> {
     let review_model = get_review_model(app_window, repository_id);
     let Some(review_model) = review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>() else {
@@ -44,7 +50,6 @@ pub fn get_file_diff_model(app_window: &ui::AppWindow, repository_id: usize, rev
         None => ModelRc::<ui::SlintFileDiff>::default(),
     }
 }
-
 pub fn report_error(app_window: &ui::AppWindow, error: ui::SlintResult, detail_text: SharedString) {
     let model_rc = app_window.global::<ui::SlintErrors>().get_model();
     let model = model_rc.as_any().downcast_ref::<VecModel<ui::SlintErrorEntry>>().unwrap();

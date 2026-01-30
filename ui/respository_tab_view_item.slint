@@ -178,6 +178,32 @@ export component RepositoryTabViewItem inherits TabViewItem {
                                     // alignment: start;
                                     spacing: Style.size.spacing;
                                     HorizontalLayout {
+                                        HorizontalBox {
+                                            Text {
+                                                text: "Added";
+                                            }
+                                            Text {
+                                                text: root.review_model[review_index].difference_statistics.added_lines;
+                                            }
+                                        }
+                                        HorizontalBox {
+                                            Text {
+                                                text: "Removed";
+                                            }
+                                            Text {
+                                                text: root.review_model[review_index].difference_statistics.removed_lines;
+                                            }
+                                        }
+                                        for change in root.review_model[review_index].difference_statistics.change_type_model : HorizontalBox {
+                                            Image {
+                                                source: SlintChangeTypeUtils.to_icon(change.change_type);
+                                            }
+                                            Text {
+                                                text: change.count;
+                                            }
+                                        }
+                                    }
+                                    HorizontalLayout {
                                         spacing: Style.size.spacing;
 
                                         private property <SlintDiffRange> diff_range: {

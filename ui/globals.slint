@@ -83,6 +83,17 @@ export struct SlintNote {
     context: string,
 }
 
+export struct SlintChangeTypeOccurrence {
+    change_type: SlintChangeType,
+    count: int,
+}
+
+export struct SlintDifferenceStatistics {
+    added_lines: int,
+    removed_lines: int,
+    change_type_model: [SlintChangeTypeOccurrence],
+}
+
 export struct SlintReview {
     id: int,
     name: string,
@@ -90,6 +101,7 @@ export struct SlintReview {
     end_diff: string,
     note_model: [SlintNote],
     file_diff_model: [SlintFileDiff],
+    difference_statistics: SlintDifferenceStatistics,
     is_loaded: bool,
 }
 

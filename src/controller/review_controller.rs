@@ -88,7 +88,7 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
             if !repository_proxy_models.has_review_proxy_models(&review_id) {
                 let ui = ui_weak.unwrap();
 
-                if let Some(review) = get_slint_review(&ui, repository_id.as_usize(), review_id.as_usize()) {
+                if let Some(review) = model_utils::get_slint_review(&ui, repository_id.as_usize(), review_id.as_usize()) {
                     let review_proxy_models = ReviewProxyModels::new(review.file_diff_model.clone(), review.note_model.clone());
                     repository_proxy_models.add_review_proxy_models(review_id.clone(), review_proxy_models);
                 } else {
@@ -271,11 +271,4 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
             notes_proxy_model.set_sort_parameter(criteria, order);
         }
     });
-}
-
-pub fn get_slint_review(app_window: &ui::AppWindow, repository_id: usize, review_id: usize) -> Option<ui::SlintReview> {
-    let review_model = model_utils::get_review_model(app_window, repository_id);
-    let review_model = review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>()?;
-
-    review_model.get(review_id)
 }

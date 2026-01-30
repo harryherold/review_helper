@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::rc::Rc;
 
 use slint::{ComponentHandle, Model, ModelExt, SharedString, VecModel};
@@ -8,6 +9,7 @@ use crate::model::model_utils;
 use crate::repositories::{FileDiffId, NoteId};
 use crate::storage::RepositoryStore;
 use crate::storage::repository_storage::{FileDiffStore, NoteStore};
+use crate::ui::SlintChangeTypeOccurrence;
 use crate::ui::{self, SlintFileDiff, SlintNote, SlintReview};
 use crate::worker::{NoteChangeType, ReviewHelperSettings};
 
@@ -223,6 +225,11 @@ impl UiUpdater {
                             note_model: Rc::new(IdModel::default()).into(),
                             file_diff_model: Rc::new(IdModel::default()).into(),
                             is_loaded: false,
+                            difference_statistics: ui::SlintDifferenceStatistics {
+                                added_lines: 0,
+                                removed_lines: 0,
+                                change_type_model: Rc::new(VecModel::default()).into(),
+                            },
                             ..Default::default()
                         },
                     );
@@ -300,13 +307,48 @@ impl UiUpdater {
     pub fn set_file_diffs(&self, repository_id: usize, review_id: usize, ui_file_diffs: Vec<SlintFileDiff>) {
         self.ui_weak
             .upgrade_in_event_loop(move |app_window| {
-                let file_diff_model = model_utils::get_file_diff_model(&app_window, repository_id, review_id);
-                let file_diff_model = file_diff_model.as_any().downcast_ref::<IdModel<ui::SlintFileDiff>>().unwrap();
+                let Some(mut review) = model_utils::get_slint_review(&app_window, repository_id, review_id) else {
+                    model_utils::report_error(
+                        &app_window,
+                        ui::SlintResult::ModelItemNotExists,
+                        SharedString::from(format!("repository id {} review id {}", repository_id, review_id)),
+                    );
+                    return;
+                };
+
+                let file_diff_model = review.file_diff_model.as_any().downcast_ref::<IdModel<ui::SlintFileDiff>>().unwrap();
                 file_diff_model.clear();
 
-                ui_file_diffs
-                    .into_iter()
-                    .for_each(|ui_file_diff| file_diff_model.add(ui_file_diff.id as usize, ui_file_diff));
+                review.difference_statistics.added_lines = 0;
+                review.difference_statistics.removed_lines = 0;
+
+                let mut change_type_map: BTreeMap<usize, (i32, ui::SlintChangeType)> = BTreeMap::new();
+
+                ui_file_diffs.into_iter().for_each(|ui_file_diff| {
+                    review.difference_statistics.added_lines += ui_file_diff.added_lines;
+                    review.difference_statistics.removed_lines += ui_file_diff.removed_lines;
+                    change_type_map
+                        .entry(ui_file_diff.change_type as usize)
+                        .and_modify(|e| e.0 += 1)
+                        .or_insert((1, ui_file_diff.change_type));
+
+                    file_diff_model.add(ui_file_diff.id as usize, ui_file_diff);
+                });
+
+                let change_type_model = review
+                    .difference_statistics
+                    .change_type_model
+                    .as_any()
+                    .downcast_ref::<VecModel<ui::SlintChangeTypeOccurrence>>()
+                    .unwrap();
+                change_type_model.clear();
+                change_type_map.into_values().for_each(|(count, change_type)| {
+                    change_type_model.push(SlintChangeTypeOccurrence { change_type, count });
+                });
+
+                let review_model = model_utils::get_review_model(&app_window, repository_id);
+                let review_model = review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>().unwrap();
+                review_model.update(review_id, review);
             })
             .unwrap();
     }
