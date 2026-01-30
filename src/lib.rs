@@ -8,7 +8,6 @@ mod model;
 mod storage;
 
 mod command_utils;
-mod git_command_spawner;
 mod git_utils;
 mod repositories;
 mod worker;

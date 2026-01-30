@@ -2,18 +2,10 @@ use std::collections::BTreeMap;
 
 use slint::{Model, ModelNotify};
 
-pub enum IdModelChange {
-    EntityChanged(usize),
-    ModelCleared,
-}
-
-type IdModelObserver = std::cell::RefCell<Option<Box<dyn Fn(IdModelChange) + 'static>>>;
-
 #[derive(Default)]
 pub struct IdModel<T> {
     entity_map: std::cell::RefCell<BTreeMap<usize, T>>,
     notify: ModelNotify,
-    observer: IdModelObserver,
 }
 
 impl<T: Clone + 'static> Model for IdModel<T> {
@@ -36,10 +28,6 @@ impl<T: Clone + 'static> Model for IdModel<T> {
         if let Some(key) = key_result {
             self.entity_map.borrow_mut().insert(key, data);
             self.notify.row_changed(row);
-
-            if self.observer.borrow().is_some() {
-                self.observer.borrow().as_ref().unwrap()(IdModelChange::EntityChanged(key));
-            }
         }
     }
     fn as_any(&self) -> &dyn core::any::Any {
@@ -54,19 +42,12 @@ impl<T: Clone> IdModel<T> {
         if let Some(index) = self.entity_map.borrow().keys().position(|&k| k == id) {
             self.notify.row_added(index, 1);
         }
-        if self.observer.borrow().is_some() {
-            self.observer.borrow().as_ref().unwrap()(IdModelChange::EntityChanged(id));
-        }
     }
     pub fn remove(&self, id: usize) {
         let opt_index = self.entity_map.borrow().keys().position(|&k| k == id);
         if let Some(index) = opt_index {
             self.entity_map.borrow_mut().remove(&id);
             self.notify.row_removed(index, 1);
-
-            if self.observer.borrow().is_some() {
-                self.observer.borrow().as_ref().unwrap()(IdModelChange::EntityChanged(id));
-            }
         }
     }
     pub fn update(&self, id: usize, value: T) {
@@ -74,10 +55,6 @@ impl<T: Clone> IdModel<T> {
         if let Some(index) = opt_index {
             self.entity_map.borrow_mut().insert(id, value);
             self.notify.row_changed(index);
-
-            if self.observer.borrow().is_some() {
-                self.observer.borrow().as_ref().unwrap()(IdModelChange::EntityChanged(id));
-            }
         }
     }
     pub fn get(&self, id: usize) -> Option<T> {
@@ -86,12 +63,6 @@ impl<T: Clone> IdModel<T> {
     pub fn clear(&self) {
         self.entity_map.borrow_mut().clear();
         self.notify.reset();
-        if self.observer.borrow().is_some() {
-            self.observer.borrow().as_ref().unwrap()(IdModelChange::ModelCleared);
-        }
-    }
-    pub fn set_observer<Observer: Fn(IdModelChange) + 'static>(&self, callback: Observer) {
-        *self.observer.borrow_mut() = Some(Box::new(callback));
     }
     pub fn id_to_index(&self, id: usize) -> i32 {
         match self.entity_map.borrow().keys().position(|&k| k == id) {

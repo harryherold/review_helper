@@ -64,6 +64,7 @@ impl ReviewHelperStorage for ReviewHelperFileStorage {
             if let Some(path) = table["path"].as_str() {
                 repository_store.path = PathBuf::from(path);
             }
+            // TODO check if commit is valid using git_utils::repo_contains_commit
             if let Some(first_commit) = table["first_commit"].as_str() {
                 repository_store.first_commit = first_commit.to_string();
             }
