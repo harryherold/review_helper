@@ -253,6 +253,11 @@ impl UiUpdater {
                         note_model: Rc::new(IdModel::default()).into(),
                         file_diff_model: Rc::new(IdModel::default()).into(),
                         is_loaded: true,
+                        difference_statistics: ui::SlintDifferenceStatistics {
+                            added_lines: 0,
+                            removed_lines: 0,
+                            change_type_model: Rc::new(VecModel::default()).into(),
+                        },
                         ..Default::default()
                     },
                 );
