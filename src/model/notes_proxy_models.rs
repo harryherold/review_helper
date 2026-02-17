@@ -107,6 +107,6 @@ impl NotesProxyModels {
         let mut sort_parameter = self.note_sort_parameter.borrow_mut();
         sort_parameter.criteria = criteria;
         sort_parameter.order = order;
-        // TODO add reset
+        self.notes_sort_model.reset();
     }
 }

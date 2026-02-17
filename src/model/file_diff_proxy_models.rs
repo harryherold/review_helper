@@ -107,7 +107,7 @@ impl FileDiffProxyModels {
 
     pub fn set_sort_by(&self, sort_criteria: ui::SlintSortCriteria) {
         *self.sort_criteria.borrow_mut() = sort_criteria;
-        // TODO reset
+        self.sort_model.reset();
     }
 
     pub fn set_filter_pattern(&self, new_filter_pattern: SharedString) {

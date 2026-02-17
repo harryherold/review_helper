@@ -92,7 +92,7 @@ impl CommitProxyModels {
 
     pub fn set_sort_criteria(&self, criterion: ui::SlintCommitSortCriterion, is_sort_ascending: bool) {
         *self.sort_criteria.borrow_mut() = SortCriteria { criterion, is_sort_ascending };
-        // TODO add reset
+        self.sort_model.reset();
     }
 
     pub fn set_filter_text(&self, text: SharedString) {
