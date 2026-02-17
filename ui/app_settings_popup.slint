@@ -1,4 +1,4 @@
-import { Popup } from "popup.slint";
+import { NewPopup } from "controls/new_popup.slint";
 import { Style } from "style.slint";
 import { SlintReviewHelperSettings, SlintModelUtils } from "globals.slint";
 import { ToolButton } from "tool_button.slint";
@@ -12,109 +12,108 @@ import {
 } from "std-widgets.slint";
 
 
-export component AppConfigPopup inherits Popup {
+export component AppConfigPopup inherits NewPopup {
+    private property <string> editor: SlintReviewHelperSettings.editor;
+    private property <string> editor_args: SlintReviewHelperSettings.editor_args;
+    private property <string> diff_tool: SlintReviewHelperSettings.diff_tool;
+    private property <string> color_scheme: SlintReviewHelperSettings.color_scheme;
     title: "Config";
+    width: 300px;
+    height: 250px;
+    accept_button_text: @tr("Save");
+    cancel_button_text: @tr("Discard");
+    accepted => {
+        SlintReviewHelperSettings.editor = root.editor;
+        SlintReviewHelperSettings.editor_args = root.editor_args;
+        SlintReviewHelperSettings.diff_tool = root.diff_tool;
+        SlintReviewHelperSettings.color_scheme = root.color_scheme;
+        SlintReviewHelperSettings.save()
+    }
+    canceled => {
+        reset();
+    }
+    function theme_to_string(color_scheme: ColorScheme) -> string {
+        return color_scheme == ColorScheme.dark ? @tr("Dark") : @tr("Light");
+    }
+    function string_to_theme(color_scheme_string: string) -> ColorScheme {
+        return color_scheme_string == theme_to_string(ColorScheme.dark) ? ColorScheme.dark : ColorScheme.light;
+    }
+    function reset() {
+        root.editor = SlintReviewHelperSettings.editor;
+        root.editor_args = SlintReviewHelperSettings.editor_args;
+        root.diff_tool = SlintReviewHelperSettings.diff_tool;
+        root.color_scheme = SlintReviewHelperSettings.color_scheme;
+        Palette.color-scheme = string_to_theme(root.color_scheme);
+    }
+    GridLayout {
+        spacing: Style.size.big-spacing;
+        padding: Style.size.padding;
+        Row {
+            Text {
+                font-size: Style.font.config-edit;
+                vertical-alignment: center;
+                text: @tr("diff tool");
+            }
 
-    VerticalBox {
-        alignment: space-between;
-
-        GridLayout {
-            spacing: Style.size.spacing;
-
-            Row {
-                Text {
-                    font-size: Style.font.config-edit;
-                    vertical-alignment: center;
-                    text: "diff tool";
+            ComboBox {
+                changed current-value => {
+                    self.current-index = SlintModelUtils.index_of_string(SlintReviewHelperSettings.diff_tool_model, self.current-value);
                 }
-
-                ComboBox {
-                    changed current-value => {
-                        self.current-index = SlintModelUtils.index_of_string(SlintReviewHelperSettings.diff_tool_model, self.current-value);
-                    }
-                    current-value: SlintReviewHelperSettings.diff_tool;
-                    model: SlintReviewHelperSettings.diff_tool_model;
-                    selected(current-value) => {
-                        SlintReviewHelperSettings.diff_tool = current-value;
-                    }
-                }
-
-                ToolButton {
-                    source: @image-url("../assets/icons/refresh.svg");
-                    clicked => {
-                        SlintReviewHelperSettings.refresh_diff_tool_model()
-                    }
+                current-value: root.diff_tool;
+                model: SlintReviewHelperSettings.diff_tool_model;
+                selected(current-value) => {
+                    root.diff_tool = current-value;
                 }
             }
 
-            Row {
-                Text {
-                    font-size: Style.font.config-edit;
-                    vertical-alignment: center;
-                    text: "editor";
-                }
-
-                editor_edit := LineEdit {
-                    height: Style.size.control_height;
-                    text <=> SlintReviewHelperSettings.editor;
-                }
-            }
-
-            Row {
-                Text {
-                    font-size: Style.font.config-edit;
-                    vertical-alignment: center;
-                    text: "editor args";
-                }
-
-                editor_args_edit := LineEdit {
-                    height: Style.size.control_height;
-                    text <=> SlintReviewHelperSettings.editor_args;
-                }
-            }
-
-            Row {
-                Text {
-                    font-size: Style.font.config-edit;
-                    vertical-alignment: center;
-                    text: "color theme";
-                }
-
-                ComboBox {
-                    function to_string(color_scheme: ColorScheme) -> string {
-                        return color_scheme == ColorScheme.dark ? "Dark" : "Light";
-                    }
-                    function to_theme(color_scheme_string: string) -> ColorScheme {
-                        return color_scheme_string == to_string(ColorScheme.dark) ? ColorScheme.dark : ColorScheme.light;
-                    }
-
-                    model: [to_string(ColorScheme.dark), to_string(ColorScheme.light)];
-                    current-index: to_theme(SlintReviewHelperSettings.color_scheme) == ColorScheme.dark ? 0 : 1;
-                    current-value: SlintReviewHelperSettings.color_scheme;
-                    selected(current-value) => {
-                        SlintReviewHelperSettings.color_scheme = current-value;
-                        Palette.color-scheme = to_theme(current-value);
-                    }
+            ToolButton {
+                source: @image-url("../assets/icons/refresh.svg");
+                clicked => {
+                    SlintReviewHelperSettings.refresh_diff_tool_model()
                 }
             }
         }
 
-        HorizontalLayout {
-            spacing: Style.size.spacing;
-            alignment: end;
-
-            Button {
-                text: "Cancel";
-                clicked => {
-                    root.close()
-                }
+        Row {
+            Text {
+                font-size: Style.font.config-edit;
+                vertical-alignment: center;
+                text: @tr("editor");
             }
 
-            Button {
-                text: "Save";
-                clicked => {
-                    SlintReviewHelperSettings.save();
-                    root.close();
+            editor_edit := LineEdit {
+                height: Style.size.control_height;
+                text <=> root.editor;
+            }
+        }
+
+        Row {
+            Text {
+                font-size: Style.font.config-edit;
+                vertical-alignment: center;
+                text: @tr("editor args");
+            }
+
+            editor_args_edit := LineEdit {
+                height: Style.size.control_height;
+                text <=> root.editor_args;
+            }
+        }
+
+        Row {
+            Text {
+                font-size: Style.font.config-edit;
+                vertical-alignment: center;
+                text: "color theme";
+            }
+
+            ComboBox {
+                model: [theme_to_string(ColorScheme.dark), theme_to_string(ColorScheme.light)];
+                current-index: string_to_theme(root.color_scheme) == ColorScheme.dark ? 0 : 1;
+                current-value: root.color_scheme;
+                selected(current-value) => {
+                    root.color_scheme = current-value;
+                    Palette.color-scheme = string_to_theme(current-value);
                 }
             }
         }
