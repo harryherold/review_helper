@@ -54,8 +54,8 @@ pub fn report_error(app_window: &ui::AppWindow, error: ui::SlintResult, detail_t
     let model_rc = app_window.global::<ui::SlintErrors>().get_model();
     let model = model_rc.as_any().downcast_ref::<VecModel<ui::SlintErrorEntry>>().unwrap();
     model.push(ui::SlintErrorEntry {
-        error_type: error.clone(),
+        error_type: error,
         text: detail_text,
     });
-    app_window.invoke_request_show_error(error);
+    app_window.invoke_request_show_error();
 }

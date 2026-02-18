@@ -4,12 +4,12 @@ export global SlintReviewHelperSettings {
     in-out property <string> editor;
     in-out property <string> editor_args;
     in-out property <string> color_scheme;
-
     callback save();
     callback refresh_diff_tool_model();
 }
 
 export enum SlintResult {
+    Unknown,
     Ok,
     GitCommandFailed,
     RepositoryExists,
@@ -73,7 +73,7 @@ export struct SlintFileDiff {
     removed_lines: int,
     file_path: string,
     is_reviewed: bool,
-    change_type: SlintChangeType,    
+    change_type: SlintChangeType,
 }
 
 export struct SlintNote {
@@ -177,12 +177,10 @@ export global SlintReviewCallbacks {
     callback set_notes_text_filter(SlintReviewIdParameters, string);
     callback set_notes_context-filter(SlintReviewIdParameters, string);
     callback set_notes_sort_parameter(SlintReviewIdParameters, SlintNoteSortCriteria, SlintSortOrder);
-
     pure callback file_diff_ui_model(SlintReviewIdParameters) -> [SlintFileDiff];
     callback set_file_diff_sort-criteria(SlintReviewIdParameters, SlintSortCriteria);
     callback set_file_diff_file_pattern(SlintReviewIdParameters, string);
     callback set_file_diff_review_state(SlintReviewIdParameters, SlintFilterReviewState);
-
     callback initialize_ui_models(SlintReviewIdParameters);
     callback load_review(SlintReviewIdParameters);
     pure callback review_id_to_index(int, [SlintReview]) -> int;
@@ -216,7 +214,6 @@ export enum SlintCommitSortCriterion {
 
 export global SlintCommitPickerAdapter {
     in property <[SlintCommit]> commit_source_model;
-
     pure callback ui_commit_model() -> [SlintCommit];
     callback filter_commits(string);
     callback sort_commits(SlintCommitSortCriterion, bool);
@@ -325,7 +322,6 @@ export global OverallDiffStats {
 
 export global CommitPickerAdapter {
     in property <[[StandardListViewItem]]> commit_model;
-
     callback filter_commits(string);
     callback sort_commits(int, bool);
     callback refresh();

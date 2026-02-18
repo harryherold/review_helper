@@ -4,6 +4,7 @@ import { Style } from "../style.slint";
 
 export component NewPopup inherits PopupWindow {
     in property <string> title;
+    in property <bool> control_buttons_enabled: true;
     in-out property <string> accept_button_text: @tr("Ok");
     in-out property <string> cancel_button_text: @tr("Cancel");
     callback accepted();
@@ -40,7 +41,7 @@ export component NewPopup inherits PopupWindow {
 
             @children
 
-            button-controls := Rectangle {
+            if (root.control_buttons_enabled): Rectangle {
                 height: 50px;
 
                 HorizontalLayout {

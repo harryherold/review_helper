@@ -92,20 +92,16 @@ export component AppWindow inherits Window {
     private property <int> selected_repository_index <=> tab-view.current-index;
     in property <string> config_color_scheme;
     callback close;
-    callback request_show_error(SlintResult);
-
-    request_show_error(e) => {
-        error-popup.show_error(e);
+    callback request_show_error();
+    request_show_error() => {
+        error-popup.show();
     }
-
     changed config_color_scheme => {
         Palette.color-scheme = config_color_scheme == "Dark" ? ColorScheme.dark : ColorScheme.light;
     }
-
     preferred-width: 1600px;
     preferred-height: 1200px;
     title: "review_helper";
-
     icon: @image-url("../assets/icons/review_helper.png");
     notes-popup := FileNotesPopup {
         initial_x: (root.width / 2) - (self.width / 2);
@@ -119,8 +115,8 @@ export component AppWindow inherits Window {
     }
 
     error-popup := ErrorPopup {
-        initial_x: (root.width / 2) - (self.width / 2);
-        initial_y: (root.height / 2) - (self.height / 2);
+        x: (root.width / 2) - (self.width / 2);
+        y: (root.height / 2) - (self.height / 2);
     }
 
     repository-settings-popup := RepositorySettingsPopup {
@@ -135,14 +131,11 @@ export component AppWindow inherits Window {
     VerticalLayout {
         menu-rect := Rectangle {
             height: 40px;
-
             HorizontalLayout {
                 alignment: space-between;
                 spacing: Style.size.spacing;
-
                 HorizontalLayout {
                     spacing: Style.size.spacing;
-
                     Menu {
                         text: "File";
                         MenuItem {
@@ -155,7 +148,6 @@ export component AppWindow inherits Window {
 
                     Menu {
                         text: "Settings";
-
                         MenuItem {
                             text: "ReviewHelper";
                             clicked => {
@@ -177,7 +169,9 @@ export component AppWindow inherits Window {
 
         tab-view := TabView {
             model: SlintReviewHelper.repository_names;
-            request-create => { SlintReviewHelper.new_repository() }
+            request-create => {
+                SlintReviewHelper.new_repository()
+            }
             for repository[idx] in SlintReviewHelper.repositories: RepositoryTabViewItem {
                 index: idx;
                 current-index <=> parent.current-index;
