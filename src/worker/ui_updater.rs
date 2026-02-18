@@ -394,6 +394,15 @@ impl UiUpdater {
             })
             .unwrap();
     }
+    pub fn clear_commits(&self) {
+        self.ui_weak
+            .upgrade_in_event_loop(move |app_window| {
+                let commit_model = model_utils::get_commit_model(&app_window);
+                let commit_model = commit_model.as_any().downcast_ref::<VecModel<ui::SlintCommit>>().unwrap();
+                commit_model.clear();
+            })
+            .unwrap();
+    }
 }
 
 impl From<git_utils::Commit> for ui::SlintCommit {

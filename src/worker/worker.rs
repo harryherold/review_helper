@@ -259,7 +259,10 @@ impl WorkerImpl {
         };
         match git_utils::query_commits(repository.path()) {
             Ok(commits) => self.ui_updater.set_commits(commits),
-            Err(e) => self.ui_updater.report_error(ui::SlintResult::QueryingCommitsFailed, &e.to_string()),
+            Err(e) => {
+                self.ui_updater.clear_commits();
+                self.ui_updater.report_error(ui::SlintResult::QueryingCommitsFailed, &e.to_string())
+            }
         }
     }
     fn worker_loop(&mut self, mut rx: UnboundedReceiver<WorkerMessage>) {
