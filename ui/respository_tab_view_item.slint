@@ -3,7 +3,11 @@ import {
     TabWidget,
     ListView,
     Palette,
-    LineEdit, CheckBox, Button, HorizontalBox, ComboBox,
+    LineEdit,
+    CheckBox,
+    Button,
+    HorizontalBox,
+    ComboBox,
 } from "std-widgets.slint";
 import { ToolButton } from "tool_button.slint";
 import { Style } from "style.slint";
@@ -13,7 +17,8 @@ import {
     SlintReviewHelper,
     SlintRepositoryCallbacks,
     SlintReview,
-    SlintReviewCallbacks, SlintStringUtils,
+    SlintReviewCallbacks,
+    SlintStringUtils,
     SlintReviewIdParameters,
     SlintFileDiffIdParamters,
     SlintNoteIdParamters,
@@ -34,7 +39,6 @@ export component RepositoryTabViewItem inherits TabViewItem {
         repository_id: root.repository_id,
         review_id: root.selected_review_id,
     };
-
     changed is_active => {
         if (root.is_active && !root.is_repository_loaded) {
             SlintRepositoryCallbacks.load_repository(root.repository_id);
@@ -44,7 +48,6 @@ export component RepositoryTabViewItem inherits TabViewItem {
     HorizontalLayout {
         Rectangle {
             width: 15%;
-
             commit-picker := CommitPicker {
                 repository_id: root.repository_id;
             }
@@ -53,88 +56,95 @@ export component RepositoryTabViewItem inherits TabViewItem {
                 padding-left: 5px;
                 padding-right: 5px;
                 spacing: Style.size.spacing;
+                TabWidget {
+                    Tab {
+                        title: @tr("Review");
+                    }
 
-                Button {
-                    text: "commit";
-                    clicked => {
-                        commit-picker.show();
+                    Tab {
+                        title: @tr("Settings");
                     }
                 }
-                Button {
-                    text: "delete";
-                    clicked => {
-                        SlintReviewHelper.delete_repository(root.repository_id);
-                    }
-                }
-                Text {
-                    height: Style.size.control-height;
-                    vertical-alignment: center;
-                    horizontal-alignment: center;
-                    text: "Reviews";
-                }
+                // Button {
+                //     text: "commit";
+                //     clicked => {
+                //         commit-picker.show();
+                //     }
+                // }
+                // Button {
+                //     text: "delete";
+                //     clicked => {
+                //         SlintReviewHelper.delete_repository(root.repository_id);
+                //     }
+                // }
+                // Text {
+                //     height: Style.size.control-height;
+                //     vertical-alignment: center;
+                //     horizontal-alignment: center;
+                //     text: "Reviews";
+                // }
 
-                private property <bool> enable-new-review: false;
-                TabCreateButton {
-                    height: Style.size.control-height;
-                    clicked => {
-                        enable-new-review = true;
-                    }
-                }
-                if enable-new-review: HorizontalLayout {
-                    name-edit := LineEdit {
-                        changed has-focus => {
-                            if (!self.has-focus) {
-                                enable-new-review = false;
-                            }
-                        }
-                        input-type: text;
-                        accepted(text) => {
-                            if (SlintStringUtils.is_valid_name(text)) {
-                                SlintRepositoryCallbacks.new_review(root.repository_id, text);
-                                enable-new-review = false;
-                            }
-                        }
-                        key-pressed(event) => {
-                            if (event.text == Key.Escape) {
-                                enable-new-review = false;
-                                return EventResult.accept;
-                            }
-                            EventResult.reject
-                        }
-    
-                    }
-                    Image {
-                        source: SlintStringUtils.is_valid_name(name-edit.text) ? @image-url("../assets/icons/success.svg") : @image-url("../assets/icons/failed.svg");
-                        width: Style.size.image_width;
-                    }       
-                }
-                
+                // private property <bool> enable-new-review: false;
+                // TabCreateButton {
+                //     height: Style.size.control-height;
+                //     clicked => {
+                //         enable-new-review = true;
+                //     }
+                // }
 
-                ListView {
-                    visible: root.review_model.length > 0; // NOTE workaround to get ListView visible with their elements
-                    for review[idx] in root.review_model: HorizontalBox {
-                        // height: Style.size.control-height + Style.size.spacing;
-                        TabButton {
-                            tab-text: review.name;
-                            height: Style.size.control-height;
-                            is-selected: root.selected_review_id == review.id;
-                            clicked => {
-                                root.selected_review_id = review.id;
-                                if (!review.is_loaded) {
-                                    SlintReviewCallbacks.load_review(root.review_id_parameters);
-                                    SlintReviewCallbacks.initialize_ui_models(root.review_id_parameters);
-                                }
-                            }
-                        }
-                        Button {
-                            width: Style.size.control-small-width;
-                            text: "del";
-                            clicked => {
-                                SlintRepositoryCallbacks.delete_review(root.review_id_parameters);
-                            }
-                        }
-                    }
-                }
+                // if enable-new-review: HorizontalLayout {
+                //     name-edit := LineEdit {
+                //         changed has-focus => {
+                //             if (!self.has-focus) {
+                //                 enable-new-review = false;
+                //             }
+                //         }
+                //         input-type: text;
+                //         accepted(text) => {
+                //             if (SlintStringUtils.is_valid_name(text)) {
+                //                 SlintRepositoryCallbacks.new_review(root.repository_id, text);
+                //                 enable-new-review = false;
+                //             }
+                //         }
+                //         key-pressed(event) => {
+                //             if (event.text == Key.Escape) {
+                //                 enable-new-review = false;
+                //                 return EventResult.accept;
+                //             }
+                //             EventResult.reject
+                //         }
+                //     }
+
+                //     Image {
+                //         source: SlintStringUtils.is_valid_name(name-edit.text) ? @image-url("../assets/icons/success.svg") : @image-url("../assets/icons/failed.svg");
+                //         width: Style.size.image_width;
+                //     }
+                // }
+                // ListView {
+                //     visible: root.review_model.length > 0; // NOTE workaround to get ListView visible with their elements
+                //     for review[idx] in root.review_model: HorizontalBox {
+                //         TabButton {
+                //             tab-text: review.name;
+                //             height: Style.size.control-height;
+                //             is-selected: root.selected_review_id == review.id;
+                //             clicked => {
+                //                 root.selected_review_id = review.id;
+                //                 if (!review.is_loaded) {
+                //                     SlintReviewCallbacks.load_review(root.review_id_parameters);
+                //                     SlintReviewCallbacks.initialize_ui_models(root.review_id_parameters);
+                //                 }
+                //             }
+                //         }
+
+                //         Button {
+                //             width: Style.size.control-small-width;
+                //             text: "del";
+                //             clicked => {
+                //                 SlintRepositoryCallbacks.delete_review(root.review_id_parameters);
+                //             }
+                //         }
+                //     }
+                // }
             }
         }
 
@@ -147,7 +157,6 @@ export component RepositoryTabViewItem inherits TabViewItem {
         Rectangle {
             private property <int> review_index: SlintReviewCallbacks.review_id_to_index(root.selected_review_id, root.review_model);
             width: 85%;
-
             file-picker := FilePicker {
                 initial_x: 0;
                 initial_y: 0;
@@ -156,7 +165,7 @@ export component RepositoryTabViewItem inherits TabViewItem {
                         file-picker.file_model: SlintFilePickerAdapter.file_model(root.review_id_parameters);
                     }
                 ]
-                set_filter (pattern) => {
+                set_filter(pattern) => {
                     SlintFilePickerAdapter.set_filter(root.review_id_parameters, pattern);
                 }
             }
@@ -168,6 +177,7 @@ export component RepositoryTabViewItem inherits TabViewItem {
                         file-picker.open();
                     }
                 }
+
                 HorizontalLayout {
                     spacing: Style.size.spacing;
                     TabWidget {
@@ -182,35 +192,39 @@ export component RepositoryTabViewItem inherits TabViewItem {
                                             Text {
                                                 text: "Added";
                                             }
+
                                             Text {
                                                 text: root.review_model[review_index].difference_statistics.added_lines;
                                             }
                                         }
+
                                         HorizontalBox {
                                             Text {
                                                 text: "Removed";
                                             }
+
                                             Text {
                                                 text: root.review_model[review_index].difference_statistics.removed_lines;
                                             }
                                         }
-                                        for change in root.review_model[review_index].difference_statistics.change_type_model : HorizontalBox {
+
+                                        for change in root.review_model[review_index].difference_statistics.change_type_model: HorizontalBox {
                                             Image {
                                                 source: SlintChangeTypeUtils.to_icon(change.change_type);
                                             }
+
                                             Text {
                                                 text: change.count;
                                             }
                                         }
                                     }
+
                                     HorizontalLayout {
                                         spacing: Style.size.spacing;
-
                                         private property <SlintDiffRange> diff_range: {
                                             start: start-range-edit.text,
                                             end: end-range-edit.text,
                                         };
-
                                         start-range-edit := LineEdit {
                                             private property <string> commit: root.review_model[review_index].start_diff;
                                             changed commit => {
@@ -232,11 +246,11 @@ export component RepositoryTabViewItem inherits TabViewItem {
                                             changed commit => {
                                                 self.text = commit;
                                             }
-
                                             text: root.review_model[review_index].end_diff;
                                             placeholder-text: "end";
                                         }
                                     }
+
                                     HorizontalLayout {
                                         LineEdit {
                                             placeholder-text: "file pattern";
@@ -244,28 +258,27 @@ export component RepositoryTabViewItem inherits TabViewItem {
                                                 SlintReviewCallbacks.set_file_diff_file_pattern(root.review_id_parameters, text);
                                             }
                                         }
+
                                         ComboBox {
                                             model: ["Unfiltered", "Done", "Open"];
                                             selected(current-value) => {
                                                 if (current-value == "Unfiltered") {
                                                     SlintReviewCallbacks.set_file_diff_review_state(root.review_id_parameters, SlintFilterReviewState.Unfiltered);
-                                                }
-                                                else if (current-value == "Done") {
+                                                } else if (current-value == "Done") {
                                                     SlintReviewCallbacks.set_file_diff_review_state(root.review_id_parameters, SlintFilterReviewState.Done);
-                                                }
-                                                else {
+                                                } else {
                                                     SlintReviewCallbacks.set_file_diff_review_state(root.review_id_parameters, SlintFilterReviewState.Open);
                                                 }
                                             }
                                         }
                                     }
+
                                     ListView {
                                         for file_diff in SlintReviewCallbacks.file_diff_ui_model(root.review_id_parameters): HorizontalLayout {
                                             private property <SlintFileDiffIdParamters> id_parameters: {
                                                 review_id_parameters: root.review_id_parameters,
                                                 file_diff_id: file-diff.id,
                                             };
-
                                             CheckBox {
                                                 private property <bool> is_reviewed: file_diff.is-reviewed;
                                                 changed is_reviewed => {
@@ -276,20 +289,25 @@ export component RepositoryTabViewItem inherits TabViewItem {
                                                     SlintReviewCallbacks.change_file_diff_is_reviewed(id_parameters, self.checked);
                                                 }
                                             }
+
                                             Text {
                                                 text: file-diff.file_path;
                                             }
+
                                             Text {
                                                 text: file-diff.added_lines;
                                             }
+
                                             Text {
                                                 text: file-diff.removed_lines;
                                             }
+
                                             Image {
                                                 source: SlintChangeTypeUtils.to_icon(file-diff.change_type);
                                                 colorize: Palette.foreground;
                                                 width: Style.size.image_width;
                                             }
+
                                             Button {
                                                 text: "open";
                                                 clicked => {
@@ -311,9 +329,11 @@ export component RepositoryTabViewItem inherits TabViewItem {
                                         note-text-edit := LineEdit {
                                             placeholder-text: "note-text";
                                         }
+
                                         note-context-edit := LineEdit {
                                             placeholder-text: "note-context";
                                         }
+
                                         Button {
                                             text: "add";
                                             clicked => {
@@ -323,6 +343,7 @@ export component RepositoryTabViewItem inherits TabViewItem {
                                             }
                                         }
                                     }
+
                                     HorizontalLayout {
                                         LineEdit {
                                             placeholder-text: "filter text";
@@ -330,6 +351,7 @@ export component RepositoryTabViewItem inherits TabViewItem {
                                                 SlintReviewCallbacks.set_notes_text_filter(root.review_id_parameters, text);
                                             }
                                         }
+
                                         LineEdit {
                                             placeholder-text: "filter context";
                                             edited(text) => {
@@ -337,6 +359,7 @@ export component RepositoryTabViewItem inherits TabViewItem {
                                             }
                                         }
                                     }
+
                                     ListView {
                                         for note in SlintReviewCallbacks.note_ui_model(root.review_id_parameters): HorizontalLayout {
                                             private property <SlintNoteIdParamters> id_parameters: {
@@ -344,7 +367,6 @@ export component RepositoryTabViewItem inherits TabViewItem {
                                                 note_id: note.id,
                                             };
                                             height: Style.size.control-height;
-                                            
                                             CheckBox {
                                                 private property <bool> is_fixed: note.is-fixed;
                                                 changed is_fixed => {
@@ -355,6 +377,7 @@ export component RepositoryTabViewItem inherits TabViewItem {
                                                     SlintReviewCallbacks.change_note_is_done(id_parameters, self.checked);
                                                 }
                                             }
+
                                             LineEdit {
                                                 private property <string> note_text: note.text;
                                                 changed note_text => {
@@ -365,6 +388,7 @@ export component RepositoryTabViewItem inherits TabViewItem {
                                                     SlintReviewCallbacks.change_note_text(id_parameters, text);
                                                 }
                                             }
+
                                             LineEdit {
                                                 private property <string> note_context: note.context;
                                                 changed note_context => {
@@ -375,6 +399,7 @@ export component RepositoryTabViewItem inherits TabViewItem {
                                                     SlintReviewCallbacks.change_note_context(id_parameters, text);
                                                 }
                                             }
+
                                             Button {
                                                 text: "del";
                                                 clicked => {
