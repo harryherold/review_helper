@@ -1,7 +1,15 @@
-import { LineEdit, Button, VerticalBox, HorizontalBox, Palette, StandardTableView, ListView } from "std-widgets.slint";
+import {
+    LineEdit,
+    Button,
+    VerticalBox,
+    HorizontalBox,
+    Palette,
+    StandardTableView,
+    ListView,
+} from "std-widgets.slint";
 import { Style } from "style.slint";
 import { SlintCommitPickerAdapter } from "globals.slint";
-import { ToolButton } from "tool_button.slint";
+import { ToolButton } from "controls/tool_button.slint";
 
 export component CommitPicker inherits PopupWindow {
     in property <int> repository_id;
@@ -60,18 +68,22 @@ export component CommitPicker inherits PopupWindow {
                     width: 80px;
                     text: "Commit";
                 }
+
                 Text {
                     width: 400px;
                     text: "Message";
                 }
+
                 Text {
                     width: 160px;
                     text: "Author";
                 }
+
                 Text {
                     text: "Date";
                 }
             }
+
             ListView {
                 for commit[index] in SlintCommitPickerAdapter.ui_commit_model(): HorizontalLayout {
                     me := Text {
@@ -84,16 +96,19 @@ export component CommitPicker inherits PopupWindow {
                             }
                         ]
                     }
+
                     Text {
                         width: 400px;
                         text: commit.message;
                         overflow: elide;
                     }
+
                     Text {
                         width: 160px;
                         text: commit.author;
                         overflow: elide;
                     }
+
                     Text {
                         text: commit.date;
                         overflow: elide;

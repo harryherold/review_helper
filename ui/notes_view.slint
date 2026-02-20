@@ -1,9 +1,26 @@
-import { GroupBox, LineEdit, Button, ListView, CheckBox, ComboBox, HorizontalBox, VerticalBox, Palette, StyleMetrics } from "std-widgets.slint";
+import {
+    GroupBox,
+    LineEdit,
+    Button,
+    ListView,
+    CheckBox,
+    ComboBox,
+    HorizontalBox,
+    VerticalBox,
+    Palette,
+    StyleMetrics,
+} from "std-widgets.slint";
 
 import { Style } from "style.slint";
-import { Repository, Notes, FilePickerAdapter, SortOrder, NoteSortCriteria } from "globals.slint";
+import {
+    Repository,
+    Notes,
+    FilePickerAdapter,
+    SortOrder,
+    NoteSortCriteria,
+} from "globals.slint";
 import { FilePicker } from "file_picker.slint";
-import { ToolButton } from "tool_button.slint";
+import { ToolButton } from "controls/tool_button.slint";
 import { SubSectionText } from "sub_section_text.slint";
 
 component HeaderColumn inherits Rectangle {

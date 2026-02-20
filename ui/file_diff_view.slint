@@ -1,9 +1,26 @@
-import { GroupBox, ListView, CheckBox, Button, Palette, LineEdit, VerticalBox, HorizontalBox, ComboBox } from "std-widgets.slint";
+import {
+    GroupBox,
+    ListView,
+    CheckBox,
+    Button,
+    Palette,
+    LineEdit,
+    VerticalBox,
+    HorizontalBox,
+    ComboBox,
+} from "std-widgets.slint";
 
 import { Style } from "style.slint";
-import { ChangeTypeUtils, SortCriteria, Diff, Notes, NoteItem, FilterReviewState } from "globals.slint";
+import {
+    ChangeTypeUtils,
+    SortCriteria,
+    Diff,
+    Notes,
+    NoteItem,
+    FilterReviewState,
+} from "globals.slint";
 import { FileNoteDelegate } from "file_note_delegate.slint";
-import { ToolButton } from "tool_button.slint";
+import { ToolButton } from "controls/tool_button.slint";
 
 export component FileDiffView inherits VerticalLayout {
     private property <int> selected_id: -1;
