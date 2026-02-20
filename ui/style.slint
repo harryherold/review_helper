@@ -1,10 +1,12 @@
-import {Palette} from "std-widgets.slint";
+import { Palette } from "std-widgets.slint";
 
 export struct ColorPalette {
     disabled: color,
     selected: color,
     lines_added: color,
     lines_removed: color,
+    background: color,
+    hover: color,
 }
 
 export struct Font {
@@ -25,6 +27,7 @@ export struct Size {
     spacing: length,
     big_spacing: length,
     padding: length,
+    tab_button_width: length,
 }
 
 export global Style {
@@ -33,6 +36,8 @@ export global Style {
         selected: Palette.color-scheme == ColorScheme.dark ? #373737 : #e8e8e8,
         lines_added: #5e8262,
         lines_removed: #B06161,
+        background: Palette.color-scheme == ColorScheme.dark ? Palette.background.brighter(0.8) : Palette.background,
+        hover: Palette.color-scheme == ColorScheme.dark ? Palette.background.brighter(1.4) : Palette.background.brighter(0.6),
     };
     out property <Font> font: {
         menu_size: 16px,
@@ -51,5 +56,6 @@ export global Style {
         spacing: 4px,
         big_spacing: 6px,
         padding: 8px,
+        tab_button_width: 120px,
     };
 }
