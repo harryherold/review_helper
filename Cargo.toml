@@ -14,13 +14,7 @@ wildcard = "=0.3.0"
 toml = "0.8.19"
 serde = "1.0.215"
 serde_derive = "1.0.215"
-slint = { version = "1.15.1", default-features = false, features = [
-    "std",
-    "backend-winit",
-    "compat-1-2",
-    "renderer-skia",
-    "backend-qt",
-] }
+slint = "1.15.1"
 native-dialog = "0.7.0"
 anyhow = "1.0.89"
 dirs = "6.0.0"
