@@ -1,0 +1,126 @@
+import { LineEdit, ListView, Switch, Palette } from "std-widgets.slint";
+
+import {
+    SlintReview,
+    SlintStringUtils,
+    SlintRepositoryCallbacks,
+    SlintReviewIdParameters,
+    SlintReviewCallbacks,
+} from "globals.slint";
+import { Style } from "style.slint";
+
+import {
+    TabButton,
+    TabViewItem,
+    TabCreateButton,
+} from "controls/tabview.slint";
+import { ToolButton } from "controls/tool_button.slint";
+
+
+export component ReviewSelectionTab inherits TabViewItem {
+    in property <int> repository_id;
+    in property <int> selected_review_id;
+    in property <[SlintReview]> review_model;
+    callback review-selected(int);
+
+    VerticalLayout {
+        spacing: Style.size.spacing;
+        padding-top: Style.size.spacing;
+        private property <bool> enable-new-review: false;
+        if (!enable-new-review): TabCreateButton {
+            preferred-height: Style.size.control-height;
+            clicked => {
+                enable-new-review = true;
+            }
+        }
+        if enable-new-review: HorizontalLayout {
+            Timer {
+                running: true;
+                interval: 50ms;
+                triggered => {
+                    name-edit.focus();
+                    self.running = false;
+                }
+            }
+
+            name-edit := LineEdit {
+                changed has-focus => {
+                    if (!self.has-focus) {
+                        enable-new-review = false;
+                    }
+                }
+                input-type: text;
+                accepted(text) => {
+                    if (SlintStringUtils.is_valid_name(text)) {
+                        SlintRepositoryCallbacks.new_review(root.repository_id, text);
+                        enable-new-review = false;
+                    }
+                }
+                key-pressed(event) => {
+                    if (event.text == Key.Escape) {
+                        enable-new-review = false;
+                        return EventResult.accept;
+                    }
+                    return EventResult.reject;
+                }
+            }
+
+            Image {
+                source: SlintStringUtils.is_valid_name(name-edit.text) ? @image-url("../assets/icons/success.svg") : @image-url("../assets/icons/failed.svg");
+                width: Style.size.image_width;
+            }
+        }
+        ListView {
+            visible: root.review_model.length > 0; // NOTE workaround to get ListView visible with their elements
+            for review[idx] in root.review_model: HorizontalLayout {
+                private property <SlintReviewIdParameters> review_ids: {
+                    repository_id: root.repository_id,
+                    review_id: review.id,
+                };
+
+                states [
+                    active_edit when edit_switch.checked: {
+                        spacing: Style.size.spacing;
+                        padding-bottom: Style.size.spacing;
+                    }
+                ]
+                if edit_switch.checked && root.selected_review_id == review.id: Rectangle {
+                    width: Style.size.border-width;
+                    background: Palette.selection-background;
+                }
+                if edit_switch.checked: LineEdit {
+                    text: review.name;
+                    preferred-height: Style.size.control-height;
+                }
+                if edit_switch.checked: ToolButton {
+                    width: Style.size.control-height;
+                    source: @image-url("../assets/icons/delete.svg");
+                    clicked => {
+                        SlintRepositoryCallbacks.delete_review(review_ids);
+                    }
+                }
+                if !edit_switch.checked: TabButton {
+                    tab-text: review.name;
+                    preferred-height: Style.size.control-height;
+                    is-selected: root.selected_review_id == review.id;
+                    clicked => {
+                        // root.selected_review_id = review.id;
+                        root.review-selected(review.id);
+                        if (!review.is_loaded) {
+                            SlintReviewCallbacks.load_review(review_ids);
+                            SlintReviewCallbacks.initialize_ui_models(review_ids);
+                        }
+                    }
+                }
+            }
+        }
+
+        HorizontalLayout {
+            Text {
+                text: @tr("Edit");
+            }
+
+            edit_switch := Switch { }
+        }
+    }
+}

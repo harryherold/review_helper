@@ -8,6 +8,8 @@ import {
     Button,
     HorizontalBox,
     ComboBox,
+    Slider,
+    Switch,
 } from "std-widgets.slint";
 import { ToolButton } from "controls/tool_button.slint";
 import { Style } from "style.slint";
@@ -25,10 +27,16 @@ import {
     SlintFilePickerAdapter,
     SlintFilterReviewState,
 } from "globals.slint";
-import { TabView, TabViewItem } from "controls/tabview.slint";
+import {
+    TabView,
+    TabViewItem,
+    TabCreateButton,
+    TabButton,
+} from "controls/tabview.slint";
 import { CommitPicker } from "commit_picker.slint";
 import { FilePicker } from "file_picker.slint";
-import { RepositorySettingsTab } from "repository_settings_view.slint";
+import { RepositorySettingsTab } from "repository_settings_tab.slint";
+import { ReviewSelectionTab } from "review_selection_tab.slint";
 
 export component RepositoryTabViewItem inherits TabViewItem {
     in property <int> repository_id;
@@ -41,30 +49,37 @@ export component RepositoryTabViewItem inherits TabViewItem {
         repository_id: root.repository_id,
         review_id: root.selected_review_id,
     };
-    changed is_active => {
+    function load_repository() {
         if (root.is_active && !root.is_repository_loaded) {
             SlintRepositoryCallbacks.load_repository(root.repository_id);
             root.is_repository_loaded = true;
         }
     }
+    changed is_active => {
+        load_repository();
+    }
+    init => {
+        load_repository();
+    }
     HorizontalLayout {
         Rectangle {
             width: 260px;
-            commit-picker := CommitPicker {
-                repository_id: root.repository_id;
-            }
-
             VerticalLayout {
-                padding-left: 5px;
-                padding-right: 5px;
+                padding-left: Style.size.spacing;
+                padding-right: Style.size.spacing;
                 spacing: Style.size.spacing;
                 TabView {
                     create_button_enabled: false;
                     model: [@tr("Reviews"), @tr("Settings")];
-
-                    TabViewItem {
+                    ReviewSelectionTab {
                         index: 0;
                         current-index <=> parent.current-index;
+                        repository_id: root.repository_id;
+                        selected_review_id: root.selected_review_id;
+                        review_model: root.review_model;
+                        review-selected(review_id) => {
+                            root.selected_review_id = review-id;
+                        }
                     }
 
                     RepositorySettingsTab {
@@ -74,88 +89,8 @@ export component RepositoryTabViewItem inherits TabViewItem {
                         base_branch: root.base_branch;
                     }
                 }
-                // Button {
-                //     text: "commit";
-                //     clicked => {
-                //         commit-picker.show();
-                //     }
-                // }
-                // Text {
-                //     height: Style.size.control-height;
-                //     vertical-alignment: center;
-                //     horizontal-alignment: center;
-                //     text: "Reviews";
-                // }
-
-                // private property <bool> enable-new-review: false;
-                // TabCreateButton {
-                //     height: Style.size.control-height;
-                //     clicked => {
-                //         enable-new-review = true;
-                //     }
-                // }
-
-                // if enable-new-review: HorizontalLayout {
-                //     name-edit := LineEdit {
-                //         changed has-focus => {
-                //             if (!self.has-focus) {
-                //                 enable-new-review = false;
-                //             }
-                //         }
-                //         input-type: text;
-                //         accepted(text) => {
-                //             if (SlintStringUtils.is_valid_name(text)) {
-                //                 SlintRepositoryCallbacks.new_review(root.repository_id, text);
-                //                 enable-new-review = false;
-                //             }
-                //         }
-                //         key-pressed(event) => {
-                //             if (event.text == Key.Escape) {
-                //                 enable-new-review = false;
-                //                 return EventResult.accept;
-                //             }
-                //             EventResult.reject
-                //         }
-                //     }
-
-                //     Image {
-                //         source: SlintStringUtils.is_valid_name(name-edit.text) ? @image-url("../assets/icons/success.svg") : @image-url("../assets/icons/failed.svg");
-                //         width: Style.size.image_width;
-                //     }
-                // }
-                // ListView {
-                //     visible: root.review_model.length > 0; // NOTE workaround to get ListView visible with their elements
-                //     for review[idx] in root.review_model: HorizontalBox {
-                //         TabButton {
-                //             tab-text: review.name;
-                //             height: Style.size.control-height;
-                //             is-selected: root.selected_review_id == review.id;
-                //             clicked => {
-                //                 root.selected_review_id = review.id;
-                //                 if (!review.is_loaded) {
-                //                     SlintReviewCallbacks.load_review(root.review_id_parameters);
-                //                     SlintReviewCallbacks.initialize_ui_models(root.review_id_parameters);
-                //                 }
-                //             }
-                //         }
-
-                //         Button {
-                //             width: Style.size.control-small-width;
-                //             text: "del";
-                //             clicked => {
-                //                 SlintRepositoryCallbacks.delete_review(root.review_id_parameters);
-                //             }
-                //         }
-                //     }
-                // }
             }
         }
-
-        // Rectangle {
-        //     width: 1px;
-        //     height: 100%;
-        //     background: Palette.border;
-        // }
 
         Rectangle {
             private property <int> review_index: SlintReviewCallbacks.review_id_to_index(root.selected_review_id, root.review_model);

@@ -8,12 +8,11 @@ import {
 import { Style } from "../style.slint";
 import { ToolButton } from "tool_button.slint";
 
-component TabButton inherits Rectangle {
+export component TabButton inherits Rectangle {
     in property <string> tab-text;
     in property <bool> is-selected: false;
     callback clicked <=> ta.clicked;
-    height: Style.size.control-height;
-    width: Style.size.tab-button-width;
+    preferred-height: Style.size.control-height;
     background: is-selected ? Style.palette.background.brighter(0.1) : Style.palette.background.darker(0.1);
     border-width: Style.size.border-width;
     border-color: Palette.border;
@@ -34,7 +33,7 @@ component TabButton inherits Rectangle {
     ta := TouchArea { }
 }
 
-component TabCreateButton inherits Rectangle {
+export component TabCreateButton inherits Rectangle {
     callback clicked <=> ta.clicked;
     background: Style.palette.background.darker(0.1);
     border-width: Style.size.border-width;
@@ -115,6 +114,7 @@ export component TabView inherits Rectangle {
                         HorizontalLayout {
                             alignment: start;
                             for tab_text[idx] in root.model: TabButton {
+                                width: Style.size.tab-button-width;
                                 tab-text: tab_text;
                                 is-selected: current-index == idx;
                                 clicked => {
