@@ -367,6 +367,7 @@ impl WorkerImpl {
         self.ui_updater.delete_repository(repository_id.as_usize());
     }
     fn change_repository(&mut self, repository_id: RepositoryId, base_branch: String) {
+        // TODO check if branch exists
         let Some(repository) = self.repositories.get_mut(&repository_id) else {
             self.ui_updater
                 .report_error(ui::SlintResult::ModelItemNotExists, &format!("repository  id {}", repository_id.as_usize()));

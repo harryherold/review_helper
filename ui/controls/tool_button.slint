@@ -23,8 +23,9 @@ export component ToolButton inherits Rectangle {
         padding-right: Style.size.big_spacing;
         spacing: Style.size.spacing;
         alignment: center;
-        Image {
+        if (root.source.width > 0): Image {
             vertical-alignment: center;
+            horizontal-alignment: center;
             width: Style.size.image_width;
             source: root.source;
             colorize: {
@@ -38,6 +39,7 @@ export component ToolButton inherits Rectangle {
         if !root.text.is-empty: Text {
             text: root.text;
             vertical-alignment: center;
+            horizontal-alignment: center;
             color: {
                 return root.enabled ? Palette.foreground : Style.palette.disabled;
             }

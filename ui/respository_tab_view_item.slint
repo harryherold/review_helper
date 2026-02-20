@@ -28,11 +28,13 @@ import {
 import { TabView, TabViewItem } from "controls/tabview.slint";
 import { CommitPicker } from "commit_picker.slint";
 import { FilePicker } from "file_picker.slint";
+import { RepositorySettingsTab } from "repository_settings_view.slint";
 
 export component RepositoryTabViewItem inherits TabViewItem {
     in property <int> repository_id;
     in property <string> repository_name;
     in property <[SlintReview]> review_model;
+    in property <string> base_branch;
     private property <bool> is_repository_loaded: false;
     private property <int> selected_review_id: -1;
     private property <SlintReviewIdParameters> review_id_parameters: {
@@ -47,7 +49,7 @@ export component RepositoryTabViewItem inherits TabViewItem {
     }
     HorizontalLayout {
         Rectangle {
-            width: 15%;
+            width: 260px;
             commit-picker := CommitPicker {
                 repository_id: root.repository_id;
             }
@@ -56,25 +58,26 @@ export component RepositoryTabViewItem inherits TabViewItem {
                 padding-left: 5px;
                 padding-right: 5px;
                 spacing: Style.size.spacing;
-                TabWidget {
-                    Tab {
-                        title: @tr("Review");
+                TabView {
+                    create_button_enabled: false;
+                    model: [@tr("Reviews"), @tr("Settings")];
+
+                    TabViewItem {
+                        index: 0;
+                        current-index <=> parent.current-index;
                     }
 
-                    Tab {
-                        title: @tr("Settings");
+                    RepositorySettingsTab {
+                        index: 1;
+                        current-index <=> parent.current-index;
+                        repository_id: root.repository_id;
+                        base_branch: root.base_branch;
                     }
                 }
                 // Button {
                 //     text: "commit";
                 //     clicked => {
                 //         commit-picker.show();
-                //     }
-                // }
-                // Button {
-                //     text: "delete";
-                //     clicked => {
-                //         SlintReviewHelper.delete_repository(root.repository_id);
                 //     }
                 // }
                 // Text {
@@ -148,11 +151,11 @@ export component RepositoryTabViewItem inherits TabViewItem {
             }
         }
 
-        Rectangle {
-            width: 1px;
-            height: 100%;
-            background: Palette.border;
-        }
+        // Rectangle {
+        //     width: 1px;
+        //     height: 100%;
+        //     background: Palette.border;
+        // }
 
         Rectangle {
             private property <int> review_index: SlintReviewCallbacks.review_id_to_index(root.selected_review_id, root.review_model);
