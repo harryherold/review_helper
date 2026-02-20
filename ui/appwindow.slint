@@ -19,7 +19,7 @@ import { Menu, MenuItem } from "menu.slint";
 import { AppConfigPopup } from "app_settings_popup.slint";
 import { DiffConfigView } from "diff_config_view.slint";
 import { OverallStatistics } from "overall_statistics.slint";
-import { TabView, TabViewItem } from "tabview.slint";
+import { TabView, TabViewItem } from "controls/tabview.slint";
 import { RepositorySettingsPopup } from "repository_settings_popup.slint";
 
 import {
@@ -96,12 +96,13 @@ export component AppWindow inherits Window {
     request_show_error() => {
         error-popup.show();
     }
+
     changed config_color_scheme => {
-        Palette.color-scheme = config_color_scheme == "Dark" ? ColorScheme.dark : ColorScheme.light;
+        Palette.color-scheme = config_color_scheme == @tr("Dark") ? ColorScheme.dark : ColorScheme.light;
     }
     preferred-width: 1600px;
     preferred-height: 1200px;
-    title: "review_helper";
+    title: @tr("review_helper");
     icon: @image-url("../assets/icons/review_helper.png");
     notes-popup := FileNotesPopup {
         initial_x: (root.width / 2) - (self.width / 2);
@@ -109,12 +110,12 @@ export component AppWindow inherits Window {
         enable_close_button: true;
     }
 
-    app-config-popup := AppConfigPopup {
+    error-popup := ErrorPopup {
         x: (root.width / 2) - (self.width / 2);
         y: (root.height / 2) - (self.height / 2);
     }
 
-    error-popup := ErrorPopup {
+    app-config-popup := AppConfigPopup {
         x: (root.width / 2) - (self.width / 2);
         y: (root.height / 2) - (self.height / 2);
     }
@@ -128,57 +129,22 @@ export component AppWindow inherits Window {
         }
     }
 
-    VerticalLayout {
-        menu-rect := Rectangle {
-            height: 40px;
-            HorizontalLayout {
-                alignment: space-between;
-                spacing: Style.size.spacing;
-                HorizontalLayout {
-                    spacing: Style.size.spacing;
-                    Menu {
-                        text: "File";
-                        MenuItem {
-                            text: "Close";
-                            clicked => {
-                                root.close()
-                            }
-                        }
-                    }
-
-                    Menu {
-                        text: "Settings";
-                        MenuItem {
-                            text: "ReviewHelper";
-                            clicked => {
-                                app-config-popup.show()
-                            }
-                        }
-
-                        MenuItem {
-                            enabled: root.selected_repository_index != -1;
-                            text: "Respository";
-                            clicked => {
-                                repository-settings-popup.show(SlintReviewHelper.repositories[root.selected_repository_index]);
-                            }
-                        }
-                    }
-                }
-            }
+    tab-view := TabView {
+        layout_padding: 0px;
+        model: SlintReviewHelper.repository_names;
+        settings_button_enabled: true;
+        request-create => {
+            SlintReviewHelper.new_repository();
         }
-
-        tab-view := TabView {
-            model: SlintReviewHelper.repository_names;
-            request-create => {
-                SlintReviewHelper.new_repository()
-            }
-            for repository[idx] in SlintReviewHelper.repositories: RepositoryTabViewItem {
-                index: idx;
-                current-index <=> parent.current-index;
-                repository_id: repository.id;
-                repository_name: repository.name;
-                review_model: repository.review_model;
-            }
+        request-open-settings => {
+            app-config-popup.show();
+        }
+        for repository[idx] in SlintReviewHelper.repositories: RepositoryTabViewItem {
+            index: idx;
+            current-index <=> parent.current-index;
+            repository_id: repository.id;
+            repository_name: repository.name;
+            review_model: repository.review_model;
         }
     }
 }
