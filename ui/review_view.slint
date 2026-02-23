@@ -1,0 +1,76 @@
+import { Style } from "style.slint";
+import { ToolButton } from "controls/tool_button.slint";
+import { CommitEditor, CommitPickerPosition } from "commit_editor.slint";
+import {
+    SlintReview,
+    SlintReviewIdParameters,
+    SlintReviewCallbacks,
+    SlintDiffRange,
+} from "globals.slint";
+import { CenterTabView, TabViewItem } from "controls/tabview.slint";
+import { OverallStatistics } from "overall_statistics.slint";
+
+
+export component ReviewView inherits Rectangle {
+    in property <SlintReviewIdParameters> review_id_parameters;
+    in property <[SlintReview]> review_model;
+    private property <int> review_index: SlintReviewCallbacks.review_id_to_index(root.review_id_parameters.review_id, root.review_model);
+
+    if root.review_index != -1: CenterTabView {
+        image_model: [
+            @image-url("../assets/icons/differences.svg"),
+            @image-url("../assets/icons/notes.svg"),
+        ];
+        spacing: Style.size.big-spacing;
+
+        TabViewItem {
+            index: 0;
+            current-index <=> parent.current-index;
+
+            VerticalLayout {
+                padding-top: Style.size.spacing;
+                spacing: Style.size.big-spacing;
+                HorizontalLayout {
+                    private property <SlintDiffRange> diff_range: {
+                        start: start-commit-editor.commit,
+                        end: end-commit-editor.commit,
+                    };
+
+                    spacing: Style.size.spacing;
+
+                    start-commit-editor := CommitEditor {
+                        picker-position: CommitPickerPosition.Left;
+                        commit: root.review_model[root.review_index].start_diff;
+                        height: Style.size.control_height;
+                        placeholder-text: @tr("Start Commit SHA");
+                    }
+
+                    ToolButton {
+                        source: @image-url("../assets/icons/compare.svg");
+                        width: Style.size.control_small_width;
+                        height: Style.size.control_height;
+                        clicked => {
+                            SlintReviewCallbacks.find_file_changes(root.review_id_parameters, diff_range);
+                        }
+                    }
+
+                    end-commit-editor := CommitEditor {
+                        picker-position: CommitPickerPosition.Right;
+                        commit: root.review_model[root.review_index].end_diff;
+                        height: Style.size.control_height;
+                        placeholder-text: @tr("End Commit SHA");
+                    }
+                }
+
+                OverallStatistics {
+                    difference_statistics: root.review_model[root.review_index].difference_statistics;
+                }
+            }
+        }
+
+        TabViewItem {
+            index: 1;
+            current-index <=> parent.current-index;
+        }
+    }
+}

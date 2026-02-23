@@ -57,6 +57,32 @@ export component TabCreateButton inherits Rectangle {
     ta := TouchArea { }
 }
 
+export component TabImageButton inherits Rectangle {
+    in property <image> image_source;
+    in property <bool> is-selected: false;
+    callback clicked <=> ta.clicked;
+    background: is-selected ? Style.palette.background.brighter(0.1) : Style.palette.background.darker(0.1);
+    border-width: Style.size.border-width;
+    border-color: Palette.border;
+    inner-rect := Rectangle {
+        height: parent.height - Style.size.spacing * 2;
+        width: parent.width - Style.size.spacing * 2;
+        states [
+            active-hover when ta.has-hover && !root.is-selected: {
+                inner-rect.background: Style.palette.hover;
+            }
+        ]
+        Image {
+            vertical-alignment: center;
+            width: Style.size.image_width;
+            source: root.image_source;
+            colorize: Palette.foreground;
+        }
+    }
+
+    ta := TouchArea { }
+}
+
 component TabSettingsButton inherits Rectangle {
     callback clicked <=> ta.clicked;
     border-width: Style.size.border-width;
@@ -106,13 +132,13 @@ export component TabView inherits Rectangle {
             HorizontalLayout {
                 alignment: space-between;
                 HorizontalLayout {
-                    alignment: start;
+                    alignment: center;
                     if root.model.length > 0: ScrollView {
                         preferred-width: Style.size.tab-button-width * root.model.length;
                         horizontal-scrollbar-policy: always-off;
                         vertical-scrollbar-policy: always-off;
                         HorizontalLayout {
-                            alignment: start;
+                            alignment: center;
                             for tab_text[idx] in root.model: TabButton {
                                 width: Style.size.tab-button-width;
                                 tab-text: tab_text;
@@ -135,6 +161,52 @@ export component TabView inherits Rectangle {
                 if (root.settings_button_enabled): TabSettingsButton {
                     clicked => {
                         root.request-open-settings();
+                    }
+                }
+            }
+        }
+
+        Rectangle {
+            @children
+        }
+    }
+}
+
+export component CenterTabView inherits Rectangle {
+    in property <[image]> image_model;
+    in property <length> layout_padding: 5px;
+    in property <length> spacing: 0px;
+    out property <int> current-index;
+    callback request-create();
+    callback request-open-settings();
+    public function set_current_index(index: int) {
+        root.current-index = index;
+    }
+    border-width: Style.size.border-width;
+    border-color: Palette.border;
+    VerticalLayout {
+        alignment: stretch;
+        padding: root.layout_padding;
+        Rectangle {
+            height: Style.size.control-height;
+            HorizontalLayout {
+                alignment: center;
+                if root.image_model.length > 0: ScrollView {
+                    preferred-width: Style.size.tab-button-width * root.image_model.length + root.image_model.length * root.spacing;
+                    horizontal-scrollbar-policy: always-off;
+                    vertical-scrollbar-policy: always-off;
+                    HorizontalLayout {
+                        alignment: center;
+                        spacing: root.spacing;
+                        for image[idx] in root.image_model: TabImageButton {
+                            height: Style.size.control-height;
+                            width: Style.size.control-small-width;
+                            image_source: image;
+                            is-selected: current-index == idx;
+                            clicked => {
+                                root.current-index = idx;
+                            }
+                        }
                     }
                 }
             }

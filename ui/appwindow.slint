@@ -1,37 +1,17 @@
 import {
-    Button,
-    VerticalBox,
-    HorizontalBox,
-    LineEdit,
-    ListView,
-    CheckBox,
-    GroupBox,
     Palette,
     TabWidget,
 } from "std-widgets.slint";
 
 import { Style } from "style.slint";
-import { NotesView } from "notes_view.slint";
-import { FileDiffView } from "file_diff_view.slint";
-import { Popup } from "popup.slint";
-import { FileNotesPopup } from "file_notes_popup.slint";
-import { Menu, MenuItem } from "menu.slint";
 import { AppConfigPopup } from "app_settings_popup.slint";
-import { DiffConfigView } from "diff_config_view.slint";
-import { OverallStatistics } from "overall_statistics.slint";
 import { TabView, TabViewItem } from "controls/tabview.slint";
+import { RepositoryTabViewItem } from "respository_tab_view_item.slint";
+import { ErrorPopup } from "error_popup.slint";
 
 import {
-    Repository,
-    CommitPickerAdapter,
-    OverallDiffStats,
     SlintReviewHelperSettings,
     SlintStringUtils,
-    Diff,
-    DiffFileItem,
-    Notes,
-    NoteItem,
-    FilePickerAdapter,
     SlintModelUtils,
     SlintRepository,
     SlintReviewHelper,
@@ -51,24 +31,11 @@ import {
     SlintNoteSortCriteria,
     SlintSortOrder,
 } from "globals.slint";
-import { SubSectionText } from "sub_section_text.slint";
-import { ToolButton } from "controls/tool_button.slint";
-import { RepositoryTabViewItem } from "respository_tab_view_item.slint";
-import { ErrorPopup } from "error_popup.slint";
-
 export {
     SlintReviewCallbacks,
     SlintRepositoryCallbacks,
     SlintReviewHelperSettings,
-    FilePickerAdapter,
-    CommitPickerAdapter,
-    Notes,
-    NoteItem,
-    Diff,
-    DiffFileItem,
-    Repository,
     SlintStringUtils,
-    OverallDiffStats,
     SlintModelUtils,
     SlintRepository,
     SlintReviewHelper,
@@ -95,7 +62,6 @@ export component AppWindow inherits Window {
     request_show_error() => {
         error-popup.show();
     }
-
     changed config_color_scheme => {
         Palette.color-scheme = config_color_scheme == @tr("Dark") ? ColorScheme.dark : ColorScheme.light;
     }
@@ -103,12 +69,6 @@ export component AppWindow inherits Window {
     preferred-height: 1200px;
     title: @tr("review_helper");
     icon: @image-url("../assets/icons/review_helper.png");
-    notes-popup := FileNotesPopup {
-        initial_x: (root.width / 2) - (self.width / 2);
-        initial_y: (root.height / 2) - (self.height / 2);
-        enable_close_button: true;
-    }
-
     error-popup := ErrorPopup {
         x: (root.width / 2) - (self.width / 2);
         y: (root.height / 2) - (self.height / 2);

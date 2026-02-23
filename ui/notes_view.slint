@@ -13,7 +13,6 @@ import {
 
 import { Style } from "style.slint";
 import {
-    Repository,
     Notes,
     FilePickerAdapter,
     SortOrder,
@@ -27,7 +26,6 @@ component HeaderColumn inherits Rectangle {
     in property <string> column_name;
     in property <NoteSortCriteria> sort_criteria;
     private property <bool> is_selected: Notes.sort_criteria == root.sort_criteria;
-
     background: ta.pressed ? Palette.alternate-background : Palette.control-background;
     border-radius: Style.size.border_radius;
     border-width: Style.size.border_width;
@@ -73,7 +71,6 @@ export component NotesView inherits Rectangle {
         }
     }
     background: Palette.control-background;
-
     file-picker := FilePicker {
         property <int> current_note_id: -1;
         initial_x: 0;
@@ -94,7 +91,6 @@ export component NotesView inherits Rectangle {
 
     vertical-box := VerticalBox {
         spacing: Style.size.spacing;
-
         sub-section-text := SubSectionText {
             text: "New Note:";
         }
@@ -143,10 +139,8 @@ export component NotesView inherits Rectangle {
         notes-vertical-layout := VerticalLayout {
             HorizontalLayout {
                 spacing: Style.size.spacing;
-
                 Rectangle {
                     width: columns_width[0];
-
                     Image {
                         source: @image-url("../assets/icons/checklist.svg");
                         vertical-alignment: center;
@@ -212,7 +206,6 @@ export component NotesView inherits Rectangle {
                 for note[idx] in Notes.notes_model: HorizontalLayout {
                     spacing: Style.size.spacing;
                     padding-top: Style.size.spacing;
-
                     ToolButton {
                         width: root.columns_width[0];
                         source: note.is_fixed ? @image-url("../assets/icons/checked.svg") : @image-url("../assets/icons/unchecked.svg");

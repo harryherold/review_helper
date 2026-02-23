@@ -37,6 +37,7 @@ import { CommitPicker } from "commit_picker.slint";
 import { FilePicker } from "file_picker.slint";
 import { RepositorySettingsTab } from "repository_settings_tab.slint";
 import { ReviewSelectionTab } from "review_selection_tab.slint";
+import { ReviewView } from "review_view.slint";
 
 export component RepositoryTabViewItem inherits TabViewItem {
     in property <int> repository_id;
@@ -92,266 +93,271 @@ export component RepositoryTabViewItem inherits TabViewItem {
             }
         }
 
-        Rectangle {
-            private property <int> review_index: SlintReviewCallbacks.review_id_to_index(root.selected_review_id, root.review_model);
-            width: 85%;
-            file-picker := FilePicker {
-                initial_x: 0;
-                initial_y: 0;
-                states [
-                    file_model_loaded when review_index != -1 && root.review_model[review_index].is_loaded: {
-                        file-picker.file_model: SlintFilePickerAdapter.file_model(root.review_id_parameters);
-                    }
-                ]
-                set_filter(pattern) => {
-                    SlintFilePickerAdapter.set_filter(root.review_id_parameters, pattern);
-                }
-            }
-
-            if review_index != -1: VerticalLayout {
-                Button {
-                    text: "file-picker";
-                    clicked => {
-                        file-picker.open();
-                    }
-                }
-
-                HorizontalLayout {
-                    spacing: Style.size.spacing;
-                    TabWidget {
-                        Tab {
-                            title: "FileDiff";
-                            Rectangle {
-                                VerticalLayout {
-                                    // alignment: start;
-                                    spacing: Style.size.spacing;
-                                    HorizontalLayout {
-                                        HorizontalBox {
-                                            Text {
-                                                text: "Added";
-                                            }
-
-                                            Text {
-                                                text: root.review_model[review_index].difference_statistics.added_lines;
-                                            }
-                                        }
-
-                                        HorizontalBox {
-                                            Text {
-                                                text: "Removed";
-                                            }
-
-                                            Text {
-                                                text: root.review_model[review_index].difference_statistics.removed_lines;
-                                            }
-                                        }
-
-                                        for change in root.review_model[review_index].difference_statistics.change_type_model: HorizontalBox {
-                                            Image {
-                                                source: SlintChangeTypeUtils.to_icon(change.change_type);
-                                            }
-
-                                            Text {
-                                                text: change.count;
-                                            }
-                                        }
-                                    }
-
-                                    HorizontalLayout {
-                                        spacing: Style.size.spacing;
-                                        private property <SlintDiffRange> diff_range: {
-                                            start: start-range-edit.text,
-                                            end: end-range-edit.text,
-                                        };
-                                        start-range-edit := LineEdit {
-                                            private property <string> commit: root.review_model[review_index].start_diff;
-                                            changed commit => {
-                                                self.text = commit;
-                                            }
-                                            text: root.review_model[review_index].start_diff;
-                                            placeholder-text: "start";
-                                        }
-
-                                        ToolButton {
-                                            text: "<=>";
-                                            clicked => {
-                                                SlintReviewCallbacks.find_file_changes(root.review_id_parameters, diff_range);
-                                            }
-                                        }
-
-                                        end-range-edit := LineEdit {
-                                            private property <string> commit: root.review_model[review_index].end_diff;
-                                            changed commit => {
-                                                self.text = commit;
-                                            }
-                                            text: root.review_model[review_index].end_diff;
-                                            placeholder-text: "end";
-                                        }
-                                    }
-
-                                    HorizontalLayout {
-                                        LineEdit {
-                                            placeholder-text: "file pattern";
-                                            edited(text) => {
-                                                SlintReviewCallbacks.set_file_diff_file_pattern(root.review_id_parameters, text);
-                                            }
-                                        }
-
-                                        ComboBox {
-                                            model: ["Unfiltered", "Done", "Open"];
-                                            selected(current-value) => {
-                                                if (current-value == "Unfiltered") {
-                                                    SlintReviewCallbacks.set_file_diff_review_state(root.review_id_parameters, SlintFilterReviewState.Unfiltered);
-                                                } else if (current-value == "Done") {
-                                                    SlintReviewCallbacks.set_file_diff_review_state(root.review_id_parameters, SlintFilterReviewState.Done);
-                                                } else {
-                                                    SlintReviewCallbacks.set_file_diff_review_state(root.review_id_parameters, SlintFilterReviewState.Open);
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    ListView {
-                                        for file_diff in SlintReviewCallbacks.file_diff_ui_model(root.review_id_parameters): HorizontalLayout {
-                                            private property <SlintFileDiffIdParamters> id_parameters: {
-                                                review_id_parameters: root.review_id_parameters,
-                                                file_diff_id: file-diff.id,
-                                            };
-                                            CheckBox {
-                                                private property <bool> is_reviewed: file_diff.is-reviewed;
-                                                changed is_reviewed => {
-                                                    self.checked = is_reviewed;
-                                                }
-                                                checked: is_reviewed;
-                                                toggled => {
-                                                    SlintReviewCallbacks.change_file_diff_is_reviewed(id_parameters, self.checked);
-                                                }
-                                            }
-
-                                            Text {
-                                                text: file-diff.file_path;
-                                            }
-
-                                            Text {
-                                                text: file-diff.added_lines;
-                                            }
-
-                                            Text {
-                                                text: file-diff.removed_lines;
-                                            }
-
-                                            Image {
-                                                source: SlintChangeTypeUtils.to_icon(file-diff.change_type);
-                                                colorize: Palette.foreground;
-                                                width: Style.size.image_width;
-                                            }
-
-                                            Button {
-                                                text: "open";
-                                                clicked => {
-                                                    SlintReviewCallbacks.show_file_differences(id_parameters);
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        Tab {
-                            title: "Notes";
-                            Rectangle {
-                                VerticalLayout {
-                                    spacing: Style.size.spacing;
-                                    HorizontalLayout {
-                                        note-text-edit := LineEdit {
-                                            placeholder-text: "note-text";
-                                        }
-
-                                        note-context-edit := LineEdit {
-                                            placeholder-text: "note-context";
-                                        }
-
-                                        Button {
-                                            text: "add";
-                                            clicked => {
-                                                SlintReviewCallbacks.add_note(root.review_id_parameters, note-text-edit.text, note-context-edit.text);
-                                                note-context-edit.text = "";
-                                                note-text-edit.text = "";
-                                            }
-                                        }
-                                    }
-
-                                    HorizontalLayout {
-                                        LineEdit {
-                                            placeholder-text: "filter text";
-                                            edited(text) => {
-                                                SlintReviewCallbacks.set_notes_text_filter(root.review_id_parameters, text);
-                                            }
-                                        }
-
-                                        LineEdit {
-                                            placeholder-text: "filter context";
-                                            edited(text) => {
-                                                SlintReviewCallbacks.set_notes_context_filter(root.review_id_parameters, text);
-                                            }
-                                        }
-                                    }
-
-                                    ListView {
-                                        for note in SlintReviewCallbacks.note_ui_model(root.review_id_parameters): HorizontalLayout {
-                                            private property <SlintNoteIdParamters> id_parameters: {
-                                                review_id_parameters: root.review_id_parameters,
-                                                note_id: note.id,
-                                            };
-                                            height: Style.size.control-height;
-                                            CheckBox {
-                                                private property <bool> is_fixed: note.is-fixed;
-                                                changed is_fixed => {
-                                                    self.checked = is_fixed;
-                                                }
-                                                checked: is_fixed;
-                                                toggled => {
-                                                    SlintReviewCallbacks.change_note_is_done(id_parameters, self.checked);
-                                                }
-                                            }
-
-                                            LineEdit {
-                                                private property <string> note_text: note.text;
-                                                changed note_text => {
-                                                    self.text = note_text;
-                                                }
-                                                text: note.text;
-                                                accepted(text) => {
-                                                    SlintReviewCallbacks.change_note_text(id_parameters, text);
-                                                }
-                                            }
-
-                                            LineEdit {
-                                                private property <string> note_context: note.context;
-                                                changed note_context => {
-                                                    self.text = note_context;
-                                                }
-                                                text: note.context;
-                                                accepted(text) => {
-                                                    SlintReviewCallbacks.change_note_context(id_parameters, text);
-                                                }
-                                            }
-
-                                            Button {
-                                                text: "del";
-                                                clicked => {
-                                                    SlintReviewCallbacks.delete_note(id_parameters);
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+        ReviewView {
+            review_id_parameters: root.review_id_parameters;
+            review_model: root.review_model;
         }
+
+        // Rectangle {
+        //     private property <int> review_index: SlintReviewCallbacks.review_id_to_index(root.selected_review_id, root.review_model);
+        //     width: 85%;
+        //     file-picker := FilePicker {
+        //         initial_x: 0;
+        //         initial_y: 0;
+        //         states [
+        //             file_model_loaded when review_index != -1 && root.review_model[review_index].is_loaded: {
+        //                 file-picker.file_model: SlintFilePickerAdapter.file_model(root.review_id_parameters);
+        //             }
+        //         ]
+        //         set_filter(pattern) => {
+        //             SlintFilePickerAdapter.set_filter(root.review_id_parameters, pattern);
+        //         }
+        //     }
+
+        //     if review_index != -1: VerticalLayout {
+        //         Button {
+        //             text: "file-picker";
+        //             clicked => {
+        //                 file-picker.open();
+        //             }
+        //         }
+
+        //         HorizontalLayout {
+        //             spacing: Style.size.spacing;
+        //             TabWidget {
+        //                 Tab {
+        //                     title: "FileDiff";
+        //                     Rectangle {
+        //                         VerticalLayout {
+        //                             // alignment: start;
+        //                             spacing: Style.size.spacing;
+        //                             HorizontalLayout {
+        //                                 HorizontalBox {
+        //                                     Text {
+        //                                         text: "Added";
+        //                                     }
+
+        //                                     Text {
+        //                                         text: root.review_model[review_index].difference_statistics.added_lines;
+        //                                     }
+        //                                 }
+
+        //                                 HorizontalBox {
+        //                                     Text {
+        //                                         text: "Removed";
+        //                                     }
+
+        //                                     Text {
+        //                                         text: root.review_model[review_index].difference_statistics.removed_lines;
+        //                                     }
+        //                                 }
+
+        //                                 for change in root.review_model[review_index].difference_statistics.change_type_model: HorizontalBox {
+        //                                     Image {
+        //                                         source: SlintChangeTypeUtils.to_icon(change.change_type);
+        //                                     }
+
+        //                                     Text {
+        //                                         text: change.count;
+        //                                     }
+        //                                 }
+        //                             }
+
+        //                             HorizontalLayout {
+        //                                 spacing: Style.size.spacing;
+        //                                 private property <SlintDiffRange> diff_range: {
+        //                                     start: start-range-edit.text,
+        //                                     end: end-range-edit.text,
+        //                                 };
+        //                                 start-range-edit := LineEdit {
+        //                                     private property <string> commit: root.review_model[review_index].start_diff;
+        //                                     changed commit => {
+        //                                         self.text = commit;
+        //                                     }
+        //                                     text: root.review_model[review_index].start_diff;
+        //                                     placeholder-text: "start";
+        //                                 }
+
+        //                                 ToolButton {
+        //                                     text: "<=>";
+        //                                     clicked => {
+        //                                         SlintReviewCallbacks.find_file_changes(root.review_id_parameters, diff_range);
+        //                                     }
+        //                                 }
+
+        //                                 end-range-edit := LineEdit {
+        //                                     private property <string> commit: root.review_model[review_index].end_diff;
+        //                                     changed commit => {
+        //                                         self.text = commit;
+        //                                     }
+        //                                     text: root.review_model[review_index].end_diff;
+        //                                     placeholder-text: "end";
+        //                                 }
+        //                             }
+
+        //                             HorizontalLayout {
+        //                                 LineEdit {
+        //                                     placeholder-text: "file pattern";
+        //                                     edited(text) => {
+        //                                         SlintReviewCallbacks.set_file_diff_file_pattern(root.review_id_parameters, text);
+        //                                     }
+        //                                 }
+
+        //                                 ComboBox {
+        //                                     model: ["Unfiltered", "Done", "Open"];
+        //                                     selected(current-value) => {
+        //                                         if (current-value == "Unfiltered") {
+        //                                             SlintReviewCallbacks.set_file_diff_review_state(root.review_id_parameters, SlintFilterReviewState.Unfiltered);
+        //                                         } else if (current-value == "Done") {
+        //                                             SlintReviewCallbacks.set_file_diff_review_state(root.review_id_parameters, SlintFilterReviewState.Done);
+        //                                         } else {
+        //                                             SlintReviewCallbacks.set_file_diff_review_state(root.review_id_parameters, SlintFilterReviewState.Open);
+        //                                         }
+        //                                     }
+        //                                 }
+        //                             }
+
+        //                             ListView {
+        //                                 for file_diff in SlintReviewCallbacks.file_diff_ui_model(root.review_id_parameters): HorizontalLayout {
+        //                                     private property <SlintFileDiffIdParamters> id_parameters: {
+        //                                         review_id_parameters: root.review_id_parameters,
+        //                                         file_diff_id: file-diff.id,
+        //                                     };
+        //                                     CheckBox {
+        //                                         private property <bool> is_reviewed: file_diff.is-reviewed;
+        //                                         changed is_reviewed => {
+        //                                             self.checked = is_reviewed;
+        //                                         }
+        //                                         checked: is_reviewed;
+        //                                         toggled => {
+        //                                             SlintReviewCallbacks.change_file_diff_is_reviewed(id_parameters, self.checked);
+        //                                         }
+        //                                     }
+
+        //                                     Text {
+        //                                         text: file-diff.file_path;
+        //                                     }
+
+        //                                     Text {
+        //                                         text: file-diff.added_lines;
+        //                                     }
+
+        //                                     Text {
+        //                                         text: file-diff.removed_lines;
+        //                                     }
+
+        //                                     Image {
+        //                                         source: SlintChangeTypeUtils.to_icon(file-diff.change_type);
+        //                                         colorize: Palette.foreground;
+        //                                         width: Style.size.image_width;
+        //                                     }
+
+        //                                     Button {
+        //                                         text: "open";
+        //                                         clicked => {
+        //                                             SlintReviewCallbacks.show_file_differences(id_parameters);
+        //                                         }
+        //                                     }
+        //                                 }
+        //                             }
+        //                         }
+        //                     }
+        //                 }
+
+        //                 Tab {
+        //                     title: "Notes";
+        //                     Rectangle {
+        //                         VerticalLayout {
+        //                             spacing: Style.size.spacing;
+        //                             HorizontalLayout {
+        //                                 note-text-edit := LineEdit {
+        //                                     placeholder-text: "note-text";
+        //                                 }
+
+        //                                 note-context-edit := LineEdit {
+        //                                     placeholder-text: "note-context";
+        //                                 }
+
+        //                                 Button {
+        //                                     text: "add";
+        //                                     clicked => {
+        //                                         SlintReviewCallbacks.add_note(root.review_id_parameters, note-text-edit.text, note-context-edit.text);
+        //                                         note-context-edit.text = "";
+        //                                         note-text-edit.text = "";
+        //                                     }
+        //                                 }
+        //                             }
+
+        //                             HorizontalLayout {
+        //                                 LineEdit {
+        //                                     placeholder-text: "filter text";
+        //                                     edited(text) => {
+        //                                         SlintReviewCallbacks.set_notes_text_filter(root.review_id_parameters, text);
+        //                                     }
+        //                                 }
+
+        //                                 LineEdit {
+        //                                     placeholder-text: "filter context";
+        //                                     edited(text) => {
+        //                                         SlintReviewCallbacks.set_notes_context_filter(root.review_id_parameters, text);
+        //                                     }
+        //                                 }
+        //                             }
+
+        //                             ListView {
+        //                                 for note in SlintReviewCallbacks.note_ui_model(root.review_id_parameters): HorizontalLayout {
+        //                                     private property <SlintNoteIdParamters> id_parameters: {
+        //                                         review_id_parameters: root.review_id_parameters,
+        //                                         note_id: note.id,
+        //                                     };
+        //                                     height: Style.size.control-height;
+        //                                     CheckBox {
+        //                                         private property <bool> is_fixed: note.is-fixed;
+        //                                         changed is_fixed => {
+        //                                             self.checked = is_fixed;
+        //                                         }
+        //                                         checked: is_fixed;
+        //                                         toggled => {
+        //                                             SlintReviewCallbacks.change_note_is_done(id_parameters, self.checked);
+        //                                         }
+        //                                     }
+
+        //                                     LineEdit {
+        //                                         private property <string> note_text: note.text;
+        //                                         changed note_text => {
+        //                                             self.text = note_text;
+        //                                         }
+        //                                         text: note.text;
+        //                                         accepted(text) => {
+        //                                             SlintReviewCallbacks.change_note_text(id_parameters, text);
+        //                                         }
+        //                                     }
+
+        //                                     LineEdit {
+        //                                         private property <string> note_context: note.context;
+        //                                         changed note_context => {
+        //                                             self.text = note_context;
+        //                                         }
+        //                                         text: note.context;
+        //                                         accepted(text) => {
+        //                                             SlintReviewCallbacks.change_note_context(id_parameters, text);
+        //                                         }
+        //                                     }
+
+        //                                     Button {
+        //                                         text: "del";
+        //                                         clicked => {
+        //                                             SlintReviewCallbacks.delete_note(id_parameters);
+        //                                         }
+        //                                     }
+        //                                 }
+        //                             }
+        //                         }
+        //                     }
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
     }
 }

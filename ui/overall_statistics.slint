@@ -1,13 +1,14 @@
 import { GroupBox, HorizontalBox, Palette } from "std-widgets.slint";
 
 import { Style } from "style.slint";
-import { ChangeTypeUtils, ChangeType, OverallDiffStats } from "globals.slint";
+import { SlintDifferenceStatistics, SlintChangeTypeUtils } from "globals.slint";
 
 export component OverallStatistics inherits HorizontalLayout {
+    in property <SlintDifferenceStatistics> difference_statistics;
     alignment: start;
-    for data in OverallDiffStats.model: VerticalLayout {
+    for data in root.difference_statistics.change_type_model: VerticalLayout {
         Image {
-            source: ChangeTypeUtils.to_icon(data.change_type);
+            source: SlintChangeTypeUtils.to_icon(data.change_type);
             height: Style.size.control_height;
             colorize: Palette.foreground;
         }
@@ -25,7 +26,7 @@ export component OverallStatistics inherits HorizontalLayout {
         }
 
         Text {
-            text: OverallDiffStats.added_lines > 0 ? "\{OverallDiffStats.added_lines}" : "??";
+            text: difference_statistics.added_lines > 0 ? "\{difference_statistics.added_lines}" : "??";
             horizontal-alignment: center;
         }
     }
@@ -38,7 +39,7 @@ export component OverallStatistics inherits HorizontalLayout {
         }
 
         Text {
-            text: OverallDiffStats.removed_lines > 0 ? "\{OverallDiffStats.removed_lines}" : "??";
+            text: difference_statistics.removed_lines > 0 ? "\{difference_statistics.removed_lines}" : "??";
             horizontal-alignment: center;
         }
     }

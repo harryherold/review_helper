@@ -15,15 +15,12 @@ export component CommitPicker inherits PopupWindow {
     in property <int> repository_id;
     private property <bool> is_sort_ascending: true;
     private property <int> selected_index: -1;
-
     x: 20px;
     y: 20px;
     height: 600px;
     width: 840px;
     close-policy: close-on-click-outside;
-
     callback accepted(string);
-
     Rectangle {
         height: 100%;
         width: 100%;
@@ -31,11 +28,9 @@ export component CommitPicker inherits PopupWindow {
         border-color: Palette.border;
         border-width: Style.size.border_width;
         border-radius: Style.size.menu_border_radius;
-
         VerticalBox {
             HorizontalLayout {
                 spacing: Style.size.spacing;
-
                 ToolButton {
                     source: @image-url("../assets/icons/location.svg");
                     text: "Merge-Branch";
@@ -47,7 +42,6 @@ export component CommitPicker inherits PopupWindow {
 
             HorizontalLayout {
                 spacing: Style.size.spacing;
-
                 LineEdit {
                     placeholder-text: "text filter";
                     edited(text) => {
@@ -130,7 +124,6 @@ export component CommitPicker inherits PopupWindow {
                     height: Style.size.control_height;
                     text: "Apply";
                     clicked => {
-                        // root.accepted(CommitPickerAdapter.commit_model[commit_table_view.current-row][0].text);
                         root.close();
                     }
                 }
