@@ -374,10 +374,13 @@ impl WorkerImpl {
             return;
         };
 
+        let ui_base_branch = SharedString::from(&base_branch);
         repository.set_base_branch(base_branch);
         if let Err(_) = self.storage.save_repository(&repository.store()) {
             self.ui_updater.report_error(ui::SlintResult::StoreFailed, &repository.name.as_str());
+            return;
         }
+        self.ui_updater.change_repository(repository_id.as_usize(), ui_base_branch);
     }
     fn initialize_reviews(&mut self, repository_id: RepositoryId) {
         let Some(repository) = self.repositories.get_mut(&repository_id) else {

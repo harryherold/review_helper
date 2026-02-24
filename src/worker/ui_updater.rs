@@ -181,6 +181,20 @@ impl UiUpdater {
             })
             .unwrap();
     }
+    pub fn change_repository(&self, repository_id: usize, base_branch: SharedString) {
+        self.ui_weak
+            .upgrade_in_event_loop({
+                move |app_window| {
+                    let repository_model = app_window.global::<ui::SlintReviewHelper>().get_repositories();
+                    let repository_model = repository_model.as_any().downcast_ref::<IdModel<ui::SlintRepository>>().unwrap();
+                    if let Some(mut repository) = repository_model.get(repository_id) {
+                        repository.base_branch = base_branch;
+                        repository_model.update(repository_id, repository);
+                    }
+                }
+            })
+            .unwrap();
+    }
     pub fn set_review(
         &self,
         repository_id: usize,

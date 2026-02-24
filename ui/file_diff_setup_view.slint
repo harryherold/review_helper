@@ -1,0 +1,101 @@
+import { Palette } from "std-widgets.slint";
+
+import { CommitEditor } from "commit_editor.slint";
+import { ToolButton } from "controls/tool_button.slint";
+import {
+    SlintDiffRange,
+    SlintReviewCallbacks,
+    SlintReviewIdParameters,
+} from "globals.slint";
+import { Style } from "style.slint";
+
+export component FileDiffSetupView inherits Rectangle {
+    in property <SlintReviewIdParameters> review_id_parameters;
+    in property <string> start_diff;
+    in property <string> end_diff;
+
+    border-width: Style.size.border-width;
+    border-color: Palette.border;
+    HorizontalLayout {
+        padding: 10px;
+        spacing: 10px;
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                height: Style.size.control-height;
+                width: Style.size.control-small-width;
+
+                Image {
+                    vertical-alignment: center;
+                    width: Style.size.image_width;
+                    source: @image-url("../assets/icons/config.svg");
+                    colorize: Palette.foreground;
+                }
+            }
+        }
+
+        HorizontalLayout {
+
+            alignment: space-around;
+
+            Rectangle {
+                border-width: Style.size.border-width;
+                border-color: Palette.border;
+                VerticalLayout {
+                    alignment: start;
+                    padding: 10px;
+
+                    Text {
+                        text: @tr("Start Commit Hash");
+                        font-weight: 800;
+                        horizontal-alignment: left;
+                        vertical-alignment: center;
+                    }
+
+                    start-commit-editor := CommitEditor {
+                        repository_id: root.review_id_parameters.repository-id;
+                        commit_hash: root.start_diff;
+                    }
+                }
+            }
+
+            VerticalLayout {
+                alignment: center;
+                ToolButton {
+                    private property <SlintDiffRange> diff_range: {
+                        start: start-commit-editor.commit_hash,
+                        end: end-commit-editor.commit_hash,
+                    };
+
+                    source: @image-url("../assets/icons/compare.svg");
+                    width: Style.size.control_small_width;
+                    height: Style.size.control_height;
+                    clicked => {
+                        SlintReviewCallbacks.find_file_changes(root.review_id_parameters, diff_range);
+                    }
+                }
+            }
+
+            Rectangle {
+                border-width: Style.size.border-width;
+                border-color: Palette.border;
+                VerticalLayout {
+                    alignment: start;
+                    padding: 10px;
+
+                    Text {
+                        text: @tr("End Commit Hash");
+                        font-weight: 800;
+                        horizontal-alignment: left;
+                        vertical-alignment: center;
+                    }
+
+                    end-commit-editor := CommitEditor {
+                        repository_id: root.review_id_parameters.repository-id;
+                        commit_hash: root.end_diff;
+                    }
+                }
+            }
+        }
+    }
+}

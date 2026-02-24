@@ -4,37 +4,98 @@ import {
     VerticalBox,
     HorizontalBox,
     StandardTableView,
+    Palette,
 } from "std-widgets.slint";
 import { CommitPicker } from "commit_picker.slint";
 import { Style } from "style.slint";
 import { ToolButton } from "controls/tool_button.slint";
+import { SlintCommitPickerAdapter } from "globals.slint";
 
 export enum CommitPickerPosition { Left, Right }
 
 export component CommitEditor inherits Rectangle {
-    in property <CommitPickerPosition> picker-position;
-    in property <string> placeholder-text: "";
-    in-out property <string> commit: "";
-
+    in property <int> repository_id;
+    in-out property <string> commit_hash;
+    private property <string> commit_message: "";
     commit_picker := CommitPicker {
+        repository_id: root.repository_id;
         accepted(commit) => {
             commit-edit.text = commit;
         }
     }
 
-    picker-button := ToolButton {
-        width: Style.size.control_small_width;
-        x: root.picker-position == CommitPickerPosition.Left ? 0px : commit-edit.width + Style.size.spacing;
-        source: @image-url("../assets/icons/tree.svg");
-        clicked => {
-            commit_picker.show();
-        }
-    }
+    GridLayout {
+        padding: Style.size.padding;
+        spacing: Style.size.spacing * 2;
+        Row {
+            Text {
+                text: @tr("Commit-Hash");
+                vertical-alignment: center;
+                horizontal-alignment: right;
+            }
 
-    commit-edit := LineEdit {
-        width: root.width - picker-button.width - Style.size.spacing;
-        x: root.picker-position == CommitPickerPosition.Left ? picker-button.width + Style.size.spacing : 0px;
-        placeholder-text: root.placeholder-text;
-        text <=> root.commit;
+            HorizontalLayout {
+                spacing: Style.size.spacing * 2;
+                message-timer := Timer {
+                    interval: 2s;
+                    running: true;
+                    triggered => {
+                        self.running = false;
+                        if (!commit-edit.text.is-empty) {
+                            commit-message-text.text = SlintCommitPickerAdapter.commit_message_of(commit-edit.text);
+                        } else {
+                            commit-message-text.text = "";
+                        }
+                    }
+                }
+
+                commit-edit := LineEdit {
+                    width: 325px;
+                    text <=> root.commit_hash;
+                    edited => {
+                        message-timer.restart();
+                    }
+                }
+
+                ToolButton {
+                    width: Style.size.control_small_width;
+                    source: @image-url("../assets/icons/location.svg");
+                    clicked => {
+                        commit-edit.text = SlintCommitPickerAdapter.merge_base(root.repository_id);
+                        commit-message-text.text = SlintCommitPickerAdapter.commit_message_of(commit-edit.text);
+                    }
+                }
+
+                ToolButton {
+                    width: Style.size.control_small_width;
+                    source: @image-url("../assets/icons/tree.svg");
+                    clicked => {
+                        commit_picker.show();
+                    }
+                }
+            }
+        }
+
+        Row {
+            Text {
+                text: @tr("Message");
+                vertical-alignment: center;
+                horizontal-alignment: right;
+                min-height: Style.size.control-height;
+            }
+
+            Rectangle {
+                border-width: Style.size.border-width;
+                border-color: Palette.border;
+                border-radius: 4px;
+                commit-message-text := Text {
+                    x: Style.size.padding;
+                    text: root.commit_message;
+                    vertical-alignment: center;
+                    min-height: Style.size.control-height;
+                    overflow: elide;
+                }
+            }
+        }
     }
 }

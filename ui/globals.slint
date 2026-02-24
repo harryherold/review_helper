@@ -27,6 +27,7 @@ export enum SlintResult {
     DeleteRepositoryFailed,
     QueryingCommitsFailed,
     InvalidModel,
+    QueryingMergeBaseFailed,
 }
 
 export enum SlintChangeType {
@@ -219,6 +220,8 @@ export global SlintCommitPickerAdapter {
     callback sort_commits(SlintCommitSortCriterion, bool);
     callback refresh(int);
     callback index_of_merge_base(int) -> int;
+    callback merge_base(int) -> string;
+    callback commit_message_of(string) -> string;
 }
 
 export global SlintReviewHelper {

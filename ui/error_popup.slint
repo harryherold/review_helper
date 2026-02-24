@@ -74,6 +74,9 @@ export component ErrorPopup inherits NewPopup {
                     if (root.result == SlintResult.InvalidModel) {
                         return @tr("Found invalid model!");
                     }
+                    if (root.result == SlintResult.QueryingMergeBaseFailed) {
+                        return @tr("Querying merge base failed!");
+                    }
                     return @tr("Unknown Result");
                 }
             }
