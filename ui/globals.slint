@@ -95,6 +95,11 @@ export struct SlintDifferenceStatistics {
     change_type_model: [SlintChangeTypeOccurrence],
 }
 
+export struct SlintProgress {
+    completed_count: int,
+    total_count: int,
+}
+
 export struct SlintReview {
     id: int,
     name: string,
@@ -103,6 +108,8 @@ export struct SlintReview {
     note_model: [SlintNote],
     file_diff_model: [SlintFileDiff],
     difference_statistics: SlintDifferenceStatistics,
+    review_progress: SlintProgress,
+    note_progress: SlintProgress,
     is_loaded: bool,
 }
 

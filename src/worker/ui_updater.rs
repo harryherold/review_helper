@@ -212,14 +212,24 @@ impl UiUpdater {
                 review.start_diff = start_diff;
                 review.end_diff = end_diff;
                 review.is_loaded = true;
+                review.review_progress.total_count = ui_file_diffs.len() as i32;
+                review.note_progress.total_count = ui_notes.len() as i32;
 
                 let notes_model = review.note_model.as_any().downcast_ref::<IdModel<ui::SlintNote>>().unwrap();
-                ui_notes.into_iter().for_each(|ui_note| notes_model.add(ui_note.id as usize, ui_note));
+                ui_notes.into_iter().for_each(|ui_note| {
+                    if ui_note.is_fixed {
+                        review.note_progress.completed_count += 1;
+                    }
+                    notes_model.add(ui_note.id as usize, ui_note)
+                });
 
                 let file_diff_model = review.file_diff_model.as_any().downcast_ref::<IdModel<ui::SlintFileDiff>>().unwrap();
-                ui_file_diffs
-                    .into_iter()
-                    .for_each(|ui_file_diff| file_diff_model.add(ui_file_diff.id as usize, ui_file_diff));
+                ui_file_diffs.into_iter().for_each(|ui_file_diff| {
+                    if ui_file_diff.is_reviewed {
+                        review.review_progress.completed_count += 1;
+                    }
+                    file_diff_model.add(ui_file_diff.id as usize, ui_file_diff)
+                });
 
                 review_model.update(review_id, review);
             })
@@ -308,16 +318,28 @@ impl UiUpdater {
     pub fn update_note(&self, repository_id: usize, review_id: usize, note_id: usize, note_change_type: NoteChangeType) {
         self.ui_weak
             .upgrade_in_event_loop(move |app_window| {
-                let note_model = model_utils::get_note_model(&app_window, repository_id, review_id);
-                let note_model = note_model.as_any().downcast_ref::<IdModel<ui::SlintNote>>().unwrap();
+                let review_model = model_utils::get_review_model(&app_window, repository_id);
+                let review_model = review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>().unwrap();
+                let mut review = review_model.get(review_id).unwrap();
+
+                let note_model = review.note_model.as_any().downcast_ref::<IdModel<ui::SlintNote>>().unwrap();
 
                 if let Some(mut note) = note_model.get(note_id) {
                     match note_change_type {
-                        NoteChangeType::TextChanged(new_text) => note.text = SharedString::from(new_text),
-                        NoteChangeType::ContextChanged(new_context) => note.context = SharedString::from(new_context),
+                        NoteChangeType::TextChanged(ref new_text) => note.text = SharedString::from(new_text),
+                        NoteChangeType::ContextChanged(ref new_context) => note.context = SharedString::from(new_context),
                         NoteChangeType::IsDoneChanged(new_is_done) => note.is_fixed = new_is_done,
                     }
                     note_model.update(note_id, note);
+
+                    if let NoteChangeType::IsDoneChanged(is_done) = note_change_type {
+                        review.note_progress.completed_count = if is_done {
+                            review.note_progress.completed_count + 1
+                        } else {
+                            review.note_progress.completed_count - 1
+                        };
+                        review_model.update(review_id, review);
+                    }
                 }
             })
             .unwrap();
@@ -343,6 +365,9 @@ impl UiUpdater {
 
                 let mut change_type_map: BTreeMap<usize, (i32, ui::SlintChangeType)> = BTreeMap::new();
 
+                review.review_progress.total_count = ui_file_diffs.len() as i32;
+                review.review_progress.completed_count = 0;
+
                 ui_file_diffs.into_iter().for_each(|ui_file_diff| {
                     review.difference_statistics.added_lines += ui_file_diff.added_lines;
                     review.difference_statistics.removed_lines += ui_file_diff.removed_lines;
@@ -351,6 +376,9 @@ impl UiUpdater {
                         .and_modify(|e| e.0 += 1)
                         .or_insert((1, ui_file_diff.change_type));
 
+                    if ui_file_diff.is_reviewed {
+                        review.review_progress.completed_count += 1;
+                    }
                     file_diff_model.add(ui_file_diff.id as usize, ui_file_diff);
                 });
 
@@ -374,12 +402,23 @@ impl UiUpdater {
     pub fn set_file_diff_is_reviewed(&self, repository_id: usize, review_id: usize, file_diff_id: usize, is_reviewed: bool) {
         self.ui_weak
             .upgrade_in_event_loop(move |app_window| {
-                let file_diff_model = model_utils::get_file_diff_model(&app_window, repository_id, review_id);
-                let file_diff_model = file_diff_model.as_any().downcast_ref::<IdModel<ui::SlintFileDiff>>().unwrap();
+                let review_model = model_utils::get_review_model(&app_window, repository_id);
+                let review_model = review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>().unwrap();
+                let mut review = review_model.get(review_id).unwrap();
+
+                let file_diff_model = review.file_diff_model.as_any().downcast_ref::<IdModel<ui::SlintFileDiff>>().unwrap();
 
                 if let Some(mut file_diff) = file_diff_model.get(file_diff_id) {
                     file_diff.is_reviewed = is_reviewed;
                     file_diff_model.update(file_diff_id, file_diff);
+
+                    review.review_progress.completed_count = if is_reviewed {
+                        review.review_progress.completed_count + 1
+                    } else {
+                        review.review_progress.completed_count - 1
+                    };
+
+                    review_model.update(review_id, review);
                 }
             })
             .unwrap();
@@ -387,10 +426,15 @@ impl UiUpdater {
     pub fn add_note(&self, repository_id: usize, review_id: usize, note: SlintNote) {
         self.ui_weak
             .upgrade_in_event_loop(move |app_window| {
-                let note_model = model_utils::get_note_model(&app_window, repository_id, review_id);
-                let note_model = note_model.as_any().downcast_ref::<IdModel<ui::SlintNote>>().unwrap();
+                let review_model = model_utils::get_review_model(&app_window, repository_id);
+                let review_model = review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>().unwrap();
+                let mut review = review_model.get(review_id).unwrap();
 
+                let note_model = review.note_model.as_any().downcast_ref::<IdModel<ui::SlintNote>>().unwrap();
                 note_model.add(note.id.clone() as usize, note);
+
+                review.note_progress.total_count += 1;
+                review_model.update(review_id, review);
             })
             .unwrap();
     }
