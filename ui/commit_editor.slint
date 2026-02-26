@@ -50,7 +50,7 @@ export component CommitEditor inherits Rectangle {
                 }
 
                 commit-edit := LineEdit {
-                    width: 325px;
+                    min-width: 325px;
                     text <=> root.commit_hash;
                     edited => {
                         message-timer.restart();
