@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
-use slint::{ComponentHandle, ModelRc, VecModel};
+use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
 
 use crate::model::{CommitProxyModels, FileDiffProxyModels, FilesProxyModel, NotesProxyModels};
 use crate::repositories::{RepositoryId, ReviewId};
@@ -61,10 +61,15 @@ pub struct ProxyModels {
 
 impl ProxyModels {
     pub fn new(app_window: &ui::AppWindow) -> Self {
+        // TODO move into worker
         let commit_model: ModelRc<SlintCommit> = Rc::new(VecModel::default()).into();
         app_window
             .global::<ui::SlintCommitPickerAdapter>()
             .set_commit_source_model(commit_model.clone());
+
+        let author_model: ModelRc<SharedString> = Rc::new(VecModel::default()).into();
+        app_window.global::<ui::SlintCommitPickerAdapter>().set_author_model(author_model);
+
         Self {
             id_repository_models_map: BTreeMap::new(),
             commit_proxy_models: Rc::new(CommitProxyModels::new(commit_model)),

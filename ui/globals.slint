@@ -220,13 +220,22 @@ export enum SlintCommitSortCriterion {
     Date,
 }
 
+export enum SlintCommitFilterType {
+    Message,
+    Author,
+}
+
 export global SlintCommitPickerAdapter {
     in property <[SlintCommit]> commit_source_model;
+    in property <[string]> author_model;
+    in-out property <string> current_author_filter;
+    in-out property <string> current_text_filter;
     pure callback ui_commit_model() -> [SlintCommit];
-    callback filter_commits(string);
+    callback filter_commits(string, SlintCommitFilterType);
     callback sort_commits(SlintCommitSortCriterion, bool);
     callback refresh(int);
     callback index_of_merge_base(int) -> int;
+    pure callback index_of_commit(string) -> int;
     callback merge_base(int) -> string;
     callback commit_message_of(string) -> string;
 }

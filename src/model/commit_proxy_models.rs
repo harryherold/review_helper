@@ -1,5 +1,5 @@
 use chrono::{DateTime, FixedOffset};
-use slint::{FilterModel, ModelRc, SharedString, SortModel};
+use slint::{FilterModel, MapModel, ModelRc, SharedString, SortModel};
 use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::rc::Rc;
@@ -18,6 +18,7 @@ struct SortCriteria {
 pub struct CommitProxyModels {
     filter_model: CommitFilterModel,
     filter_text: Rc<RefCell<SharedString>>,
+    filter_author: Rc<RefCell<SharedString>>,
     sort_criteria: Rc<RefCell<SortCriteria>>,
     sort_model: CommitSortModel,
 }
@@ -54,15 +55,32 @@ impl CommitProxyModels {
         let filter_text = Rc::new(RefCell::new(SharedString::new()));
         let clone_filter_text = filter_text.clone();
 
+        let filter_author = Rc::new(RefCell::new(SharedString::new()));
+        let clone_filter_author = filter_author.clone();
+
         let fm: CommitFilterModel = Rc::new(FilterModel::new(
-            source_model,
+            source_model.clone(),
             Box::new(move |commit| {
+                let filter_author = filter_author.clone();
                 let filter_text = filter_text.clone();
-                let pattern = filter_text.borrow();
-                if pattern.is_empty() {
-                    return true;
+
+                let matches_text_filter = {
+                    let text_pattern = filter_text.borrow();
+                    if text_pattern.is_empty() {
+                        true
+                    } else {
+                        commit.message.to_lowercase().contains(&text_pattern.as_str().to_lowercase())
+                    }
+                };
+                if !matches_text_filter {
+                    return false;
+                }
+
+                let author_pattern = filter_author.borrow();
+                if author_pattern.is_empty() {
+                    true
                 } else {
-                    commit.message.to_lowercase().contains(&pattern.as_str().to_lowercase())
+                    commit.author.to_lowercase().contains(&author_pattern.as_str().to_lowercase())
                 }
             }),
         ));
@@ -85,6 +103,7 @@ impl CommitProxyModels {
         CommitProxyModels {
             filter_model: fm.clone(),
             filter_text: clone_filter_text,
+            filter_author: clone_filter_author,
             sort_criteria: sort_criteria,
             sort_model: sm,
         }
@@ -95,8 +114,15 @@ impl CommitProxyModels {
         self.sort_model.reset();
     }
 
-    pub fn set_filter_text(&self, text: SharedString) {
-        *self.filter_text.borrow_mut() = text;
+    pub fn set_filter_text(&self, text: SharedString, filter_type: ui::SlintCommitFilterType) {
+        match filter_type {
+            ui::SlintCommitFilterType::Message => {
+                *self.filter_text.borrow_mut() = text;
+            }
+            ui::SlintCommitFilterType::Author => {
+                *self.filter_author.borrow_mut() = text;
+            }
+        }
         self.filter_model.reset();
     }
 

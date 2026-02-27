@@ -17,12 +17,6 @@ export component CommitEditor inherits Rectangle {
     in property <int> repository_id;
     in-out property <string> commit_hash;
     private property <string> commit_message: "";
-    commit_picker := CommitPicker {
-        repository_id: root.repository_id;
-        accepted(commit) => {
-            commit-edit.text = commit;
-        }
-    }
 
     GridLayout {
         padding: Style.size.padding;
@@ -71,6 +65,16 @@ export component CommitEditor inherits Rectangle {
                     source: @image-url("../assets/icons/tree.svg");
                     clicked => {
                         commit_picker.show();
+                    }
+                    commit_picker := CommitPicker {
+                        selected_index: !commit-edit.text.is-empty ? SlintCommitPickerAdapter.index_of_commit(commit-edit.text) : -1;
+                        x: (parent.width / 2) - (self.width / 2);
+                        y: parent.height + Style.size.spacing;
+                        repository_id: root.repository_id;
+                        accepted(commit) => {
+                            commit-edit.text = commit;
+                            commit-message-text.text = SlintCommitPickerAdapter.commit_message_of(commit-edit.text);
+                        }
                     }
                 }
             }

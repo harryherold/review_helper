@@ -6,46 +6,79 @@ import {
     Palette,
     StandardTableView,
     ListView,
+    ComboBox,
 } from "std-widgets.slint";
 import { Style } from "style.slint";
-import { SlintCommitPickerAdapter } from "globals.slint";
+import {
+    SlintCommitPickerAdapter,
+    SlintCommit,
+    SlintCommitFilterType,
+    SlintModelUtils,
+} from "globals.slint";
 import { ToolButton } from "controls/tool_button.slint";
 
 export component CommitPicker inherits PopupWindow {
     in property <int> repository_id;
+    in-out property <int> selected_index: -1;
     private property <bool> is_sort_ascending: true;
-    private property <int> selected_index: -1;
-    x: 20px;
-    y: 20px;
+    private property <[SlintCommit]> model: SlintCommitPickerAdapter.ui_commit_model();
+
+    scroll_timer := Timer {
+        running: false;
+        interval: 50ms;
+        triggered => {
+            self.running = false;
+            commit-list-view.scroll_to(root.selected_index);
+        }
+    }
+
+    init => {
+        scroll_timer.start();
+    }
+
     height: 600px;
     width: 840px;
     close-policy: close-on-click-outside;
+
     callback accepted(string);
     Rectangle {
-        height: 100%;
-        width: 100%;
         background: Palette.background;
         border-color: Palette.border;
         border-width: Style.size.border_width;
         border-radius: Style.size.menu_border_radius;
         VerticalBox {
-            HorizontalLayout {
-                spacing: Style.size.spacing;
-                ToolButton {
-                    source: @image-url("../assets/icons/location.svg");
-                    text: "Merge-Branch";
-                    clicked => {
-                        root.selected_index = SlintCommitPickerAdapter.index_of_merge_base(root.repository_id);
-                    }
-                }
-            }
-
+            spacing: Style.size.spacing;
             HorizontalLayout {
                 spacing: Style.size.spacing;
                 LineEdit {
-                    placeholder-text: "text filter";
+                    text: SlintCommitPickerAdapter.current_text_filter;
+                    placeholder-text: @tr("text filter");
                     edited(text) => {
-                        SlintCommitPickerAdapter.filter_commits(text);
+                        SlintCommitPickerAdapter.current_text_filter = text;
+                        SlintCommitPickerAdapter.filter_commits(text, SlintCommitFilterType.Message);
+                    }
+                }
+
+                ComboBox {
+                    width: Style.size.control-width * 3;
+                    model: SlintCommitPickerAdapter.author_model;
+                    current-index: SlintModelUtils.index_of_string(self.model, SlintCommitPickerAdapter.current_author_filter);
+                    current-value: SlintCommitPickerAdapter.current_author_filter;
+                    selected(author) => {
+                        SlintCommitPickerAdapter.current_author_filter = author;
+                        if author == "All" {
+                            SlintCommitPickerAdapter.filter_commits("", SlintCommitFilterType.Author);
+                        } else {
+                            SlintCommitPickerAdapter.filter_commits(author, SlintCommitFilterType.Author);
+                        }
+                    }
+                }
+
+                ToolButton {
+                    source: @image-url("../assets/icons/location.svg");
+                    clicked => {
+                        root.selected_index = SlintCommitPickerAdapter.index_of_merge_base(root.repository_id);
+                        commit-list-view.scroll_to(root.selected_index);
                     }
                 }
 
@@ -58,54 +91,96 @@ export component CommitPicker inherits PopupWindow {
             }
 
             HorizontalLayout {
+                padding: Style.size.padding;
+
                 Text {
                     width: 80px;
-                    text: "Commit";
+                    text: @tr("Commit");
+                    horizontal-alignment: left;
+                    vertical-alignment: center;
+                    font-weight: 600;
                 }
 
                 Text {
                     width: 400px;
-                    text: "Message";
+                    text: @tr("Message");
+                    horizontal-alignment: left;
+                    vertical-alignment: center;
+                    font-weight: 600;
                 }
 
                 Text {
                     width: 160px;
-                    text: "Author";
+                    text: @tr("Author");
+                    horizontal-alignment: left;
+                    vertical-alignment: center;
+                    font-weight: 600;
                 }
 
                 Text {
-                    text: "Date";
+                    text: @tr("Date");
+                    horizontal-alignment: left;
+                    vertical-alignment: center;
+                    font-weight: 600;
                 }
             }
 
-            ListView {
-                for commit[index] in SlintCommitPickerAdapter.ui_commit_model(): HorizontalLayout {
-                    me := Text {
-                        width: 80px;
-                        text: commit.commit_id;
-                        overflow: elide;
-                        states [
-                            selected when root.selected_index == index: {
-                                me.color: red;
-                            }
-                        ]
+            commit-list-view := ListView {
+                private property <length> item_height: 16px + Style.size.padding * 2;
+
+                function scroll_to(item_index: int) {
+                    self.viewport-y = -(item_index * item_height - (self.height / 2) + (item_height / 2));
+                }
+
+                for commit[index] in root.model: Rectangle {
+                    height: item_height;
+                    background: Palette.background;
+                    states [
+                        is_selected when root.selected_index == index: {
+                            background: Palette.selection-background;
+                        }
+                        is_even when Math.mod(index, 2) == 0: {
+                            background: Palette.background.brighter(0.4);
+                        }
+                    ]
+                    HorizontalLayout {
+                        padding: Style.size.padding;
+                        Text {
+                            width: 80px;
+                            text: commit.commit_id;
+                            vertical-alignment: center;
+                            horizontal-alignment: left;
+                            overflow: elide;
+                        }
+
+                        Text {
+                            width: 400px;
+                            text: commit.message;
+                            overflow: elide;
+                            vertical-alignment: center;
+                            horizontal-alignment: left;
+                        }
+
+                        Text {
+                            width: 160px;
+                            text: commit.author;
+                            overflow: elide;
+                            vertical-alignment: center;
+                            horizontal-alignment: left;
+                        }
+
+                        Text {
+                            text: commit.date;
+                            overflow: elide;
+                            vertical-alignment: center;
+                            horizontal-alignment: left;
+                        }
                     }
 
-                    Text {
-                        width: 400px;
-                        text: commit.message;
-                        overflow: elide;
-                    }
-
-                    Text {
-                        width: 160px;
-                        text: commit.author;
-                        overflow: elide;
-                    }
-
-                    Text {
-                        text: commit.date;
-                        overflow: elide;
+                    TouchArea {
+                        clicked => {
+                            root.selected_index = index;
+                        }
                     }
                 }
             }
@@ -114,16 +189,19 @@ export component CommitPicker inherits PopupWindow {
                 alignment: end;
                 Button {
                     height: Style.size.control_height;
-                    text: "Cancel";
+                    text: @tr("Cancel");
                     clicked => {
-                        root.close()
+                        root.close();
                     }
                 }
 
                 Button {
                     height: Style.size.control_height;
-                    text: "Apply";
+                    text: @tr("Apply");
                     clicked => {
+                        if root.selected_index != -1 {
+                            root.accepted(root.model[root.selected_index].commit_id);
+                        }
                         root.close();
                     }
                 }

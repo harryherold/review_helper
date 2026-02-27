@@ -1,6 +1,8 @@
 use std::collections::BTreeMap;
+use std::collections::HashSet;
 use std::rc::Rc;
 
+use itertools::Itertools;
 use slint::{ComponentHandle, Model, ModelExt, SharedString, VecModel};
 
 use crate::git_utils;
@@ -442,6 +444,15 @@ impl UiUpdater {
     pub fn set_commits(&self, commits: Vec<git_utils::Commit>) {
         self.ui_weak
             .upgrade_in_event_loop(move |app_window| {
+                //TODO <All> must be translated
+                let mut authors = vec![SharedString::from("All")];
+                let author_set: HashSet<_> = commits.iter().map(|c| SharedString::from(&c.author)).collect();
+                authors.append(&mut author_set.into_iter().sorted().collect::<Vec<_>>());
+
+                let author_model = app_window.global::<ui::SlintCommitPickerAdapter>().get_author_model();
+                let author_model = author_model.as_any().downcast_ref::<VecModel<SharedString>>().unwrap();
+                author_model.set_vec(authors);
+
                 let ui_commits = commits.into_iter().map(|commit| ui::SlintCommit::from(commit)).collect::<Vec<_>>();
 
                 let commit_model = model_utils::get_commit_model(&app_window);

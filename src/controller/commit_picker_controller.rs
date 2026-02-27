@@ -1,4 +1,4 @@
-use std::{path::PathBuf, rc::Rc};
+use std::{clone, path::PathBuf, rc::Rc};
 
 use crate::{
     git_utils,
@@ -41,8 +41,8 @@ pub fn setup_commit_picker(app_window: &ui::AppWindow, commit_proxy_model: Rc<Co
     });
     app_window.global::<ui::SlintCommitPickerAdapter>().on_filter_commits({
         let commit_proxy_model = commit_proxy_model.clone();
-        move |pattern| {
-            commit_proxy_model.set_filter_text(pattern);
+        move |pattern, filter_type| {
+            commit_proxy_model.set_filter_text(pattern, filter_type);
         }
     });
     app_window.global::<ui::SlintCommitPickerAdapter>().on_sort_commits({
@@ -84,10 +84,21 @@ pub fn setup_commit_picker(app_window: &ui::AppWindow, commit_proxy_model: Rc<Co
             }
         }
     });
-    app_window.global::<ui::SlintCommitPickerAdapter>().on_commit_message_of({
+    app_window.global::<ui::SlintCommitPickerAdapter>().on_index_of_commit({
         let commit_proxy_model = commit_proxy_model.clone();
+        move |commit_hash| -> i32 {
+            match commit_proxy_model.ui_model().iter().position(|c| commit_hash.contains(c.commit_id.as_str())) {
+                Some(index) => index as i32,
+                None => -1,
+            }
+        }
+    });
+    app_window.global::<ui::SlintCommitPickerAdapter>().on_commit_message_of({
+        let ui_weak = app_window.as_weak();
         move |commit_hash| -> SharedString {
-            match commit_proxy_model.ui_model().iter().find(|c| commit_hash.contains(c.commit_id.as_str())) {
+            let ui = ui_weak.unwrap();
+            let commit_model = ui.global::<ui::SlintCommitPickerAdapter>().get_commit_source_model();
+            match commit_model.iter().find(|c| commit_hash.contains(c.commit_id.as_str())) {
                 Some(commit) => commit.message,
                 None => SharedString::new(),
             }
