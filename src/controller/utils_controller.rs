@@ -1,6 +1,8 @@
 use crate::ui;
-use slint::{ComponentHandle, Model};
+use slint::{ComponentHandle, Model, SharedString};
 use std::path::PathBuf;
+
+use chrono::{DateTime, Local};
 
 use regex::Regex;
 
@@ -31,6 +33,12 @@ pub fn setup_utils(app_window: &ui::AppWindow) {
             Some(i) => i as i32,
         }
     });
+    app_window.global::<ui::SlintStringUtils>().on_format_datetime({
+        |date_time_string| -> SharedString {
+            let date_time: DateTime<Local> = date_time_string.to_string().parse().expect("Could not parse date time string!");
+            SharedString::from(format!("{}", date_time.format("%d/%m/%Y %H:%M:%S")))
+        }
+    })
 }
 
 #[cfg(test)]
