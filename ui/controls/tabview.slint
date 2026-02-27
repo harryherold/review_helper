@@ -12,21 +12,34 @@ export component TabButton inherits Rectangle {
     in property <string> tab-text;
     in property <bool> is-selected: false;
     callback clicked <=> ta.clicked;
-    preferred-height: Style.size.control-height;
     background: is-selected ? Style.palette.background.brighter(0.1) : Style.palette.background.darker(0.1);
     border-width: Style.size.border-width;
     border-color: Palette.border;
     inner-rect := Rectangle {
-        height: parent.height - Style.size.spacing * 2;
-        width: parent.width - Style.size.spacing * 2;
         states [
             active-hover when ta.has-hover && !root.is-selected: {
                 inner-rect.background: Style.palette.hover;
             }
         ]
-        Text {
-            vertical-alignment: center;
-            text: is-selected ? "« " + tab-text + " »" : tab-text;
+        VerticalLayout {
+            padding-left: Style.size.spacing * 2;
+            padding-right: Style.size.spacing * 2;
+            padding-top: Style.size.spacing;
+            padding-bottom: Style.size.spacing;
+            text-label := Text {
+                vertical-alignment: center;
+                horizontal-alignment: center;
+                text: tab-text;
+            }
+
+            Rectangle {
+                height: Style.size.border-width;
+                states [
+                    active_text when root.is-selected: {
+                        color: Palette.selection-background;
+                    }
+                ]
+            }
         }
     }
 
@@ -39,8 +52,6 @@ export component TabCreateButton inherits Rectangle {
     border-width: Style.size.border-width;
     border-color: Palette.border;
     inner-rect := Rectangle {
-        height: parent.height - Style.size.spacing * 2;
-        width: parent.width - Style.size.spacing * 2;
         states [
             active-hover when ta.has-hover: {
                 inner-rect.background: Style.palette.hover;
@@ -64,9 +75,12 @@ export component TabImageButton inherits Rectangle {
     background: is-selected ? Style.palette.background.brighter(0.1) : Style.palette.background.darker(0.1);
     border-width: Style.size.border-width;
     border-color: Palette.border;
+    states [
+        active_selected when root.is-selected: {
+            border-color: Palette.selection-background;
+        }
+    ]
     inner-rect := Rectangle {
-        height: parent.height - Style.size.spacing * 2;
-        width: parent.width - Style.size.spacing * 2;
         states [
             active-hover when ta.has-hover && !root.is-selected: {
                 inner-rect.background: Style.palette.hover;
@@ -116,6 +130,7 @@ export component TabView inherits Rectangle {
     in property <bool> create_button_enabled: true;
     in property <length> layout_padding: 5px;
     in property <bool> settings_button_enabled: false;
+    in property <LayoutAlignment> alignment: start;
     out property <int> current-index;
     callback request-create();
     callback request-open-settings();
@@ -125,43 +140,33 @@ export component TabView inherits Rectangle {
     border-width: Style.size.border-width;
     border-color: Palette.border;
     VerticalLayout {
-        alignment: stretch;
         padding: root.layout_padding;
-        Rectangle {
+        HorizontalLayout {
             height: Style.size.control-height;
-            HorizontalLayout {
-                alignment: space-between;
+            ScrollView {
+                horizontal-scrollbar-policy: always-off;
+                vertical-scrollbar-policy: always-off;
                 HorizontalLayout {
-                    alignment: center;
-                    if root.model.length > 0: ScrollView {
-                        preferred-width: Style.size.tab-button-width * root.model.length;
-                        horizontal-scrollbar-policy: always-off;
-                        vertical-scrollbar-policy: always-off;
-                        HorizontalLayout {
-                            alignment: center;
-                            for tab_text[idx] in root.model: TabButton {
-                                width: Style.size.tab-button-width;
-                                tab-text: tab_text;
-                                is-selected: current-index == idx;
-                                clicked => {
-                                    root.current-index = idx;
-                                }
-                            }
+                    alignment: root.alignment;
+                    for tab_text[idx] in root.model: TabButton {
+                        tab-text: tab_text;
+                        is-selected: current-index == idx;
+                        clicked => {
+                            root.current-index = idx;
                         }
                     }
                     if (root.create_button_enabled): TabCreateButton {
-                        height: Style.size.control-height;
                         width: Style.size.control-small-width;
                         clicked => {
                             root.request-create();
                         }
                     }
                 }
+            }
 
-                if (root.settings_button_enabled): TabSettingsButton {
-                    clicked => {
-                        root.request-open-settings();
-                    }
+            if (root.settings_button_enabled): TabSettingsButton {
+                clicked => {
+                    root.request-open-settings();
                 }
             }
         }
@@ -185,7 +190,6 @@ export component CenterTabView inherits Rectangle {
     border-width: Style.size.border-width;
     border-color: Palette.border;
     VerticalLayout {
-        alignment: stretch;
         padding: root.layout_padding;
         Rectangle {
             height: Style.size.control-height;
