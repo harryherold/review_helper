@@ -271,4 +271,17 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
             notes_proxy_model.set_sort_parameter(criteria, order);
         }
     });
+    app_window.global::<ui::SlintReviewCallbacks>().on_exists_file_diff({
+        let app_window_weak = app_window.as_weak();
+        move |file_diff_id_parameter| -> bool {
+            let app_window = app_window_weak.unwrap();
+            let model = model_utils::get_file_diff_model(
+                &app_window,
+                file_diff_id_parameter.review_id_parameters.repository_id as usize,
+                file_diff_id_parameter.review_id_parameters.review_id as usize,
+            );
+            let model = model.as_any().downcast_ref::<IdModel<ui::SlintFileDiff>>().unwrap();
+            model.has(file_diff_id_parameter.file_diff_id as usize)
+        }
+    })
 }

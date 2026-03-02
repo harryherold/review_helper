@@ -12,20 +12,27 @@ import {
 
 import { Style } from "style.slint";
 import {
-    ChangeTypeUtils,
-    SortCriteria,
-    Diff,
-    Notes,
-    NoteItem,
-    FilterReviewState,
+    SlintNote,
+    SlintFileDiff,
+    SlintFileDiffIdParamters,
+    SlintReviewIdParameters,
+    SlintReviewCallbacks,
+    SlintFilterReviewState,
+    SlintSortCriteria,
+    SlintFileDiffIdParamters,
+    SlintChangeTypeUtils,
+    SlintFileDiffs,
 } from "globals.slint";
 import { FileNoteDelegate } from "file_note_delegate.slint";
 import { ToolButton } from "controls/tool_button.slint";
 
 export component FileDiffView inherits VerticalLayout {
+    in property <SlintReviewIdParameters> review_id_parameters;
+    private property <[SlintFileDiff]> file_diff_model: SlintReviewCallbacks.file_diff_ui_model(root.review_id_parameters);
+    private property <[SlintNote]> notes_model: SlintReviewCallbacks.note_ui_model(root.review_id_parameters);
     private property <int> selected_id: -1;
     private property <int> extended_file_id: -1;
-    private property <int> model_count: Diff.diff_model.length;
+    private property <int> model_count: root.file_diff_model.length;
     private property <bool> is_selected_id_in_model: true;
     changed selected_id => {
         if (selected_id != -1 && selected_id != extended_file_id) {
@@ -34,7 +41,10 @@ export component FileDiffView inherits VerticalLayout {
     }
     changed model_count => {
         if (model_count > 0 && selected_id != -1) {
-            is_selected_id_in_model = Diff.diff-model-contains-id(selected_id);
+            is_selected_id_in_model = SlintReviewCallbacks.exists_file_diff({
+                review_id_parameters: root.review_id_parameters,
+                file_diff_id: root.selected_id,
+            });
         }
     }
     changed is_selected_id_in_model => {
@@ -61,36 +71,24 @@ export component FileDiffView inherits VerticalLayout {
 
         LineEdit {
             horizontal-alignment: left;
-            placeholder-text: "Filter paths using wildcards";
+            placeholder-text: @tr("Filter paths using wildcards");
             changed text => {
-                Diff.filter-file-diff(self.text);
+                SlintReviewCallbacks.set_file_diff_file_pattern(root.review_id_parameters, self.text);
             }
         }
 
         ComboBox {
             horizontal-stretch: 0;
-            model: ["Unfiltered", "Done", "Open"];
-            current-value: {
-                if Diff.current_filter_review_state == FilterReviewState.Unfiltered {
-                    return "Unfiltered";
-                }
-                if Diff.current_filter_review_state == FilterReviewState.Done {
-                    return "Done";
-                }
-                if Diff.current_filter_review_state == FilterReviewState.Open {
-                    return "Open";
-                }
-                return "invalid";
-            }
+            model: [@tr("Unfiltered"), @tr("Done"), @tr("Open")];
             selected(current-filter-review-state) => {
-                if current-filter-review-state == "Unfiltered" {
-                    Diff.set-filter-review-state(FilterReviewState.Unfiltered);
+                if current-filter-review-state == @tr("Unfiltered") {
+                    SlintReviewCallbacks.set_file_diff_review_state(root.review_id_parameters, SlintFilterReviewState.Unfiltered);
                 }
-                if current-filter-review-state == "Done" {
-                    Diff.set-filter-review-state(FilterReviewState.Done);
+                if current-filter-review-state == @tr("Done") {
+                    SlintReviewCallbacks.set_file_diff_review_state(root.review_id_parameters, SlintFilterReviewState.Done);
                 }
-                if current-filter-review-state == "Open" {
-                    Diff.set-filter-review-state(FilterReviewState.Open);
+                if current-filter-review-state == @tr("Open") {
+                    SlintReviewCallbacks.set_file_diff_review_state(root.review_id_parameters, SlintFilterReviewState.Open);
                 }
             }
         }
@@ -103,36 +101,40 @@ export component FileDiffView inherits VerticalLayout {
 
         ComboBox {
             horizontal-stretch: 0;
-            model: ["Name", "Extension", "IsDone"];
-            current-value: {
-                if Diff.current_sort_criteria == SortCriteria.Name {
-                    return "Name";
-                }
-                if Diff.current_sort_criteria == SortCriteria.IsDone {
-                    return "IsDone";
-                }
-                return "Extension";
-            }
+            model: [@tr("Name"), @tr("Extension"), @tr("IsDone")];
             selected(current-criteria) => {
-                if current-criteria == "Name" {
-                    Diff.set-sort-criteria(SortCriteria.Name);
+                if current-criteria == @tr("Name") {
+                    SlintReviewCallbacks.set_file_diff_sort-criteria(root.review_id_parameters, SlintSortCriteria.Name);
                 }
-                if current-criteria == "IsDone" {
-                    Diff.set-sort-criteria(SortCriteria.IsDone);
+                if current-criteria == @tr("IsDone") {
+                    SlintReviewCallbacks.set_file_diff_sort-criteria(root.review_id_parameters, SlintSortCriteria.IsDone);
                 }
-                if current-criteria == "Extension" {
-                    Diff.set-sort-criteria(SortCriteria.Extension);
+                if current-criteria == @tr("Extension") {
+                    SlintReviewCallbacks.set_file_diff_sort-criteria(root.review_id_parameters, SlintSortCriteria.Extension);
                 }
             }
         }
     }
 
     ListView {
-        for data[idx] in Diff.diff_model: Rectangle {
-            property <[NoteItem]> notes: Notes.file-notes-model(data.text);
+        horizontal-scrollbar-policy: always-off;
+        vertical-scrollbar-policy: always-off;
+        for data[idx] in root.file_diff_model: Rectangle {
+            private property <SlintFileDiffIdParamters> file_diff_id_parameter: {
+                review_id_parameters: root.review_id_parameters,
+                file_diff_id: data.id,
+            };
+            property <[SlintNote]> notes: [
+            //     {
+            //     id: 1,
+            //     text: "foo bar",
+            //     is_fixed: false,
+            //     context: "nothing",
+            // }
+        ];
             states [
                 selected when selected_id == data.id: {
-                    background: Style.palette.selected;
+                    background: Palette.control-background.brighter(0.2);
                     border-width: Style.size.border_width;
                     border-radius: Style.size.border_radius;
                 }
@@ -142,7 +144,7 @@ export component FileDiffView inherits VerticalLayout {
                     root.select_id(data.id)
                 }
                 double-clicked => {
-                    Diff.open-file-diff(data.id)
+                    SlintReviewCallbacks.show_file_differences(file_diff_id_parameter);
                 }
                 VerticalLayout {
                     padding-left: Style.size.spacing;
@@ -155,14 +157,14 @@ export component FileDiffView inherits VerticalLayout {
                         file-text := Text {
                             overflow: elide;
                             font-size: 14px;
-                            text: data.text;
+                            text: data.file-path;
                             vertical-alignment: center;
                             horizontal-alignment: left;
                         }
 
                         buttons-layout := HorizontalLayout {
                             Image {
-                                source: ChangeTypeUtils.to_icon(data.change_type);
+                                source: SlintChangeTypeUtils.to_icon(data.change_type);
                                 horizontal-alignment: center;
                                 colorize: Palette.foreground;
                             }
@@ -199,7 +201,7 @@ export component FileDiffView inherits VerticalLayout {
                                     source: data.is_reviewed ? @image-url("../assets/icons/checked.svg") : @image-url("../assets/icons/unchecked.svg");
                                     enabled: root.selected_id == data.id;
                                     clicked => {
-                                        Diff.toggle-is-reviewed(data.id)
+                                        SlintReviewCallbacks.change_file_diff_is_reviewed(file_diff_id_parameter, !data.is_reviewed);
                                     }
                                 }
 
@@ -208,14 +210,14 @@ export component FileDiffView inherits VerticalLayout {
                                     source: @image-url("../assets/icons/open_editor.svg");
                                     enabled: root.selected_id == data.id;
                                     clicked => {
-                                        Diff.open-file(data.text)
+                                        SlintFileDiffs.open_file_by_editor(root.review_id_parameters.repository-id, data.file-path);
                                     }
                                 }
 
                                 ToolButton {
-                                    source: root.extended_file_id == data.id ? @image-url("../assets/icons/drop_up.svg") : @image-url("../assets/icons/drop_down.svg");
+                                    source: notes.length > 0 ? @image-url("../assets/icons/notes.svg") : @image-url("../assets/icons/note-add.svg");
                                     enabled: root.selected_id == data.id;
-                                    highlighted: notes.length > 0;
+                                    checked: root.extended_file_id == data.id;
                                     clicked => {
                                         root.extended_file_id = root.extended_file_id == data.id ? -1 : data.id;
                                     }
@@ -227,9 +229,9 @@ export component FileDiffView inherits VerticalLayout {
                     if root.extended_file_id == data.id: VerticalBox {
                         LineEdit {
                             height: Style.size.control_height;
-                            placeholder-text: "Add comment here...";
+                            placeholder-text: @tr("Add comment here...");
                             accepted => {
-                                Notes.add-note(self.text, data.text);
+                                // Notes.add-note(self.text, data.text);
                                 self.text = "";
                             }
                         }

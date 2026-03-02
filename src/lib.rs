@@ -37,6 +37,8 @@ pub fn main() {
 
     controller::setup_file_picker(&app_window, proxy_models.clone());
 
+    controller::setup_file_diffs(&app_window);
+
     app_window.run().unwrap();
     worker.join().unwrap();
 }

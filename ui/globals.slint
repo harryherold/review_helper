@@ -28,6 +28,7 @@ export enum SlintResult {
     QueryingCommitsFailed,
     InvalidModel,
     QueryingMergeBaseFailed,
+    OpenEditorFailed,
 }
 
 export enum SlintChangeType {
@@ -180,12 +181,17 @@ export enum SlintSortOrder {
     Descending
 }
 
+export global SlintFileDiffs {
+    callback open_file_by_editor(int, string);
+}
+
 export global SlintReviewCallbacks {
     pure callback note_ui_model(SlintReviewIdParameters) -> [SlintNote];
     callback set_notes_text_filter(SlintReviewIdParameters, string);
     callback set_notes_context-filter(SlintReviewIdParameters, string);
     callback set_notes_sort_parameter(SlintReviewIdParameters, SlintNoteSortCriteria, SlintSortOrder);
     pure callback file_diff_ui_model(SlintReviewIdParameters) -> [SlintFileDiff];
+    callback exists_file_diff(SlintFileDiffIdParamters) -> bool;
     callback set_file_diff_sort-criteria(SlintReviewIdParameters, SlintSortCriteria);
     callback set_file_diff_file_pattern(SlintReviewIdParameters, string);
     callback set_file_diff_review_state(SlintReviewIdParameters, SlintFilterReviewState);

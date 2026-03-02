@@ -21,6 +21,7 @@ import {
     LineEdit,
 } from "std-widgets.slint";
 import { FileDiffSetupView } from "file_diff_setup_view.slint";
+import { FileDiffView } from "file_diff_view.slint";
 
 
 export component ReviewView inherits Rectangle {
@@ -51,48 +52,8 @@ export component ReviewView inherits Rectangle {
                     difference_statistics: root.review_model[root.review_index].difference_statistics;
                 }
 
-                ListView {
-                    for file_diff in SlintReviewCallbacks.file_diff_ui_model(root.review_id_parameters): HorizontalLayout {
-                        private property <SlintFileDiffIdParamters> id_parameters: {
-                            review_id_parameters: root.review_id_parameters,
-                            file_diff_id: file-diff.id,
-                        };
-                        CheckBox {
-                            private property <bool> is_reviewed: file_diff.is-reviewed;
-                            changed is_reviewed => {
-                                self.checked = is_reviewed;
-                            }
-                            checked: is_reviewed;
-                            toggled => {
-                                SlintReviewCallbacks.change_file_diff_is_reviewed(id_parameters, self.checked);
-                            }
-                        }
-
-                        Text {
-                            text: file-diff.file_path;
-                        }
-
-                        Text {
-                            text: file-diff.added_lines;
-                        }
-
-                        Text {
-                            text: file-diff.removed_lines;
-                        }
-
-                        Image {
-                            source: SlintChangeTypeUtils.to_icon(file-diff.change_type);
-                            colorize: Palette.foreground;
-                            width: Style.size.image_width;
-                        }
-
-                        Button {
-                            text: "open";
-                            clicked => {
-                                SlintReviewCallbacks.show_file_differences(id_parameters);
-                            }
-                        }
-                    }
+                FileDiffView {
+                    review_id_parameters: root.review_id_parameters;
                 }
             }
         }

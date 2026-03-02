@@ -31,6 +31,7 @@ import {
     SlintNoteSortCriteria,
     SlintSortOrder,
     SlintProgress,
+    SlintFileDiffs,
 } from "globals.slint";
 export {
     SlintReviewCallbacks,
@@ -54,6 +55,7 @@ export {
     SlintNoteSortCriteria,
     SlintSortOrder,
     SlintProgress,
+    SlintFileDiffs,
 }
 
 export component AppWindow inherits Window {
@@ -70,7 +72,7 @@ export component AppWindow inherits Window {
     preferred-width: 1600px;
     preferred-height: 1200px;
     title: @tr("review_helper");
-    icon: @image-url("../assets/icons/review_helper.png");
+    icon: @image-url("../assets/icons/review_helper.svg");
     error-popup := ErrorPopup {
         x: (root.width / 2) - (self.width / 2);
         y: (root.height / 2) - (self.height / 2);
