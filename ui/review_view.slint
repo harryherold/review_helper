@@ -9,6 +9,7 @@ import {
     SlintFileDiffIdParamters,
     SlintChangeTypeUtils,
     SlintNoteIdParamters,
+    SlintContextType,
 } from "globals.slint";
 import { CenterTabView, TabViewItem } from "controls/tabview.slint";
 import { OverallStatistics } from "overall_statistics.slint";
@@ -54,6 +55,7 @@ export component ReviewView inherits Rectangle {
 
                 FileDiffView {
                     review_id_parameters: root.review_id_parameters;
+                    notes_model: root.review_model[root.review_index].note_model;
                 }
             }
         }
@@ -136,6 +138,10 @@ export component ReviewView inherits Rectangle {
                             accepted(text) => {
                                 SlintReviewCallbacks.change_note_context(id_parameters, text);
                             }
+                        }
+
+                        Text {
+                            text: note.context_type == SlintContextType.Text ? @tr("Text") : @tr("File");
                         }
 
                         Button {

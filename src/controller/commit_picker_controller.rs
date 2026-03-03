@@ -1,4 +1,4 @@
-use std::{clone, path::PathBuf, rc::Rc};
+use std::{path::PathBuf, rc::Rc};
 
 use crate::{
     git_utils,

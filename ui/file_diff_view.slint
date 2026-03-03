@@ -28,8 +28,8 @@ import { ToolButton } from "controls/tool_button.slint";
 
 export component FileDiffView inherits VerticalLayout {
     in property <SlintReviewIdParameters> review_id_parameters;
+    in property <[SlintNote]> notes_model;
     private property <[SlintFileDiff]> file_diff_model: SlintReviewCallbacks.file_diff_ui_model(root.review_id_parameters);
-    private property <[SlintNote]> notes_model: SlintReviewCallbacks.note_ui_model(root.review_id_parameters);
     private property <int> selected_id: -1;
     private property <int> extended_file_id: -1;
     private property <int> model_count: root.file_diff_model.length;
@@ -124,14 +124,6 @@ export component FileDiffView inherits VerticalLayout {
                 review_id_parameters: root.review_id_parameters,
                 file_diff_id: data.id,
             };
-            property <[SlintNote]> notes: [
-            //     {
-            //     id: 1,
-            //     text: "foo bar",
-            //     is_fixed: false,
-            //     context: "nothing",
-            // }
-        ];
             states [
                 selected when selected_id == data.id: {
                     background: Palette.control-background.brighter(0.2);
@@ -215,7 +207,7 @@ export component FileDiffView inherits VerticalLayout {
                                 }
 
                                 ToolButton {
-                                    source: notes.length > 0 ? @image-url("../assets/icons/notes.svg") : @image-url("../assets/icons/note-add.svg");
+                                    source: data.referenced_notes.length > 0 ? @image-url("../assets/icons/notes.svg") : @image-url("../assets/icons/note-add.svg");
                                     enabled: root.selected_id == data.id;
                                     checked: root.extended_file_id == data.id;
                                     clicked => {
@@ -230,14 +222,15 @@ export component FileDiffView inherits VerticalLayout {
                         LineEdit {
                             height: Style.size.control_height;
                             placeholder-text: @tr("Add comment here...");
-                            accepted => {
-                                // Notes.add-note(self.text, data.text);
+                            accepted(new_text) => {
+                                SlintReviewCallbacks.add_note(root.review_id_parameters, new_text, data.file_path);
                                 self.text = "";
                             }
                         }
 
-                        for note_item in notes: FileNoteDelegate {
-                            note: note-item;
+                        for note_index in data.referenced_notes: FileNoteDelegate {
+                            review_id_parameters: root.review_id_parameters;
+                            note: root.notes_model[note_index];
                         }
                     }
                 }

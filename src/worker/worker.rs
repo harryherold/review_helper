@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
 
@@ -7,7 +7,7 @@ use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 use crate::storage::repository_storage::{DiffRangeStore, ReviewName};
 use crate::storage::{RepositoryName, RepositoryStore, ReviewHelperStorage, create_storage};
-use crate::ui::{SlintFileDiff, SlintNote};
+use crate::ui::{SlintContextType, SlintFileDiff, SlintNote};
 use crate::{git_utils, ui};
 
 use crate::repositories::{FileDiffId, NoteId, Repositories, RepositoryId, Review, ReviewId};
@@ -427,8 +427,31 @@ impl WorkerImpl {
             let end_diff = SharedString::from(&store.diff_range.end);
 
             let review = Review::new(store, review_name.clone());
-            let ui_notes: Vec<_> = review.notes.iter().map(|id_store_tuple| SlintNote::from(id_store_tuple)).collect();
-            let ui_file_diffs: Vec<_> = review.file_diffs.iter().map(|id_store_tuple| SlintFileDiff::from(id_store_tuple)).collect();
+
+            let mut ui_notes = Vec::new();
+            review.notes.iter().for_each(|id_store_tuple| {
+                let context_type = if review.file_diffs.file_id_map.contains_key(&id_store_tuple.1.context) {
+                    SlintContextType::File
+                } else {
+                    SlintContextType::Text
+                };
+
+                ui_notes.push(SlintNote {
+                    id: id_store_tuple.0.as_i32(),
+                    context: SharedString::from(&id_store_tuple.1.context),
+                    context_type,
+                    is_fixed: id_store_tuple.1.is_done,
+                    text: SharedString::from(&id_store_tuple.1.text),
+                });
+            });
+            let ui_file_diffs: Vec<_> = review
+                .file_diffs
+                .iter()
+                .map(|id_store_tuple| {
+                    let file_path = id_store_tuple.1.file_path.to_string_lossy().to_string();
+                    (id_store_tuple.0.as_i32(), id_store_tuple.1.clone())
+                })
+                .collect();
 
             repository.reviews.insert_review(review_id.clone(), review);
 
@@ -507,23 +530,50 @@ impl WorkerImpl {
             self.ui_updater
                 .set_file_diff_is_reviewed(repository_id.as_usize(), review_id.as_usize(), file_diff_id.as_usize(), is_reviewed);
         };
+        let update_note_references = |note_id: &NoteId, opt_old_file_diff_id: Option<&FileDiffId>, opt_new_file_diff_id: Option<&FileDiffId>| {
+            if let Some(old_file_diff_id) = opt_old_file_diff_id {
+                self.ui_updater
+                    .remove_note_reference(repository_id.as_usize(), review_id.as_usize(), note_id.as_usize(), old_file_diff_id.as_usize());
+            }
+            if let Some(new_file_diff_id) = opt_new_file_diff_id {
+                self.ui_updater
+                    .add_note_reference(repository_id.as_usize(), review_id.as_usize(), note_id.as_usize(), new_file_diff_id.as_usize());
+            }
+        };
         let change_note = |review: &mut Review, note_id: NoteId, change_type: NoteChangeType| {
             let Some(note) = review.notes.get_mut(&note_id) else {
                 self.ui_updater
                     .report_error(ui::SlintResult::ModelItemNotExists, &format!("note id {}", note_id.as_usize()));
                 return;
             };
+            let mut opt_context_type = None;
             match change_type.clone() {
                 NoteChangeType::TextChanged(new_text) => note.text = new_text,
-                NoteChangeType::ContextChanged(new_context) => note.context = new_context,
+                NoteChangeType::ContextChanged(new_context) => {
+                    opt_context_type = if review.file_diffs.file_id_map.contains_key(&new_context) {
+                        Some(SlintContextType::File)
+                    } else {
+                        Some(SlintContextType::Text)
+                    };
+                    let new_file_diff_id = review.file_diffs.file_id_map.get(&new_context);
+                    let old_file_diff_id = review.file_diffs.file_id_map.get(&note.context);
+                    update_note_references(&note_id, old_file_diff_id, new_file_diff_id);
+
+                    note.context = new_context;
+                }
                 NoteChangeType::IsDoneChanged(new_is_done) => note.is_done = new_is_done,
             }
             if let Err(e) = self.storage.save_review_notes(&repository.name, &review.name(), &review.notes.stores()) {
                 self.ui_updater.report_error(ui::SlintResult::StoreFailed, &e.to_string());
                 return;
             }
-            self.ui_updater
-                .update_note(repository_id.as_usize(), review_id.as_usize(), note_id.as_usize(), change_type);
+            self.ui_updater.update_note(
+                repository_id.as_usize(),
+                review_id.as_usize(),
+                note_id.as_usize(),
+                change_type,
+                opt_context_type,
+            );
         };
         match content_change {
             ReviewContentChange::FileDiffChange { id, is_reviewed } => change_file_diff(review, id, is_reviewed),
@@ -537,7 +587,7 @@ impl WorkerImpl {
             return;
         };
 
-        let Ok(file_diff_map) = git_utils::diff_git_repo(&repository.path(), &diff_range.start, &diff_range.end) else {
+        let Ok(mut file_diff_map) = git_utils::diff_git_repo(&repository.path(), &diff_range.start, &diff_range.end) else {
             self.ui_updater.report_error(ui::SlintResult::FindFileDifferenceFailed, &"".to_string());
             return;
         };
@@ -549,7 +599,7 @@ impl WorkerImpl {
                 .report_error(ui::SlintResult::ModelItemNotExists, &format!("review id {}", review_id.as_usize()));
             return;
         };
-        review.file_diffs.update_file_diffs(new_files);
+        let (deleted_file_diff_ids, added_files) = review.file_diffs.update_file_diffs(new_files);
         review.set_diff_range(diff_range);
 
         let ui_file_diffs = review
@@ -557,10 +607,21 @@ impl WorkerImpl {
             .iter()
             .map(|(id, store)| {
                 let file = store.file_path.to_string_lossy().to_string();
-                let diff_status = file_diff_map.get(&file).expect("Could not found Diff-Status of cached file!");
-                ui_updater::make_slint_file_diff(id, &file, &diff_status, store.is_reviewed)
+                let diff_status = file_diff_map.remove(&file).expect("Could not found Diff-Status of cached file!");
+                (id.as_i32(), store.clone(), diff_status)
             })
             .collect::<Vec<_>>();
+
+        self.ui_updater.migrate_file_diff_notes_to_text_context(
+            repository_id.as_usize(),
+            review_id.as_usize(),
+            deleted_file_diff_ids.into_iter().map(|id| id.as_usize()),
+        );
+        self.ui_updater.migrate_file_diff_notes_to_file_context(
+            repository_id.as_usize(),
+            review_id.as_usize(),
+            added_files.into_iter().map(|f| SharedString::from(f)),
+        );
 
         self.ui_updater.set_file_diffs(repository_id.as_usize(), review_id.as_usize(), ui_file_diffs);
 
@@ -586,7 +647,7 @@ impl WorkerImpl {
             return;
         };
 
-        if !review.notes.delete_note(&note_id) {
+        let Some(store) = review.notes.delete_note(&note_id) else {
             self.ui_updater.report_error(
                 ui::SlintResult::ModelItemNotExists,
                 &format!(
@@ -597,11 +658,16 @@ impl WorkerImpl {
                 ),
             );
             return;
-        }
+        };
 
         if let Err(e) = self.storage.save_review_notes(&repository.name, &review.name(), &review.notes.stores()) {
             self.ui_updater.report_error(ui::SlintResult::StoreFailed, &e.to_string());
             return;
+        }
+
+        if let Some(file_diff_id) = review.file_diffs.file_id_map.get(&store.context) {
+            self.ui_updater
+                .remove_note_reference(repository_id.as_usize(), review_id.as_usize(), note_id.as_usize(), file_diff_id.as_usize());
         }
 
         self.ui_updater.delete_note(repository_id.as_usize(), review_id.as_usize(), note_id.as_usize());
@@ -623,18 +689,28 @@ impl WorkerImpl {
         let ui_text = SharedString::from(text.as_str());
         let ui_context = SharedString::from(context.as_str());
 
+        let opt_file_diff_id = review.file_diffs.file_id_map.get(&context).map(|id| id.as_usize());
         let note_id = review.notes.add_note(text, context);
 
         if let Err(e) = self.storage.save_review_notes(&repository.name, &review.name(), &review.notes.stores()) {
             self.ui_updater.report_error(ui::SlintResult::StoreFailed, &e.to_string());
             return;
         }
+        let context_type = if review.file_diffs.file_id_map.contains_key(ui_context.as_str()) {
+            SlintContextType::File
+        } else {
+            SlintContextType::Text
+        };
+
         let ui_note = SlintNote {
             id: note_id.as_i32(),
             text: ui_text,
             context: ui_context,
+            context_type,
             is_fixed: false,
         };
-        self.ui_updater.add_note(repository_id.as_usize(), review_id.as_usize(), ui_note);
+
+        self.ui_updater
+            .add_note(repository_id.as_usize(), review_id.as_usize(), ui_note, opt_file_diff_id);
     }
 }

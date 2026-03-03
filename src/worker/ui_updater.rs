@@ -1,17 +1,21 @@
 use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::rc::Rc;
 
 use itertools::Itertools;
+use slint::ModelRc;
 use slint::{ComponentHandle, Model, ModelExt, SharedString, VecModel};
 
 use crate::git_utils;
+use crate::git_utils::DiffStatus;
 use crate::model::IdModel;
 use crate::model::model_utils;
-use crate::repositories::{FileDiffId, NoteId};
+use crate::repositories::FileDiffId;
 use crate::storage::RepositoryStore;
-use crate::storage::repository_storage::{FileDiffStore, NoteStore};
+use crate::storage::repository_storage::FileDiffStore;
 use crate::ui::SlintChangeTypeOccurrence;
+use crate::ui::SlintContextType;
 use crate::ui::{self, SlintFileDiff, SlintNote, SlintReview};
 use crate::worker::{NoteChangeType, ReviewHelperSettings};
 
@@ -33,17 +37,6 @@ impl UiBasicRepository {
     }
 }
 
-impl From<(&NoteId, &NoteStore)> for ui::SlintNote {
-    fn from((id, note_store): (&NoteId, &NoteStore)) -> Self {
-        SlintNote {
-            id: id.as_i32(),
-            context: SharedString::from(note_store.context.as_str()),
-            is_fixed: note_store.is_done,
-            text: SharedString::from(note_store.text.as_str()),
-        }
-    }
-}
-
 impl From<(&FileDiffId, &FileDiffStore)> for ui::SlintFileDiff {
     fn from((id, file_diff_store): (&FileDiffId, &FileDiffStore)) -> Self {
         SlintFileDiff {
@@ -55,16 +48,16 @@ impl From<(&FileDiffId, &FileDiffStore)> for ui::SlintFileDiff {
     }
 }
 
-pub fn make_slint_file_diff(id: &FileDiffId, file: &String, diff_status: &git_utils::DiffStatus, is_reviewed: bool) -> SlintFileDiff {
-    SlintFileDiff {
-        id: id.as_i32(),
-        file_path: SharedString::from(file),
-        added_lines: diff_status.added_lines as i32,
-        removed_lines: diff_status.removed_lines as i32,
-        change_type: change_type_to_ui(&diff_status.change_type),
-        is_reviewed,
-    }
-}
+// pub fn make_slint_file_diff(id: &FileDiffId, file: &String, diff_status: &git_utils::DiffStatus, is_reviewed: bool) -> SlintFileDiff {
+//     SlintFileDiff {
+//         id: id.as_i32(),
+//         file_path: SharedString::from(file),
+//         added_lines: diff_status.added_lines as i32,
+//         removed_lines: diff_status.removed_lines as i32,
+//         change_type: change_type_to_ui(&diff_status.change_type),
+//         is_reviewed,
+//     }
+// }
 
 pub struct UiUpdater {
     ui_weak: slint::Weak<ui::AppWindow>,
@@ -204,7 +197,7 @@ impl UiUpdater {
         start_diff: SharedString,
         end_diff: SharedString,
         ui_notes: Vec<SlintNote>,
-        ui_file_diffs: Vec<SlintFileDiff>,
+        ui_file_diffs: Vec<(i32, FileDiffStore)>,
     ) {
         self.ui_weak
             .upgrade_in_event_loop(move |app_window| {
@@ -217,8 +210,16 @@ impl UiUpdater {
                 review.review_progress.total_count = ui_file_diffs.len() as i32;
                 review.note_progress.total_count = ui_notes.len() as i32;
 
+                let mut file_notes_map: HashMap<String, Rc<VecModel<i32>>> = HashMap::new();
+
                 let notes_model = review.note_model.as_any().downcast_ref::<IdModel<ui::SlintNote>>().unwrap();
-                ui_notes.into_iter().for_each(|ui_note| {
+                ui_notes.into_iter().enumerate().for_each(|(index, ui_note)| {
+                    if ui_note.context_type == SlintContextType::File {
+                        file_notes_map
+                            .entry(ui_note.context.to_string())
+                            .and_modify(|e| e.push(index as i32))
+                            .or_insert(Rc::new(VecModel::from(vec![index as i32])));
+                    }
                     if ui_note.is_fixed {
                         review.note_progress.completed_count += 1;
                     }
@@ -226,11 +227,24 @@ impl UiUpdater {
                 });
 
                 let file_diff_model = review.file_diff_model.as_any().downcast_ref::<IdModel<ui::SlintFileDiff>>().unwrap();
-                ui_file_diffs.into_iter().for_each(|ui_file_diff| {
-                    if ui_file_diff.is_reviewed {
+                ui_file_diffs.into_iter().for_each(|(file_diff_id, store)| {
+                    if store.is_reviewed {
                         review.review_progress.completed_count += 1;
                     }
-                    file_diff_model.add(ui_file_diff.id as usize, ui_file_diff)
+
+                    let file_path = store.file_path.to_string_lossy().to_string();
+                    let referenced_notes = file_notes_map.remove(&file_path).unwrap_or_else(|| Rc::new(VecModel::default()));
+
+                    file_diff_model.add(
+                        file_diff_id as usize,
+                        SlintFileDiff {
+                            id: file_diff_id,
+                            file_path: SharedString::from(file_path),
+                            is_reviewed: store.is_reviewed,
+                            referenced_notes: referenced_notes.into(),
+                            ..Default::default()
+                        },
+                    );
                 });
 
                 review_model.update(review_id, review);
@@ -317,7 +331,14 @@ impl UiUpdater {
             })
             .unwrap();
     }
-    pub fn update_note(&self, repository_id: usize, review_id: usize, note_id: usize, note_change_type: NoteChangeType) {
+    pub fn update_note(
+        &self,
+        repository_id: usize,
+        review_id: usize,
+        note_id: usize,
+        note_change_type: NoteChangeType,
+        opt_context_type: Option<SlintContextType>,
+    ) {
         self.ui_weak
             .upgrade_in_event_loop(move |app_window| {
                 let review_model = model_utils::get_review_model(&app_window, repository_id);
@@ -329,7 +350,12 @@ impl UiUpdater {
                 if let Some(mut note) = note_model.get(note_id) {
                     match note_change_type {
                         NoteChangeType::TextChanged(ref new_text) => note.text = SharedString::from(new_text),
-                        NoteChangeType::ContextChanged(ref new_context) => note.context = SharedString::from(new_context),
+                        NoteChangeType::ContextChanged(ref new_context) => {
+                            if let Some(new_context_type) = opt_context_type {
+                                note.context_type = new_context_type;
+                            }
+                            note.context = SharedString::from(new_context);
+                        }
                         NoteChangeType::IsDoneChanged(new_is_done) => note.is_fixed = new_is_done,
                     }
                     note_model.update(note_id, note);
@@ -347,10 +373,130 @@ impl UiUpdater {
             .unwrap();
     }
 
-    pub fn set_file_diffs(&self, repository_id: usize, review_id: usize, ui_file_diffs: Vec<SlintFileDiff>) {
+    fn note_id_to_index(review: &SlintReview, note_id: usize) -> i32 {
+        let note_model = review.note_model.as_any().downcast_ref::<IdModel<ui::SlintNote>>().unwrap();
+        note_model.id_to_index(note_id)
+    }
+
+    fn get_note_references(app_window: &ui::AppWindow, review: &SlintReview, file_diff_id: usize) -> ModelRc<i32> {
+        let file_diff_model = review.file_diff_model.as_any().downcast_ref::<IdModel<ui::SlintFileDiff>>().unwrap();
+        let Some(file_diff) = file_diff_model.get(file_diff_id) else {
+            model_utils::report_error(
+                app_window,
+                ui::SlintResult::ModelItemNotExists,
+                SharedString::from(format!("file diff id {}", file_diff_id)),
+            );
+            return ModelRc::default();
+        };
+        file_diff.referenced_notes
+    }
+
+    pub fn migrate_file_diff_notes_to_file_context<I>(&self, repository_id: usize, review_id: usize, added_files: I)
+    where
+        I: IntoIterator<Item = SharedString> + Send + 'static,
+        I::IntoIter: Send,
+    {
         self.ui_weak
             .upgrade_in_event_loop(move |app_window| {
-                let Some(mut review) = model_utils::get_slint_review(&app_window, repository_id, review_id) else {
+                let note_model = model_utils::get_note_model(&app_window, repository_id, review_id);
+                let note_model = note_model.as_any().downcast_ref::<IdModel<ui::SlintNote>>().unwrap();
+                added_files.into_iter().for_each(|file| {
+                    note_model.iter().for_each(|mut note| {
+                        if note.context_type == ui::SlintContextType::Text && note.context == file {
+                            note.context_type = ui::SlintContextType::File;
+                            note_model.update(note.id as usize, note);
+                        }
+                    });
+                });
+            })
+            .unwrap();
+    }
+
+    pub fn migrate_file_diff_notes_to_text_context<I>(&self, repository_id: usize, review_id: usize, deleted_file_ids: I)
+    where
+        I: IntoIterator<Item = usize> + Send + 'static,
+        I::IntoIter: Send,
+    {
+        self.ui_weak
+            .upgrade_in_event_loop(move |app_window| {
+                let Some(review) = model_utils::get_slint_review(&app_window, repository_id, review_id) else {
+                    model_utils::report_error(
+                        &app_window,
+                        ui::SlintResult::ModelItemNotExists,
+                        SharedString::from(format!("repository id {} review id {}", repository_id, review_id)),
+                    );
+                    return;
+                };
+                let file_diff_model = review.file_diff_model.as_any().downcast_ref::<IdModel<ui::SlintFileDiff>>().unwrap();
+                let mut note_indexes = Vec::new();
+                deleted_file_ids.into_iter().for_each(|id| {
+                    if let Some(file_diff) = file_diff_model.get(id) {
+                        note_indexes.extend(file_diff.referenced_notes.iter());
+                    }
+                });
+                let notes_model = review.note_model.as_any().downcast_ref::<IdModel<ui::SlintNote>>().unwrap();
+                note_indexes.into_iter().for_each(|note_index| {
+                    if let Some(mut note) = notes_model.row_data(note_index as usize) {
+                        note.context_type = ui::SlintContextType::Text;
+                        notes_model.set_row_data(note_index as usize, note);
+                    }
+                });
+            })
+            .unwrap();
+    }
+
+    pub fn add_note_reference(&self, repository_id: usize, review_id: usize, note_id: usize, file_diff_id: usize) {
+        self.ui_weak
+            .upgrade_in_event_loop(move |app_window| {
+                let Some(review) = model_utils::get_slint_review(&app_window, repository_id, review_id) else {
+                    model_utils::report_error(
+                        &app_window,
+                        ui::SlintResult::ModelItemNotExists,
+                        SharedString::from(format!("repository id {} review id {}", repository_id, review_id)),
+                    );
+                    return;
+                };
+                let note_index = Self::note_id_to_index(&review, note_id);
+                if note_index < 0 {
+                    return;
+                }
+                let referenced_notes_model = Self::get_note_references(&app_window, &review, file_diff_id);
+                let referenced_notes_model = referenced_notes_model.as_any().downcast_ref::<VecModel<i32>>().unwrap();
+                referenced_notes_model.push(note_index);
+            })
+            .unwrap();
+    }
+    pub fn remove_note_reference(&self, repository_id: usize, review_id: usize, note_id: usize, file_diff_id: usize) {
+        self.ui_weak
+            .upgrade_in_event_loop(move |app_window| {
+                let Some(review) = model_utils::get_slint_review(&app_window, repository_id, review_id) else {
+                    model_utils::report_error(
+                        &app_window,
+                        ui::SlintResult::ModelItemNotExists,
+                        SharedString::from(format!("repository id {} review id {}", repository_id, review_id)),
+                    );
+                    return;
+                };
+                let note_index = Self::note_id_to_index(&review, note_id);
+                if note_index < 0 {
+                    return;
+                }
+                let referenced_notes_model = Self::get_note_references(&app_window, &review, file_diff_id);
+                let referenced_notes_model = referenced_notes_model.as_any().downcast_ref::<VecModel<i32>>().unwrap();
+                if let Some(remove_index) = referenced_notes_model.iter().position(|i| i == note_index) {
+                    // TODO add error handling
+                    referenced_notes_model.remove(remove_index);
+                };
+            })
+            .unwrap();
+    }
+
+    pub fn set_file_diffs(&self, repository_id: usize, review_id: usize, ui_file_diffs: Vec<(i32, FileDiffStore, DiffStatus)>) {
+        self.ui_weak
+            .upgrade_in_event_loop(move |app_window| {
+                let review_model = model_utils::get_review_model(&app_window, repository_id);
+                let review_model = review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>().unwrap();
+                let Some(mut review) = review_model.get(review_id) else {
                     model_utils::report_error(
                         &app_window,
                         ui::SlintResult::ModelItemNotExists,
@@ -370,18 +516,43 @@ impl UiUpdater {
                 review.review_progress.total_count = ui_file_diffs.len() as i32;
                 review.review_progress.completed_count = 0;
 
-                ui_file_diffs.into_iter().for_each(|ui_file_diff| {
-                    review.difference_statistics.added_lines += ui_file_diff.added_lines;
-                    review.difference_statistics.removed_lines += ui_file_diff.removed_lines;
-                    change_type_map
-                        .entry(ui_file_diff.change_type as usize)
-                        .and_modify(|e| e.0 += 1)
-                        .or_insert((1, ui_file_diff.change_type));
+                let mut file_notes_map: HashMap<String, Rc<VecModel<i32>>> = HashMap::new();
+                review.note_model.iter().enumerate().for_each(|(index, note)| {
+                    if note.context_type == SlintContextType::File {
+                        file_notes_map
+                            .entry(note.context.to_string())
+                            .and_modify(|e| e.push(index as i32))
+                            .or_insert(Rc::new(VecModel::from(vec![index as i32])));
+                    }
+                });
 
-                    if ui_file_diff.is_reviewed {
+                ui_file_diffs.into_iter().for_each(|(id, store, status)| {
+                    let ui_change_type = change_type_to_ui(&status.change_type);
+                    review.difference_statistics.added_lines += status.added_lines as i32;
+                    review.difference_statistics.removed_lines += status.removed_lines as i32;
+                    change_type_map
+                        .entry(ui_change_type as usize)
+                        .and_modify(|e: &mut (i32, ui::SlintChangeType)| e.0 += 1)
+                        .or_insert((1, ui_change_type));
+
+                    if store.is_reviewed {
                         review.review_progress.completed_count += 1;
                     }
-                    file_diff_model.add(ui_file_diff.id as usize, ui_file_diff);
+
+                    let file_path = store.file_path.to_string_lossy().to_string();
+                    let referenced_notes = file_notes_map.remove(&file_path).unwrap_or_else(|| Rc::new(VecModel::default()));
+                    file_diff_model.add(
+                        id as usize,
+                        SlintFileDiff {
+                            id,
+                            added_lines: status.added_lines as i32,
+                            removed_lines: status.removed_lines as i32,
+                            change_type: ui_change_type,
+                            file_path: SharedString::from(file_path),
+                            is_reviewed: store.is_reviewed,
+                            referenced_notes: referenced_notes.into(),
+                        },
+                    );
                 });
 
                 let change_type_model = review
@@ -395,8 +566,6 @@ impl UiUpdater {
                     change_type_model.push(SlintChangeTypeOccurrence { change_type, count });
                 });
 
-                let review_model = model_utils::get_review_model(&app_window, repository_id);
-                let review_model = review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>().unwrap();
                 review_model.update(review_id, review);
             })
             .unwrap();
@@ -425,7 +594,7 @@ impl UiUpdater {
             })
             .unwrap();
     }
-    pub fn add_note(&self, repository_id: usize, review_id: usize, note: SlintNote) {
+    pub fn add_note(&self, repository_id: usize, review_id: usize, note: SlintNote, opt_file_diff_id: Option<usize>) {
         self.ui_weak
             .upgrade_in_event_loop(move |app_window| {
                 let review_model = model_utils::get_review_model(&app_window, repository_id);
@@ -436,6 +605,16 @@ impl UiUpdater {
                 note_model.add(note.id.clone() as usize, note);
 
                 review.note_progress.total_count += 1;
+
+                if let Some(file_diff_id) = opt_file_diff_id {
+                    let file_diff_model = review.file_diff_model.as_any().downcast_ref::<IdModel<ui::SlintFileDiff>>().unwrap();
+                    if let Some(file_diff) = file_diff_model.get(file_diff_id as usize) {
+                        let referenced_notes_model = file_diff.referenced_notes.as_any().downcast_ref::<VecModel<i32>>().unwrap();
+                        let note_index = note_model.row_count() - 1;
+                        referenced_notes_model.push(note_index as i32);
+                    }
+                }
+
                 review_model.update(review_id, review);
             })
             .unwrap();

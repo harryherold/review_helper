@@ -76,6 +76,12 @@ export struct SlintFileDiff {
     file_path: string,
     is_reviewed: bool,
     change_type: SlintChangeType,
+    referenced_notes: [int],
+}
+
+export enum SlintContextType {
+    Text,
+    File,
 }
 
 export struct SlintNote {
@@ -83,6 +89,7 @@ export struct SlintNote {
     text: string,
     is_fixed: bool,
     context: string,
+    context_type: SlintContextType,
 }
 
 export struct SlintChangeTypeOccurrence {

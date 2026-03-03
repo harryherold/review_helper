@@ -3,6 +3,7 @@ use std::{
     convert::From,
     hash::Hash,
     path::PathBuf,
+    str::FromStr,
 };
 
 use crate::storage::{
@@ -81,9 +82,8 @@ impl Notes {
     pub fn get_mut(&mut self, id: &NoteId) -> Option<&mut NoteStore> {
         self.id_note_map.get_mut(id)
     }
-    pub fn delete_note(&mut self, id: &NoteId) -> bool {
-        let result = self.id_note_map.remove(id);
-        result.is_some()
+    pub fn delete_note(&mut self, id: &NoteId) -> Option<NoteStore> {
+        self.id_note_map.remove(id)
     }
     pub fn add_note(&mut self, text: String, context: String) -> NoteId {
         let store = NoteStore { text, context, is_done: false };
@@ -96,7 +96,7 @@ impl Notes {
 #[derive(Default, Clone)]
 pub struct FileDiffs {
     id_store_map: HashMap<FileDiffId, FileDiffStore>,
-    file_id_map: HashMap<String, FileDiffId>,
+    pub file_id_map: HashMap<String, FileDiffId>,
     last_file_diff_id: FileDiffId,
 }
 
@@ -126,23 +126,33 @@ impl FileDiffs {
             file_diff.is_reviewed = is_reviewed;
         }
     }
-    pub fn update_file_diffs(&mut self, new_file_keys: HashSet<String>) {
+    pub fn update_file_diffs(&mut self, new_file_keys: HashSet<String>) -> (Vec<FileDiffId>, Vec<String>) {
         let old_file_keys = self.file_id_map.keys().cloned().collect::<HashSet<_>>();
 
         if old_file_keys == new_file_keys {
-            return;
+            return (Vec::new(), Vec::new());
         }
 
         if new_file_keys.is_disjoint(&old_file_keys) {
+            let deleted_file_diff_ids = self.id_store_map.keys().cloned().collect::<Vec<_>>();
+            let added_files = Vec::from_iter(new_file_keys.iter().cloned());
             self.id_store_map.clear();
             self.file_id_map.clear();
             new_file_keys.into_iter().for_each(|file| self.add_new_file_diff(file));
+            (deleted_file_diff_ids, added_files)
         } else {
+            let mut deleted_file_diff_ids = Vec::new();
             let deleted_files = old_file_keys.difference(&new_file_keys).collect::<HashSet<_>>();
-            deleted_files.into_iter().for_each(|deleted_file| self.remove_file_diff(deleted_file));
+            deleted_files.into_iter().for_each(|deleted_file| {
+                if let Some(deleted_file_diff_id) = self.remove_file_diff(deleted_file) {
+                    deleted_file_diff_ids.push(deleted_file_diff_id);
+                }
+            });
 
             let new_subset: HashSet<_> = new_file_keys.difference(&old_file_keys).collect();
+            let files_added = Vec::from_iter(new_subset.iter().map(|s| String::from(s.as_str())));
             new_subset.into_iter().cloned().for_each(|file| self.add_new_file_diff(file));
+            (deleted_file_diff_ids, files_added)
         }
     }
     fn allocate_file_diff_id(&mut self) -> FileDiffId {
@@ -166,11 +176,10 @@ impl FileDiffs {
 
         self.file_id_map.insert(file, id);
     }
-    fn remove_file_diff(&mut self, file: &String) {
-        if let Some(id) = self.file_id_map.get(file) {
-            self.id_store_map.remove(id);
-            self.file_id_map.remove(file);
-        }
+    fn remove_file_diff(&mut self, file: &String) -> Option<FileDiffId> {
+        let id = self.file_id_map.get(file)?;
+        self.id_store_map.remove(id);
+        self.file_id_map.remove(file)
     }
 }
 

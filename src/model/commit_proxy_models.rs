@@ -1,5 +1,5 @@
 use chrono::{DateTime, FixedOffset};
-use slint::{FilterModel, MapModel, ModelRc, SharedString, SortModel};
+use slint::{FilterModel, ModelRc, SharedString, SortModel};
 use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::rc::Rc;
