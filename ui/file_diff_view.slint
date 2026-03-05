@@ -120,6 +120,7 @@ export component FileDiffView inherits VerticalLayout {
         horizontal-scrollbar-policy: always-off;
         vertical-scrollbar-policy: always-off;
         for data[idx] in root.file_diff_model: Rectangle {
+            private property <bool> is_selected: root.selected_id == data.id;
             private property <SlintFileDiffIdParamters> file_diff_id_parameter: {
                 review_id_parameters: root.review_id_parameters,
                 file_diff_id: data.id,
@@ -146,15 +147,58 @@ export component FileDiffView inherits VerticalLayout {
                         height: Style.size.delegate_height;
                         alignment: space-between;
                         spacing: 2px;
-                        file-text := Text {
-                            overflow: elide;
-                            font-size: 14px;
-                            text: data.file-path;
-                            vertical-alignment: center;
-                            horizontal-alignment: left;
+
+                        HorizontalLayout {
+                            spacing: Style.size.spacing;
+
+                            VerticalLayout {
+                                alignment: center;
+                                Rectangle {
+                                    background: Palette.control-background;
+                                    border-radius: Style.size.border_radius;
+                                    border-width: Style.size.border_width;
+                                    border-color: Palette.border;
+                                    width: Style.size.image_width + 4px;
+                                    height: Style.size.image_width + 4px;
+                                    states [
+                                        is_pressed when is_selected && ta.pressed: {
+                                            background: Palette.alternate-background;
+                                        }
+                                    ]
+                                    Image {
+                                        vertical-alignment: center;
+                                        horizontal-alignment: center;
+                                        width: Style.size.image_width;
+                                        states [
+                                            is_reviewed when data.is_reviewed: {
+                                                source: @image-url("../assets/icons/checked.svg");
+                                            }
+                                        ]
+                                        colorize: is_selected ? Palette.foreground : Style.palette.disabled;
+                                    }
+
+                                    ta := TouchArea {
+                                        clicked => {
+                                            if !is_selected {
+                                                root.select_id(data.id);
+                                            } else {
+                                                SlintReviewCallbacks.change_file_diff_is_reviewed(file_diff_id_parameter, !data.is_reviewed);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            Text {
+                                overflow: elide;
+                                font-size: 14px;
+                                text: data.file-path;
+                                vertical-alignment: center;
+                                horizontal-alignment: left;
+                            }
                         }
 
-                        buttons-layout := HorizontalLayout {
+                        HorizontalLayout {
                             Image {
                                 source: SlintChangeTypeUtils.to_icon(data.change_type);
                                 horizontal-alignment: center;
@@ -190,17 +234,8 @@ export component FileDiffView inherits VerticalLayout {
                                 }
 
                                 ToolButton {
-                                    source: data.is_reviewed ? @image-url("../assets/icons/checked.svg") : @image-url("../assets/icons/unchecked.svg");
-                                    enabled: root.selected_id == data.id;
-                                    clicked => {
-                                        SlintReviewCallbacks.change_file_diff_is_reviewed(file_diff_id_parameter, !data.is_reviewed);
-                                    }
-                                }
-
-                                property <Point> p: { x: (root.width - bb.width) - 280px, y: bb.height };
-                                bb := ToolButton {
                                     source: @image-url("../assets/icons/open_editor.svg");
-                                    enabled: root.selected_id == data.id;
+                                    enabled: is_selected;
                                     clicked => {
                                         SlintFileDiffs.open_file_by_editor(root.review_id_parameters.repository-id, data.file-path);
                                     }
@@ -208,7 +243,7 @@ export component FileDiffView inherits VerticalLayout {
 
                                 ToolButton {
                                     source: data.referenced_notes.length > 0 ? @image-url("../assets/icons/notes.svg") : @image-url("../assets/icons/note-add.svg");
-                                    enabled: root.selected_id == data.id;
+                                    enabled: is_selected;
                                     checked: root.extended_file_id == data.id;
                                     clicked => {
                                         root.extended_file_id = root.extended_file_id == data.id ? -1 : data.id;
