@@ -22,6 +22,7 @@ import {
     SlintFileDiffIdParamters,
     SlintChangeTypeUtils,
     SlintFileDiffs,
+    SlintChangeType,
 } from "globals.slint";
 import { FileNoteDelegate } from "file_note_delegate.slint";
 import { ToolButton } from "controls/tool_button.slint";
@@ -127,11 +128,12 @@ export component FileDiffView inherits VerticalLayout {
             };
             states [
                 selected when selected_id == data.id: {
-                    background: Palette.control-background.brighter(0.2);
+                    background: Palette.control-background.brighter(0.4);
                     border-width: Style.size.border_width;
                     border-radius: Style.size.border_radius;
                 }
             ]
+
             TouchArea {
                 clicked => {
                     root.select_id(data.id)
@@ -139,10 +141,10 @@ export component FileDiffView inherits VerticalLayout {
                 double-clicked => {
                     SlintReviewCallbacks.show_file_differences(file_diff_id_parameter);
                 }
+
                 VerticalLayout {
                     padding-left: Style.size.spacing;
                     padding-right: Style.size.spacing / 2;
-                    spacing: Style.size.spacing;
                     HorizontalLayout {
                         height: Style.size.delegate_height;
                         alignment: space-between;
@@ -199,55 +201,56 @@ export component FileDiffView inherits VerticalLayout {
                         }
 
                         HorizontalLayout {
-                            Image {
-                                source: SlintChangeTypeUtils.to_icon(data.change_type);
-                                horizontal-alignment: center;
-                                colorize: Palette.foreground;
+                            padding-top: Style.size.spacing / 2;
+                            padding-bottom: Style.size.spacing / 2;
+                            spacing: Style.size.spacing;
+                            if data.added-lines != 0: Rectangle {
+                                Text {
+                                    font-size: 14px;
+                                    font-weight: 500;
+                                    vertical-alignment: center;
+                                    text: "+ \{data.added-lines != -1 ? data.added-lines : "??"}";
+                                    color: #8bc34a;
+                                }
+                            }
+                            if data.removed-lines != 0: Rectangle {
+                                Text {
+                                    font-size: 14px;
+                                    font-weight: 500;
+                                    vertical-alignment: center;
+                                    text: "- \{data.removed-lines != -1 ? data.removed-lines : "??"}";
+                                    color: #f44336;
+                                }
+                            }
+                            Rectangle {
+                                width: 28px;
+                                height: 30px;
+                                Image {
+                                    states [
+                                        has_status when data.change_type != SlintChangeType.Invalid: {
+                                            source: SlintChangeTypeUtils.to_icon(data.change_type);
+                                        }
+                                    ]
+                                    colorize: Palette.foreground;
+                                    width: parent.width;
+                                    height: parent.height;
+                                }
                             }
 
-                            HorizontalLayout {
-                                padding-top: Style.size.spacing / 2;
-                                padding-bottom: Style.size.spacing / 2;
-                                spacing: Style.size.spacing;
-                                Rectangle {
-                                    background: Style.palette.lines-added;
-                                    border-radius: 5px;
-                                    width: 40px;
-                                    visible: data.added-lines != 0;
-                                    Text {
-                                        font-size: 14px;
-                                        vertical-alignment: center;
-                                        text: "\{data.added-lines != -1 ? data.added-lines : "??"}";
-                                    }
+                            ToolButton {
+                                source: @image-url("../assets/icons/open_editor.svg");
+                                enabled: is_selected;
+                                clicked => {
+                                    SlintFileDiffs.open_file_by_editor(root.review_id_parameters.repository-id, data.file-path);
                                 }
+                            }
 
-                                Rectangle {
-                                    background: Style.palette.lines-removed;
-                                    border-radius: 5px;
-                                    width: 40px;
-                                    visible: data.removed-lines != 0;
-                                    Text {
-                                        font-size: 14px;
-                                        vertical-alignment: center;
-                                        text: "\{data.removed-lines != -1 ? data.removed-lines : "??"}";
-                                    }
-                                }
-
-                                ToolButton {
-                                    source: @image-url("../assets/icons/open_editor.svg");
-                                    enabled: is_selected;
-                                    clicked => {
-                                        SlintFileDiffs.open_file_by_editor(root.review_id_parameters.repository-id, data.file-path);
-                                    }
-                                }
-
-                                ToolButton {
-                                    source: data.referenced_notes.length > 0 ? @image-url("../assets/icons/notes.svg") : @image-url("../assets/icons/note-add.svg");
-                                    enabled: is_selected;
-                                    checked: root.extended_file_id == data.id;
-                                    clicked => {
-                                        root.extended_file_id = root.extended_file_id == data.id ? -1 : data.id;
-                                    }
+                            ToolButton {
+                                source: data.referenced_notes.length > 0 ? @image-url("../assets/icons/notes.svg") : @image-url("../assets/icons/note-add.svg");
+                                enabled: is_selected;
+                                checked: root.extended_file_id == data.id;
+                                clicked => {
+                                    root.extended_file_id = root.extended_file_id == data.id ? -1 : data.id;
                                 }
                             }
                         }
