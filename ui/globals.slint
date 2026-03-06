@@ -217,6 +217,7 @@ export global SlintReviewCallbacks {
 
 export global SlintFilePickerAdapter {
     pure callback file_model(SlintReviewIdParameters) -> [string];
+    pure callback contains_model_context(SlintReviewIdParameters, string) -> bool;
     callback set_filter(SlintReviewIdParameters, string);
 }
 

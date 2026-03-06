@@ -23,6 +23,7 @@ import {
 } from "std-widgets.slint";
 import { FileDiffSetupView } from "file_diff_setup_view.slint";
 import { FileDiffView } from "file_diff_view.slint";
+import { NotesView } from "notes_view.slint";
 
 
 export component ReviewView inherits Rectangle {
@@ -64,93 +65,11 @@ export component ReviewView inherits Rectangle {
             index: 1;
             current-index <=> parent.current-index;
             VerticalLayout {
-                spacing: Style.size.spacing;
-                HorizontalLayout {
-                    note-text-edit := LineEdit {
-                        placeholder-text: "note-text";
-                    }
-
-                    note-context-edit := LineEdit {
-                        placeholder-text: "note-context";
-                    }
-
-                    Button {
-                        text: "add";
-                        clicked => {
-                            SlintReviewCallbacks.add_note(root.review_id_parameters, note-text-edit.text, note-context-edit.text);
-                            note-context-edit.text = "";
-                            note-text-edit.text = "";
-                        }
-                    }
-                }
-
-                HorizontalLayout {
-                    LineEdit {
-                        placeholder-text: "filter text";
-                        edited(text) => {
-                            SlintReviewCallbacks.set_notes_text_filter(root.review_id_parameters, text);
-                        }
-                    }
-
-                    LineEdit {
-                        placeholder-text: "filter context";
-                        edited(text) => {
-                            SlintReviewCallbacks.set_notes_context_filter(root.review_id_parameters, text);
-                        }
-                    }
-                }
-
-                ListView {
-                    for note in SlintReviewCallbacks.note_ui_model(root.review_id_parameters): HorizontalLayout {
-                        private property <SlintNoteIdParamters> id_parameters: {
-                            review_id_parameters: root.review_id_parameters,
-                            note_id: note.id,
-                        };
-                        height: Style.size.control-height;
-                        CheckBox {
-                            private property <bool> is_fixed: note.is-fixed;
-                            changed is_fixed => {
-                                self.checked = is_fixed;
-                            }
-                            checked: is_fixed;
-                            toggled => {
-                                SlintReviewCallbacks.change_note_is_done(id_parameters, self.checked);
-                            }
-                        }
-
-                        LineEdit {
-                            private property <string> note_text: note.text;
-                            changed note_text => {
-                                self.text = note_text;
-                            }
-                            text: note.text;
-                            accepted(text) => {
-                                SlintReviewCallbacks.change_note_text(id_parameters, text);
-                            }
-                        }
-
-                        LineEdit {
-                            private property <string> note_context: note.context;
-                            changed note_context => {
-                                self.text = note_context;
-                            }
-                            text: note.context;
-                            accepted(text) => {
-                                SlintReviewCallbacks.change_note_context(id_parameters, text);
-                            }
-                        }
-
-                        Text {
-                            text: note.context_type == SlintContextType.Text ? @tr("Text") : @tr("File");
-                        }
-
-                        Button {
-                            text: "del";
-                            clicked => {
-                                SlintReviewCallbacks.delete_note(id_parameters);
-                            }
-                        }
-                    }
+                padding-top: Style.size.spacing;
+                spacing: Style.size.big-spacing;
+                NotesView {
+                    review_id_parameters: root.review_id_parameters;
+                    notes_model: root.review_model[root.review_index].note_model;
                 }
             }
         }
