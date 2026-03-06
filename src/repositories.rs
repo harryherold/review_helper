@@ -3,7 +3,6 @@ use std::{
     convert::From,
     hash::Hash,
     path::PathBuf,
-    str::FromStr,
 };
 
 use crate::storage::{

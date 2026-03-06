@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;
 
@@ -7,11 +7,11 @@ use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 use crate::storage::repository_storage::{DiffRangeStore, ReviewName};
 use crate::storage::{RepositoryName, RepositoryStore, ReviewHelperStorage, create_storage};
-use crate::ui::{SlintContextType, SlintFileDiff, SlintNote};
+use crate::ui::{SlintContextType, SlintNote};
 use crate::{git_utils, ui};
 
 use crate::repositories::{FileDiffId, NoteId, Repositories, RepositoryId, Review, ReviewId};
-use crate::worker::{ReviewHelperSettings, ui_updater};
+use crate::worker::ReviewHelperSettings;
 
 use crate::worker::ui_updater::{UiBasicRepository, UiUpdater};
 
@@ -447,10 +447,7 @@ impl WorkerImpl {
             let ui_file_diffs: Vec<_> = review
                 .file_diffs
                 .iter()
-                .map(|id_store_tuple| {
-                    let file_path = id_store_tuple.1.file_path.to_string_lossy().to_string();
-                    (id_store_tuple.0.as_i32(), id_store_tuple.1.clone())
-                })
+                .map(|id_store_tuple| (id_store_tuple.0.as_i32(), id_store_tuple.1.clone()))
                 .collect();
 
             repository.reviews.insert_review(review_id.clone(), review);

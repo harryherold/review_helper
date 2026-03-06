@@ -48,17 +48,6 @@ impl From<(&FileDiffId, &FileDiffStore)> for ui::SlintFileDiff {
     }
 }
 
-// pub fn make_slint_file_diff(id: &FileDiffId, file: &String, diff_status: &git_utils::DiffStatus, is_reviewed: bool) -> SlintFileDiff {
-//     SlintFileDiff {
-//         id: id.as_i32(),
-//         file_path: SharedString::from(file),
-//         added_lines: diff_status.added_lines as i32,
-//         removed_lines: diff_status.removed_lines as i32,
-//         change_type: change_type_to_ui(&diff_status.change_type),
-//         is_reviewed,
-//     }
-// }
-
 pub struct UiUpdater {
     ui_weak: slint::Weak<ui::AppWindow>,
 }
@@ -511,22 +500,22 @@ impl UiUpdater {
                 review.difference_statistics.added_lines = 0;
                 review.difference_statistics.removed_lines = 0;
 
-                let mut change_type_map: BTreeMap<usize, (i32, ui::SlintChangeType)> = BTreeMap::new();
+                let mut change_type_map = BTreeMap::new();
 
                 review.review_progress.total_count = ui_file_diffs.len() as i32;
                 review.review_progress.completed_count = 0;
 
-                let mut file_notes_map: HashMap<String, Rc<VecModel<i32>>> = HashMap::new();
+                let mut file_notes_index_map: HashMap<String, Rc<VecModel<i32>>> = HashMap::new();
                 review.note_model.iter().enumerate().for_each(|(index, note)| {
                     if note.context_type == SlintContextType::File {
-                        file_notes_map
+                        file_notes_index_map
                             .entry(note.context.to_string())
                             .and_modify(|e| e.push(index as i32))
                             .or_insert(Rc::new(VecModel::from(vec![index as i32])));
                     }
                 });
 
-                ui_file_diffs.into_iter().for_each(|(id, store, status)| {
+                let mut add_statistics = |store: &FileDiffStore, status: &DiffStatus| {
                     let ui_change_type = change_type_to_ui(&status.change_type);
                     review.difference_statistics.added_lines += status.added_lines as i32;
                     review.difference_statistics.removed_lines += status.removed_lines as i32;
@@ -538,21 +527,28 @@ impl UiUpdater {
                     if store.is_reviewed {
                         review.review_progress.completed_count += 1;
                     }
+                };
 
+                let mut add_to_file_diff_model = |file_diff_id: i32, store: FileDiffStore, status: DiffStatus| {
                     let file_path = store.file_path.to_string_lossy().to_string();
-                    let referenced_notes = file_notes_map.remove(&file_path).unwrap_or_else(|| Rc::new(VecModel::default()));
+                    let referenced_notes = file_notes_index_map.remove(&file_path).unwrap_or_else(|| Rc::new(VecModel::default()));
                     file_diff_model.add(
-                        id as usize,
+                        file_diff_id as usize,
                         SlintFileDiff {
-                            id,
+                            id: file_diff_id,
                             added_lines: status.added_lines as i32,
                             removed_lines: status.removed_lines as i32,
-                            change_type: ui_change_type,
+                            change_type: change_type_to_ui(&status.change_type),
                             file_path: SharedString::from(file_path),
                             is_reviewed: store.is_reviewed,
                             referenced_notes: referenced_notes.into(),
                         },
                     );
+                };
+
+                ui_file_diffs.into_iter().for_each(|(file_diff_id, store, status)| {
+                    add_statistics(&store, &status);
+                    add_to_file_diff_model(file_diff_id, store, status);
                 });
 
                 let change_type_model = review
