@@ -10,24 +10,40 @@ import {
 
 component StatisticGridBox inherits Rectangle {
     in property <string> title;
+    in property <bool> show_checked: false;
+    in property <bool> is_checked: false;
     border-width: Style.size.border-width;
     border-color: Palette.border;
-    VerticalLayout {
-        spacing: 10px;
+    GridLayout {
         padding: 10px;
-        alignment: start;
-        Text {
-            text: root.title;
-            font-weight: 800;
-            horizontal-alignment: left;
-            vertical-alignment: center;
+        spacing-horizontal: 50px;
+        spacing-vertical: 10px;
+
+        Row {
+            Text {
+                text: root.title;
+                font-weight: 800;
+                horizontal-alignment: left;
+                vertical-alignment: center;
+            }
+
+            Rectangle {
+                height: Style.size.image_width;
+                if root.show_checked: Image {
+                    x: parent.width - self.width;
+                    vertical-alignment: center;
+                    horizontal-alignment: right;
+                    width: Style.size.image_width;
+                    states [
+                        checked when root.is_checked: {
+                            source: @image-url("../assets/icons/checked.svg");
+                        }
+                    ]
+                }
+            }
         }
 
-        GridLayout {
-            spacing-horizontal: 50px;
-            spacing-vertical: 10px;
-            @children
-        }
+        @children
     }
 }
 
@@ -76,6 +92,8 @@ export component OverallStatistics inherits Rectangle {
             padding-right: 10px;
             StatisticGridBox {
                 title: @tr("Review");
+                show_checked: true;
+                is_checked: root.review_progress.total-count == root.review_progress.completed-count;
                 Row {
                     StatisticLabel {
                         text: @tr("Files checked");
@@ -99,6 +117,8 @@ export component OverallStatistics inherits Rectangle {
 
             StatisticGridBox {
                 title: @tr("Notes");
+                show_checked: true;
+                is_checked: root.note_progress.total-count == root.note_progress.completed-count;
                 Row {
                     StatisticLabel {
                         text: @tr("Notes done");
