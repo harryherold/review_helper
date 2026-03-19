@@ -338,11 +338,29 @@ export component NotesView inherits Rectangle {
                             }
                         }
 
+                        delete_timer := Timer {
+                            interval: 2s;
+                            running: false;
+                            triggered => {
+                                self.running = false;
+                            }
+                        }
+
                         ToolButton {
+                            states [
+                                active_delete_timer when delete_timer.running: {
+                                    background: red;
+                                }
+                            ]
                             width: root.columns_width[2];
                             source: @image-url("../assets/icons/delete.svg");
                             clicked => {
-                                SlintReviewCallbacks.delete_note(note_id_parameter);
+                                if (delete_timer.running) {
+                                    SlintReviewCallbacks.delete_note(note_id_parameter);
+                                    delete_timer.stop();
+                                } else {
+                                    delete_timer.start();
+                                }
                             }
                         }
                     }
