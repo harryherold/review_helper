@@ -80,6 +80,9 @@ export component ErrorPopup inherits NewPopup {
                     if (root.result == SlintResult.OpenEditorFailed) {
                         return @tr("Open editor failed!");
                     }
+                    if (root.result == SlintResult.RenameReviewFailed) {
+                        return @tr("Rename review failed!");
+                    }
                     return @tr("Unknown Result");
                 }
             }

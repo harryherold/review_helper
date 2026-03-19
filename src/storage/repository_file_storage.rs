@@ -206,6 +206,23 @@ impl ReviewHelperStorage for ReviewHelperFileStorage {
         fs::remove_dir_all(review_dir_path)?;
         Ok(())
     }
+    fn rename_review(&self, repository_name: &RepositoryName, old_review_name: &ReviewName, new_review_name: &ReviewName) -> anyhow::Result<()> {
+        let repository_path = self.storage_path.join(repository_name.as_str());
+        if !repository_path.exists() {
+            return Err(anyhow::format_err!("Respository does not exist!"));
+        }
+        let old_review_dir_path = repository_path.join(old_review_name.as_str());
+        let old_file_name = PathBuf::from(format!("{}.toml", old_review_name.as_str()));
+        let old_review_file_path = old_review_dir_path.clone().join(old_file_name);
+
+        let new_review_dir_path = repository_path.join(new_review_name.as_str());
+        let new_file_name = PathBuf::from(format!("{}.toml", new_review_name.as_str()));
+
+        fs::rename(&old_review_file_path, &old_review_dir_path.join(new_file_name))?;
+        fs::rename(&old_review_dir_path, &new_review_dir_path)?;
+
+        Ok(())
+    }
     fn save_review_notes(&self, repository_name: &RepositoryName, review_name: &ReviewName, notes: &[&NoteStore]) -> anyhow::Result<()> {
         let repository_path = self.storage_path.join(repository_name.as_str());
         if !repository_path.exists() {
@@ -685,5 +702,33 @@ file_name = "foo.md"
         assert!(result.is_ok());
 
         assert!(!review_path.exists());
+    }
+    #[test]
+    #[serial]
+    fn test_renaming_review() {
+        struct Context(PathBuf);
+        impl Drop for Context {
+            fn drop(&mut self) {
+                let _ = fs::remove_dir_all(&self.0);
+            }
+        }
+
+        let context = Context(create_test_dir());
+        create_test_repos(&context.0);
+        let repository_storage = ReviewHelperFileStorage::new(context.0.clone());
+
+        let repository_name = RepositoryName::from("review_helper");
+        let old_review_name = ReviewName::from("fancy_ui");
+        let new_review_name = ReviewName::from("cool_fancy_ui");
+
+        let result = repository_storage.rename_review(&repository_name, &old_review_name, &new_review_name);
+        assert!(result.is_ok());
+
+        let new_review_names = repository_storage.load_review_names(&repository_name);
+        assert!(new_review_names.is_ok());
+        let new_review_names = new_review_names.unwrap();
+
+        assert!(new_review_names.contains(&new_review_name));
+        assert!(!new_review_names.contains(&old_review_name));
     }
 }

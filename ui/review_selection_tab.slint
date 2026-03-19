@@ -34,6 +34,12 @@ export component ReviewSelectionTab inherits TabViewItem {
             }
         }
         if enable-new-review: HorizontalLayout {
+            spacing: Style.size.spacing;
+            private property <SlintReviewIdParameters> review_ids: {
+                repository_id: root.repository_id,
+                review_id: 0,
+            };
+            private property <bool> is_new_name_valid: SlintReviewCallbacks.is_valid_review_name(review_ids, name-edit.text);
             Timer {
                 running: true;
                 interval: 50ms;
@@ -51,7 +57,7 @@ export component ReviewSelectionTab inherits TabViewItem {
                 }
                 input-type: text;
                 accepted(text) => {
-                    if (SlintStringUtils.is_valid_name(text)) {
+                    if (is_new_name_valid) {
                         SlintRepositoryCallbacks.new_review(root.repository_id, text);
                         enable-new-review = false;
                     }
@@ -65,9 +71,18 @@ export component ReviewSelectionTab inherits TabViewItem {
                 }
             }
 
-            Image {
-                source: SlintStringUtils.is_valid_name(name-edit.text) ? @image-url("../assets/icons/success.svg") : @image-url("../assets/icons/failed.svg");
-                width: Style.size.image_width;
+            Rectangle {
+                border-radius: Style.size.border_radius;
+                border-width: Style.size.border_width;
+                border-color: Palette.border;
+                // width: Style.size.control-height;
+
+                Image {
+                    vertical-alignment: center;
+                    horizontal-alignment: center;
+                    source: is_new_name_valid ? @image-url("../assets/icons/success.svg") : @image-url("../assets/icons/failed.svg");
+                    width: Style.size.image_width;
+                }
             }
         }
         ListView {
@@ -88,9 +103,35 @@ export component ReviewSelectionTab inherits TabViewItem {
                     width: Style.size.border-width;
                     background: Palette.selection-background;
                 }
-                if edit_switch.checked: LineEdit {
-                    text: review.name;
-                    preferred-height: Style.size.control-height;
+                if edit_switch.checked: HorizontalLayout {
+                    spacing: Style.size.spacing;
+                    private property <bool> is_edit_name_valid: SlintReviewCallbacks.is_valid_review_name(review_ids, review-name-edit.text);
+                    review-name-edit := LineEdit {
+                        text: review.name;
+                        preferred-height: Style.size.control-height;
+                        accepted(new_review_name) => {
+                            if is_edit_name_valid {
+                                SlintReviewCallbacks.change_review_name(review_ids, new_review_name);
+                            }
+                        }
+                        key-pressed(event) => {
+                            if (event.text == Key.Escape) {
+                                self.text = review.name;
+                                return EventResult.accept;
+                            }
+                            return EventResult.reject;
+                        }
+                    }
+
+                    Rectangle {
+                        border-radius: Style.size.border_radius;
+                        border-width: Style.size.border_width;
+                        border-color: Palette.border;
+                        Image {
+                            source: is_edit_name_valid ? @image-url("../assets/icons/success.svg") : @image-url("../assets/icons/failed.svg");
+                            width: Style.size.image_width;
+                        }
+                    }
                 }
                 if edit_switch.checked: ToolButton {
                     width: Style.size.control-height;

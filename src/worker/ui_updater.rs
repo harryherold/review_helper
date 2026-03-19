@@ -309,6 +309,17 @@ impl UiUpdater {
             })
             .unwrap();
     }
+    pub fn rename_review(&self, repository_id: usize, review_id: usize, new_review_name: SharedString) {
+        self.ui_weak
+            .upgrade_in_event_loop(move |app_window| {
+                let review_model = model_utils::get_review_model(&app_window, repository_id);
+                let review_model = review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>().unwrap();
+                let mut review = review_model.get(review_id).unwrap();
+                review.name = new_review_name;
+                review_model.update(review_id, review);
+            })
+            .unwrap();
+    }
 
     pub fn delete_note(&self, repository_id: usize, review_id: usize, note_id: usize) {
         self.ui_weak

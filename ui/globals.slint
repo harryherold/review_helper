@@ -24,6 +24,7 @@ export enum SlintResult {
     FindFileDifferenceFailed,
     ShowFileDifferencesFailed,
     DeleteReviewFailed,
+    RenameReviewFailed,
     DeleteRepositoryFailed,
     QueryingCommitsFailed,
     InvalidModel,
@@ -213,6 +214,8 @@ export global SlintReviewCallbacks {
     callback add_note(SlintReviewIdParameters, string, string);
     callback change_file_diff_is_reviewed(SlintFileDiffIdParamters, bool);
     callback show_file_differences(SlintFileDiffIdParamters);
+    callback change_review_name(SlintReviewIdParameters, string);
+    pure callback is_valid_review_name(SlintReviewIdParameters, string) -> bool;
 }
 
 export global SlintFilePickerAdapter {

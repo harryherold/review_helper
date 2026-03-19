@@ -211,6 +211,9 @@ impl Review {
     pub fn set_diff_range(&mut self, new_diff_range: DiffRangeStore) {
         self.diff_range = new_diff_range;
     }
+    pub fn rename(&mut self, new_review_name: ReviewName) {
+        self.name = new_review_name;
+    }
 }
 
 #[derive(Default, Clone)]
@@ -262,6 +265,21 @@ impl Reviews {
     }
     pub fn get_mut(&mut self, id: &ReviewId) -> Option<&mut Review> {
         self.id_review_map.get_mut(id)
+    }
+    pub fn rename_review(&mut self, review_id: &ReviewId, new_review_name: ReviewName) -> Option<ReviewName> {
+        if let Some(review) = self.id_review_map.get_mut(review_id) {
+            review.rename(new_review_name.clone());
+        }
+        let mut opt_old_name = None;
+        self.id_review_name_map.entry(review_id.clone()).and_modify(|name| {
+            opt_old_name = Some(name.clone());
+            *name = new_review_name.clone();
+        });
+        if let Some(old_name) = opt_old_name {
+            self.review_name_set.remove(&old_name);
+            return Some(old_name);
+        }
+        None
     }
     fn allocate_review_id(&mut self) -> ReviewId {
         if !self.last_review_id.is_next_id_valid() {

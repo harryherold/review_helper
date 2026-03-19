@@ -31,8 +31,9 @@ pub enum NoteChangeType {
 }
 
 pub enum ReviewContentChange {
-    NoteChange { id: NoteId, change_type: NoteChangeType },
-    FileDiffChange { id: FileDiffId, is_reviewed: bool },
+    NoteChange { note_id: NoteId, change_type: NoteChangeType },
+    FileDiffChange { file_diff_id: FileDiffId, is_reviewed: bool },
+    NameChange(ReviewName),
 }
 
 pub enum WorkerMessage {
@@ -294,7 +295,13 @@ impl WorkerImpl {
                     repository_id,
                     review_id,
                     content_change,
-                } => self.change_review(repository_id, review_id, content_change),
+                } => match content_change {
+                    ReviewContentChange::FileDiffChange { file_diff_id, is_reviewed } => {
+                        self.change_review_file_diff(repository_id, review_id, file_diff_id, is_reviewed)
+                    }
+                    ReviewContentChange::NoteChange { note_id, change_type } => self.change_review_notes(repository_id, review_id, note_id, change_type),
+                    ReviewContentChange::NameChange(new_review_name) => self.rename_review(repository_id, review_id, new_review_name),
+                },
                 WorkerMessage::FindFileDifferences {
                     repository_id,
                     review_id,
@@ -500,7 +507,80 @@ impl WorkerImpl {
 
         self.ui_updater.delete_review(repository_id.as_usize(), review_id.as_usize());
     }
-    fn change_review(&mut self, repository_id: RepositoryId, review_id: ReviewId, content_change: ReviewContentChange) {
+    fn rename_review(&mut self, repository_id: RepositoryId, review_id: ReviewId, new_review_name: ReviewName) {
+        let Some(repository) = self.repositories.get_mut(&repository_id) else {
+            self.ui_updater
+                .report_error(ui::SlintResult::ModelItemNotExists, &format!("repository id {}", repository_id.as_usize()));
+            return;
+        };
+        let Some(old_review_name) = repository.reviews.rename_review(&review_id, new_review_name.clone()) else {
+            return;
+        };
+        if let Err(e) = self.storage.rename_review(&repository.name, &old_review_name, &new_review_name) {
+            self.ui_updater.report_error(ui::SlintResult::RenameReviewFailed, &format!("{}", e.to_string()));
+        }
+        self.ui_updater
+            .rename_review(repository_id.as_usize(), review_id.as_usize(), SharedString::from(new_review_name.as_str()));
+    }
+    fn change_review_notes(&mut self, repository_id: RepositoryId, review_id: ReviewId, note_id: NoteId, change_type: NoteChangeType) {
+        let Some(repository) = self.repositories.get_mut(&repository_id) else {
+            self.ui_updater
+                .report_error(ui::SlintResult::ModelItemNotExists, &format!("repository id {}", repository_id.as_usize()));
+            return;
+        };
+
+        let Some(review) = repository.reviews.get_mut(&review_id) else {
+            self.ui_updater.report_error(
+                ui::SlintResult::ModelItemNotExists,
+                &format!("repository id {} review id {}", repository_id.as_usize(), review_id.as_usize()),
+            );
+            return;
+        };
+        let update_note_references = |note_id: &NoteId, opt_old_file_diff_id: Option<&FileDiffId>, opt_new_file_diff_id: Option<&FileDiffId>| {
+            if let Some(old_file_diff_id) = opt_old_file_diff_id {
+                self.ui_updater
+                    .remove_note_reference(repository_id.as_usize(), review_id.as_usize(), note_id.as_usize(), old_file_diff_id.as_usize());
+            }
+            if let Some(new_file_diff_id) = opt_new_file_diff_id {
+                self.ui_updater
+                    .add_note_reference(repository_id.as_usize(), review_id.as_usize(), note_id.as_usize(), new_file_diff_id.as_usize());
+            }
+        };
+        let Some(note) = review.notes.get_mut(&note_id) else {
+            self.ui_updater
+                .report_error(ui::SlintResult::ModelItemNotExists, &format!("note id {}", note_id.as_usize()));
+            return;
+        };
+        let mut opt_context_type = None;
+        match change_type.clone() {
+            NoteChangeType::TextChanged(new_text) => note.text = new_text,
+            NoteChangeType::ContextChanged(new_context) => {
+                opt_context_type = if review.file_diffs.file_id_map.contains_key(&new_context) {
+                    Some(SlintContextType::File)
+                } else {
+                    Some(SlintContextType::Text)
+                };
+                let new_file_diff_id = review.file_diffs.file_id_map.get(&new_context);
+                let old_file_diff_id = review.file_diffs.file_id_map.get(&note.context);
+                update_note_references(&note_id, old_file_diff_id, new_file_diff_id);
+
+                note.context = new_context;
+            }
+            NoteChangeType::IsDoneChanged(new_is_done) => note.is_done = new_is_done,
+        }
+        if let Err(e) = self.storage.save_review_notes(&repository.name, &review.name(), &review.notes.stores()) {
+            self.ui_updater.report_error(ui::SlintResult::StoreFailed, &e.to_string());
+            return;
+        }
+        self.ui_updater.update_note(
+            repository_id.as_usize(),
+            review_id.as_usize(),
+            note_id.as_usize(),
+            change_type,
+            opt_context_type,
+        );
+    }
+    fn change_review_file_diff(&mut self, repository_id: RepositoryId, review_id: ReviewId, file_diff_id: FileDiffId, is_reviewed: bool) {
         let Some(repository) = self.repositories.get_mut(&repository_id) else {
             self.ui_updater
                 .report_error(ui::SlintResult::ModelItemNotExists, &format!("repository id {}", repository_id.as_usize()));
@@ -515,67 +595,16 @@ impl WorkerImpl {
             return;
         };
 
-        let change_file_diff = |review: &mut Review, file_diff_id: FileDiffId, is_reviewed: bool| {
-            review.file_diffs.set_is_reviewed(&file_diff_id, is_reviewed);
-            if let Err(e) = self
-                .storage
-                .save_review_file_diffs(&repository.name, &review.name(), &review.diff_range(), &review.file_diffs.stores())
-            {
-                self.ui_updater.report_error(ui::SlintResult::StoreFailed, &e.to_string());
-                return;
-            }
-            self.ui_updater
-                .set_file_diff_is_reviewed(repository_id.as_usize(), review_id.as_usize(), file_diff_id.as_usize(), is_reviewed);
-        };
-        let update_note_references = |note_id: &NoteId, opt_old_file_diff_id: Option<&FileDiffId>, opt_new_file_diff_id: Option<&FileDiffId>| {
-            if let Some(old_file_diff_id) = opt_old_file_diff_id {
-                self.ui_updater
-                    .remove_note_reference(repository_id.as_usize(), review_id.as_usize(), note_id.as_usize(), old_file_diff_id.as_usize());
-            }
-            if let Some(new_file_diff_id) = opt_new_file_diff_id {
-                self.ui_updater
-                    .add_note_reference(repository_id.as_usize(), review_id.as_usize(), note_id.as_usize(), new_file_diff_id.as_usize());
-            }
-        };
-        let change_note = |review: &mut Review, note_id: NoteId, change_type: NoteChangeType| {
-            let Some(note) = review.notes.get_mut(&note_id) else {
-                self.ui_updater
-                    .report_error(ui::SlintResult::ModelItemNotExists, &format!("note id {}", note_id.as_usize()));
-                return;
-            };
-            let mut opt_context_type = None;
-            match change_type.clone() {
-                NoteChangeType::TextChanged(new_text) => note.text = new_text,
-                NoteChangeType::ContextChanged(new_context) => {
-                    opt_context_type = if review.file_diffs.file_id_map.contains_key(&new_context) {
-                        Some(SlintContextType::File)
-                    } else {
-                        Some(SlintContextType::Text)
-                    };
-                    let new_file_diff_id = review.file_diffs.file_id_map.get(&new_context);
-                    let old_file_diff_id = review.file_diffs.file_id_map.get(&note.context);
-                    update_note_references(&note_id, old_file_diff_id, new_file_diff_id);
-
-                    note.context = new_context;
-                }
-                NoteChangeType::IsDoneChanged(new_is_done) => note.is_done = new_is_done,
-            }
-            if let Err(e) = self.storage.save_review_notes(&repository.name, &review.name(), &review.notes.stores()) {
-                self.ui_updater.report_error(ui::SlintResult::StoreFailed, &e.to_string());
-                return;
-            }
-            self.ui_updater.update_note(
-                repository_id.as_usize(),
-                review_id.as_usize(),
-                note_id.as_usize(),
-                change_type,
-                opt_context_type,
-            );
-        };
-        match content_change {
-            ReviewContentChange::FileDiffChange { id, is_reviewed } => change_file_diff(review, id, is_reviewed),
-            ReviewContentChange::NoteChange { id, change_type } => change_note(review, id, change_type),
+        review.file_diffs.set_is_reviewed(&file_diff_id, is_reviewed);
+        if let Err(e) = self
+            .storage
+            .save_review_file_diffs(&repository.name, &review.name(), &review.diff_range(), &review.file_diffs.stores())
+        {
+            self.ui_updater.report_error(ui::SlintResult::StoreFailed, &e.to_string());
+            return;
         }
+        self.ui_updater
+            .set_file_diff_is_reviewed(repository_id.as_usize(), review_id.as_usize(), file_diff_id.as_usize(), is_reviewed);
     }
     fn find_file_difference(&mut self, repository_id: RepositoryId, review_id: ReviewId, diff_range: DiffRangeStore) {
         let Some(repository) = self.repositories.get_mut(&repository_id) else {

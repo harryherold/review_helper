@@ -3,12 +3,21 @@ use std::{cell::RefCell, rc::Rc};
 use crate::{
     model::{FileDiffProxyModels, IdModel, NotesProxyModels, ProxyModels, ReviewProxyModels, model_utils},
     repositories::{FileDiffId, NoteId, RepositoryId, ReviewId},
-    storage::repository_storage::DiffRangeStore,
+    storage::repository_storage::{DiffRangeStore, ReviewName},
     ui,
     worker::{NoteChangeType, ReviewContentChange, WorkerChannel, WorkerMessage},
 };
 
+use regex::Regex;
 use slint::{ComponentHandle, Model, ModelRc, SharedString};
+
+fn is_vaild_name(name: &str) -> bool {
+    if name.is_empty() {
+        return false;
+    }
+    let re = Regex::new(r"^[A-Za-z][A-Za-z0-9]*$").unwrap();
+    re.is_match(name)
+}
 
 pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: WorkerChannel, proxy_models: Rc<RefCell<ProxyModels>>) {
     fn get_file_diff_proxy_model(ids: ui::SlintReviewIdParameters, proxy_models: &Rc<RefCell<ProxyModels>>) -> Rc<FileDiffProxyModels> {
@@ -128,7 +137,7 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
             let repository_id = RepositoryId::from(ids.review_id_parameters.repository_id);
             let review_id = ReviewId::from(ids.review_id_parameters.review_id);
             let content_change = ReviewContentChange::FileDiffChange {
-                id: FileDiffId::from(ids.file_diff_id),
+                file_diff_id: FileDiffId::from(ids.file_diff_id),
                 is_reviewed: new_is_reviewed,
             };
             let message = WorkerMessage::ChangeReview {
@@ -146,7 +155,7 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
             let review_id = ReviewId::from(ids.review_id_parameters.review_id);
             let note_id = NoteId::from(ids.note_id);
             let content_change = ReviewContentChange::NoteChange {
-                id: note_id,
+                note_id,
                 change_type: NoteChangeType::TextChanged(String::from(&new_text)),
             };
             let message = WorkerMessage::ChangeReview {
@@ -164,7 +173,7 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
             let review_id = ReviewId::from(ids.review_id_parameters.review_id);
             let note_id = NoteId::from(ids.note_id);
             let content_change = ReviewContentChange::NoteChange {
-                id: note_id,
+                note_id,
                 change_type: NoteChangeType::ContextChanged(String::from(&new_context)),
             };
             let message = WorkerMessage::ChangeReview {
@@ -182,7 +191,7 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
             let review_id = ReviewId::from(ids.review_id_parameters.review_id);
             let note_id = NoteId::from(ids.note_id);
             let content_change = ReviewContentChange::NoteChange {
-                id: note_id,
+                note_id,
                 change_type: NoteChangeType::IsDoneChanged(new_is_done),
             };
             let message = WorkerMessage::ChangeReview {
@@ -283,5 +292,34 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
             let model = model.as_any().downcast_ref::<IdModel<ui::SlintFileDiff>>().unwrap();
             model.has(file_diff_id_parameter.file_diff_id as usize)
         }
-    })
+    });
+    app_window.global::<ui::SlintReviewCallbacks>().on_change_review_name({
+        let channel = worker_channel.clone();
+        move |ids, new_review_name| {
+            let message = WorkerMessage::ChangeReview {
+                repository_id: RepositoryId::from(ids.repository_id),
+                review_id: ReviewId::from(ids.review_id),
+                content_change: ReviewContentChange::NameChange(ReviewName::from(new_review_name.as_str())),
+            };
+            channel.send(message).unwrap();
+        }
+    });
+    app_window.global::<ui::SlintReviewCallbacks>().on_is_valid_review_name({
+        let app_window_weak = app_window.as_weak();
+        move |ids, name| -> bool {
+            if !is_vaild_name(name.as_str()) {
+                return false;
+            }
+            let app_window = app_window_weak.unwrap();
+            let review_model = model_utils::get_review_model(&app_window, ids.repository_id as usize);
+            let review_model = review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>().unwrap();
+            !review_model.iter().any(|review| {
+                if ids.review_id == 0 {
+                    review.name == name
+                } else {
+                    review.name == name && review.id != ids.review_id
+                }
+            })
+        }
+    });
 }
