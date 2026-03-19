@@ -125,16 +125,33 @@ export component NotesView inherits Rectangle {
                 }
 
                 HorizontalLayout {
+                    property <bool> can_add_note: !new_note_text.is-empty;
                     property <string> new_note_text <=> new-note-edit.text;
                     property <string> new_context <=> new-context-edit.text;
+                    function add_note() {
+                        SlintReviewCallbacks.add_note(root.review_id_parameters, new_note_text, new_context);
+                        new_note_text = "";
+                        new_context = "";
+                    }
+
                     spacing: Style.size.spacing;
                     new-note-edit := LineEdit {
                         placeholder-text: @tr("Add comment here...");
+                        accepted => {
+                            if can_add_note {
+                                add_note()
+                            }
+                        }
                     }
 
                     new-context-edit := LineEdit {
                         horizontal-alignment: left;
                         placeholder-text: @tr("Add context here...");
+                        accepted => {
+                            if can_add_note {
+                                add_note()
+                            }
+                        }
                     }
 
                     new-file-picker-button := ToolButton {
@@ -152,11 +169,9 @@ export component NotesView inherits Rectangle {
 
                     ToolButton {
                         source: @image-url("../assets/icons/add.svg");
-                        enabled: new_note_text != "";
+                        enabled: can_add_note;
                         clicked => {
-                            SlintReviewCallbacks.add_note(root.review_id_parameters, new_note_text, new_context);
-                            new_note_text = "";
-                            new_context = "";
+                            add_note()
                         }
                     }
                 }
