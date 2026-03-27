@@ -42,40 +42,37 @@ impl ReviewHelperStorage for ReviewHelperFileStorage {
             .map(|r| r.expect("Errors should be filtered!").path())
             .collect::<Vec<PathBuf>>();
 
-        // TODO refactor
-        let mut tomls = Vec::new();
+        let tomls = nested_directories
+            .iter()
+            .filter_map(|directory| {
+                fs::read_dir(directory).ok()?.find_map(|entry| {
+                    let path = entry.ok()?.path();
+                    if path.is_file() && is_toml(&path) { Some(path) } else { None }
+                })
+            })
+            .collect::<Vec<_>>();
 
-        for directory in &nested_directories {
-            let result = fs::read_dir(directory)?.find(|entry| match entry {
-                Ok(dir_entry) => dir_entry.path().is_file() && is_toml(&dir_entry.path()),
-                Err(_) => false,
-            });
-            if let Some(Ok(repo_toml)) = result {
-                tomls.push(repo_toml.path());
-            }
-        }
-
-        let mut repositories = Vec::new();
-
-        for toml in tomls {
-            let contents = fs::read_to_string(&toml)?;
-            let table = contents.parse::<Table>()?;
-            let mut repository_store = RepositoryStore::default();
-            if let Some(path) = table["path"].as_str() {
-                repository_store.path = PathBuf::from(path);
-            }
-            // TODO check if commit is valid using git_utils::repo_contains_commit
-            if let Some(first_commit) = table["first_commit"].as_str() {
-                repository_store.first_commit = first_commit.to_string();
-            }
-            if let Some(name) = table["name"].as_str() {
-                repository_store.name = name.into();
-            }
-            if let Some(base_branch) = table["base_branch"].as_str() {
-                repository_store.base_branch = base_branch.to_string();
-            }
-            repositories.push(repository_store);
-        }
+        let repositories = tomls
+            .into_iter()
+            .filter_map(|toml| {
+                let contents = fs::read_to_string(&toml).ok()?;
+                let table = contents.parse::<Table>().ok()?;
+                let mut repository_store = RepositoryStore::default();
+                if let Some(path) = table["path"].as_str() {
+                    repository_store.path = PathBuf::from(path);
+                }
+                if let Some(first_commit) = table["first_commit"].as_str() {
+                    repository_store.first_commit = first_commit.to_string();
+                }
+                if let Some(name) = table["name"].as_str() {
+                    repository_store.name = name.into();
+                }
+                if let Some(base_branch) = table["base_branch"].as_str() {
+                    repository_store.base_branch = base_branch.to_string();
+                }
+                Some(repository_store)
+            })
+            .collect::<Vec<_>>();
 
         Ok(repositories)
     }
