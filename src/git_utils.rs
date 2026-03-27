@@ -78,7 +78,7 @@ pub fn is_git_repo(path: &PathBuf) -> bool {
     git_folder.is_dir()
 }
 
-pub fn repo_contains_commit(path: &PathBuf, commit: &str) -> anyhow::Result<bool> {
+pub fn _repo_contains_commit(path: &PathBuf, commit: &str) -> anyhow::Result<bool> {
     let args = vec!["cat-file", "-t", commit];
     let output = git_command!(path, args).output()?;
     let msg = String::from_utf8(output.stdout)?;
@@ -401,7 +401,7 @@ mod tests {
 
         let expected_cmd = [&["git"], &args[..]].concat();
 
-        let result = repo_contains_commit(&ctx.path, commit);
+        let result = _repo_contains_commit(&ctx.path, commit);
 
         assert!(was_command_executed(&expected_cmd, Some(ctx.path.to_str().unwrap_or_default())));
 

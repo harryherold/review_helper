@@ -2,10 +2,6 @@ use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 
 use crate::{model::IdModel, ui};
 
-pub fn is_model_set<MyModel: 'static + Model>(model: &ModelRc<MyModel::Data>) -> bool {
-    model.as_any().downcast_ref::<MyModel>().is_some()
-}
-
 pub fn get_commit_model(app_window: &ui::AppWindow) -> ModelRc<ui::SlintCommit> {
     let commit_model = app_window.global::<ui::SlintCommitPickerAdapter>().get_commit_source_model();
     commit_model
