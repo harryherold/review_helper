@@ -53,6 +53,7 @@ export component RepositorySettingsTab inherits TabViewItem {
             }
 
             LineEdit {
+                // TODO Update property
                 text: root.base_branch;
                 accepted(text) => {
                     SlintRepositoryCallbacks.repository_changed(root.repository_id, text);

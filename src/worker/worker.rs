@@ -370,7 +370,15 @@ impl WorkerImpl {
             .get_mut(&repository_id)
             .unwrap_or_else(|| panic!("Could not find {}", repository_id));
 
-        // TODO check if branch exists
+        match git_utils::repo_contains_branch(&repository.path(), &base_branch) {
+            Ok(contains_branch) => {
+                if !contains_branch {
+                    self.ui_updater.report_error(ui::SlintResult::GitBranchDoesNotExists, "Branch does not exists!");
+                }
+            }
+            Err(e) => self.ui_updater.report_error(ui::SlintResult::GitBranchFailed, &e.to_string()),
+        }
+
         let ui_base_branch = SharedString::from(&base_branch);
         repository.set_base_branch(base_branch);
         if let Err(_) = self.storage.save_repository(&repository.store()) {

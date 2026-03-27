@@ -85,6 +85,13 @@ pub fn _repo_contains_commit(path: &PathBuf, commit: &str) -> anyhow::Result<boo
     Ok(msg.contains("commit"))
 }
 
+pub fn repo_contains_branch(path: &PathBuf, branch: &str) -> anyhow::Result<bool> {
+    let args = vec!["branch", "--list", branch];
+    let output = git_command!(path, args).output()?;
+    let msg = String::from_utf8(output.stdout)?;
+    Ok(!msg.is_empty())
+}
+
 pub fn diff_git_repo(repo_path: &PathBuf, start_commit: &str, end_commit: &str) -> anyhow::Result<FileDiffMap> {
     let files_change_type = diff_name_status(repo_path, start_commit, end_commit)?;
     let files_stats = query_file_stats(repo_path, start_commit, end_commit, files_change_type)?;
@@ -402,6 +409,23 @@ mod tests {
         let expected_cmd = [&["git"], &args[..]].concat();
 
         let result = _repo_contains_commit(&ctx.path, commit);
+
+        assert!(was_command_executed(&expected_cmd, Some(ctx.path.to_str().unwrap_or_default())));
+
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+    }
+
+    #[test]
+    fn test_repo_contains_branch() {
+        let ctx = setup();
+        let branch = "main";
+        let args = ["branch", "--list", branch];
+
+        mock("git").current_dir(&ctx.path).with_args(&args).with_stdout("main").register();
+        let expected_cmd = [&["git"], &args[..]].concat();
+
+        let result = repo_contains_branch(&ctx.path, branch);
 
         assert!(was_command_executed(&expected_cmd, Some(ctx.path.to_str().unwrap_or_default())));
 

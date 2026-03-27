@@ -80,6 +80,12 @@ export component ErrorPopup inherits NewPopup {
                     if (root.result == SlintResult.RenameReviewFailed) {
                         return @tr("Rename review failed!");
                     }
+                    if (root.result == SlintResult.GitBranchFailed) {
+                        return @tr("Execute git branch failed!");
+                    }
+                    if (root.result == SlintResult.GitBranchDoesNotExists) {
+                        return @tr("Branch does not exists!");
+                    }
                     return @tr("Unknown Result");
                 }
             }
