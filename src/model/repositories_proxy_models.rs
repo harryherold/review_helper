@@ -1,11 +1,11 @@
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
-use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
+use slint::ModelRc;
 
-use crate::model::{CommitProxyModels, FileDiffProxyModels, FilesProxyModel, NotesProxyModels};
+use crate::model::{FileDiffProxyModels, FilesProxyModel, NotesProxyModels};
 use crate::repositories::{RepositoryId, ReviewId};
-use crate::ui::{self, SlintCommit};
+use crate::ui;
 
 pub struct ReviewProxyModels {
     files_proxy_model: Rc<FilesProxyModel>,
@@ -53,26 +53,14 @@ impl RepositoryProxyModels {
     }
 }
 
-pub struct ProxyModels {
+pub struct RepositoriesProxyModels {
     id_repository_models_map: BTreeMap<RepositoryId, RepositoryProxyModels>,
-    // TODO It is may be better to extract commit_proxy_model
-    pub commit_proxy_models: Rc<CommitProxyModels>,
 }
 
-impl ProxyModels {
-    pub fn new(app_window: &ui::AppWindow) -> Self {
-        // TODO move into worker
-        let commit_model: ModelRc<SlintCommit> = Rc::new(VecModel::default()).into();
-        app_window
-            .global::<ui::SlintCommitPickerAdapter>()
-            .set_commit_source_model(commit_model.clone());
-
-        let author_model: ModelRc<SharedString> = Rc::new(VecModel::default()).into();
-        app_window.global::<ui::SlintCommitPickerAdapter>().set_author_model(author_model);
-
+impl RepositoriesProxyModels {
+    pub fn new() -> Self {
         Self {
             id_repository_models_map: BTreeMap::new(),
-            commit_proxy_models: Rc::new(CommitProxyModels::new(commit_model)),
         }
     }
     pub fn mut_repository_proxy_models(&mut self, repository_id: &RepositoryId) -> Option<&mut RepositoryProxyModels> {

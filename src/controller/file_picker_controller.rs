@@ -1,13 +1,13 @@
 use std::{cell::RefCell, rc::Rc};
 
 use crate::{
-    model::{IdModel, ProxyModels, model_utils},
+    model::{IdModel, RepositoriesProxyModels, model_utils},
     repositories::{RepositoryId, ReviewId},
     ui,
 };
 use slint::{ComponentHandle, Model, ModelRc, SharedString};
 
-pub fn setup_file_picker(app_window: &ui::AppWindow, proxy_models: Rc<RefCell<ProxyModels>>) {
+pub fn setup_file_picker(app_window: &ui::AppWindow, proxy_models: Rc<RefCell<RepositoriesProxyModels>>) {
     app_window.global::<ui::SlintFilePickerAdapter>().on_file_model({
         let proxy_models = proxy_models.clone();
         move |ids| -> ModelRc<SharedString> {

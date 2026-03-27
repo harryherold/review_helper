@@ -1,7 +1,7 @@
 use std::{cell::RefCell, rc::Rc};
 
 use crate::{
-    model::{FileDiffProxyModels, IdModel, NotesProxyModels, ProxyModels, ReviewProxyModels, model_utils},
+    model::{FileDiffProxyModels, IdModel, NotesProxyModels, RepositoriesProxyModels, ReviewProxyModels, model_utils},
     repositories::{FileDiffId, NoteId, RepositoryId, ReviewId},
     storage::repository_storage::{DiffRangeStore, ReviewName},
     ui,
@@ -19,8 +19,8 @@ fn is_vaild_name(name: &str) -> bool {
     re.is_match(name)
 }
 
-pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: WorkerChannel, proxy_models: Rc<RefCell<ProxyModels>>) {
-    fn get_file_diff_proxy_model(ids: ui::SlintReviewIdParameters, proxy_models: &Rc<RefCell<ProxyModels>>) -> Rc<FileDiffProxyModels> {
+pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: WorkerChannel, proxy_models: Rc<RefCell<RepositoriesProxyModels>>) {
+    fn get_file_diff_proxy_model(ids: ui::SlintReviewIdParameters, proxy_models: &Rc<RefCell<RepositoriesProxyModels>>) -> Rc<FileDiffProxyModels> {
         let repository_id = RepositoryId::from(ids.repository_id);
         let review_id = ReviewId::from(ids.review_id);
 
@@ -33,7 +33,7 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
             .expect("Could not find review!")
             .file_diff_proxy_model()
     }
-    fn get_notes_proxy_models(ids: ui::SlintReviewIdParameters, proxy_models: &Rc<RefCell<ProxyModels>>) -> Rc<NotesProxyModels> {
+    fn get_notes_proxy_models(ids: ui::SlintReviewIdParameters, proxy_models: &Rc<RefCell<RepositoriesProxyModels>>) -> Rc<NotesProxyModels> {
         let repository_id = RepositoryId::from(ids.repository_id);
         let review_id = ReviewId::from(ids.review_id);
 
