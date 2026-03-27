@@ -1,6 +1,7 @@
 use std::{
     collections::{HashMap, HashSet, hash_map},
     convert::From,
+    fmt,
     hash::Hash,
     path::PathBuf,
 };
@@ -37,6 +38,12 @@ macro_rules! create_id {
         impl From<i32> for $name {
             fn from(value: i32) -> Self {
                 $name(value as usize)
+            }
+        }
+
+        impl fmt::Display for $name {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                write!(f, "Repository({})", self.0)
             }
         }
     };

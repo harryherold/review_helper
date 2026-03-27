@@ -46,7 +46,7 @@ impl From<&ReviewName> for String {
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct RepositoryStore {
     pub path: PathBuf,
-    pub name: RepositoryName, // TODO not required
+    pub name: RepositoryName,
     pub first_commit: String,
     pub base_branch: String,
 }

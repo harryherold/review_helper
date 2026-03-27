@@ -50,9 +50,6 @@ export component ErrorPopup inherits NewPopup {
                     if (root.result == SlintResult.StoreFailed) {
                         return @tr("Could store repository data!");
                     }
-                    if (root.result == SlintResult.ModelItemNotExists) {
-                        return @tr("Could not find model item!");
-                    }
                     if (root.result == SlintResult.LoadReviewNamesFailed) {
                         return @tr("Could not load review names of repository!");
                     }

@@ -31,7 +31,6 @@ pub fn setup_file_diffs(app_window: &ui::AppWindow) {
             let repository_path = {
                 let repository_model = app_window.global::<ui::SlintReviewHelper>().get_repositories();
                 let repository_model = repository_model.as_any().downcast_ref::<IdModel<ui::SlintRepository>>().unwrap();
-                // TODO caught error and put it in developer message stack or something like that!
                 let repository = repository_model.get(repository_id as usize).unwrap();
                 PathBuf::from(repository.path.as_str())
             };

@@ -378,15 +378,10 @@ impl UiUpdater {
         note_model.id_to_index(note_id)
     }
 
-    fn get_note_references(app_window: &ui::AppWindow, review: &SlintReview, file_diff_id: usize) -> ModelRc<i32> {
+    fn get_note_references(review: &SlintReview, file_diff_id: usize) -> ModelRc<i32> {
         let file_diff_model = review.file_diff_model.as_any().downcast_ref::<IdModel<ui::SlintFileDiff>>().unwrap();
         let Some(file_diff) = file_diff_model.get(file_diff_id) else {
-            model_utils::report_error(
-                app_window,
-                ui::SlintResult::ModelItemNotExists,
-                SharedString::from(format!("file diff id {}", file_diff_id)),
-            );
-            return ModelRc::default();
+            panic!("Could not find file diff id {}", file_diff_id);
         };
         file_diff.referenced_notes
     }
@@ -419,14 +414,7 @@ impl UiUpdater {
     {
         self.ui_weak
             .upgrade_in_event_loop(move |app_window| {
-                let Some(review) = model_utils::get_slint_review(&app_window, repository_id, review_id) else {
-                    model_utils::report_error(
-                        &app_window,
-                        ui::SlintResult::ModelItemNotExists,
-                        SharedString::from(format!("repository id {} review id {}", repository_id, review_id)),
-                    );
-                    return;
-                };
+                let review = model_utils::get_slint_review(&app_window, repository_id, review_id);
                 let file_diff_model = review.file_diff_model.as_any().downcast_ref::<IdModel<ui::SlintFileDiff>>().unwrap();
                 let mut note_indexes = Vec::new();
                 deleted_file_ids.into_iter().for_each(|id| {
@@ -448,19 +436,12 @@ impl UiUpdater {
     pub fn add_note_reference(&self, repository_id: usize, review_id: usize, note_id: usize, file_diff_id: usize) {
         self.ui_weak
             .upgrade_in_event_loop(move |app_window| {
-                let Some(review) = model_utils::get_slint_review(&app_window, repository_id, review_id) else {
-                    model_utils::report_error(
-                        &app_window,
-                        ui::SlintResult::ModelItemNotExists,
-                        SharedString::from(format!("repository id {} review id {}", repository_id, review_id)),
-                    );
-                    return;
-                };
+                let review = model_utils::get_slint_review(&app_window, repository_id, review_id);
                 let note_index = Self::note_id_to_index(&review, note_id);
                 if note_index < 0 {
                     return;
                 }
-                let referenced_notes_model = Self::get_note_references(&app_window, &review, file_diff_id);
+                let referenced_notes_model = Self::get_note_references(&review, file_diff_id);
                 let referenced_notes_model = referenced_notes_model.as_any().downcast_ref::<VecModel<i32>>().unwrap();
                 referenced_notes_model.push(note_index);
             })
@@ -469,24 +450,18 @@ impl UiUpdater {
     pub fn remove_note_reference(&self, repository_id: usize, review_id: usize, note_id: usize, file_diff_id: usize) {
         self.ui_weak
             .upgrade_in_event_loop(move |app_window| {
-                let Some(review) = model_utils::get_slint_review(&app_window, repository_id, review_id) else {
-                    model_utils::report_error(
-                        &app_window,
-                        ui::SlintResult::ModelItemNotExists,
-                        SharedString::from(format!("repository id {} review id {}", repository_id, review_id)),
-                    );
-                    return;
-                };
+                let review = model_utils::get_slint_review(&app_window, repository_id, review_id);
                 let note_index = Self::note_id_to_index(&review, note_id);
                 if note_index < 0 {
                     return;
                 }
-                let referenced_notes_model = Self::get_note_references(&app_window, &review, file_diff_id);
+                let referenced_notes_model = Self::get_note_references(&review, file_diff_id);
                 let referenced_notes_model = referenced_notes_model.as_any().downcast_ref::<VecModel<i32>>().unwrap();
-                if let Some(remove_index) = referenced_notes_model.iter().position(|i| i == note_index) {
-                    // TODO add error handling
-                    referenced_notes_model.remove(remove_index);
-                };
+                let remove_index = referenced_notes_model
+                    .iter()
+                    .position(|i| i == note_index)
+                    .unwrap_or_else(|| panic!("Could not find referenced note index {} ({}, {})", note_index, review_id, repository_id));
+                referenced_notes_model.remove(remove_index);
             })
             .unwrap();
     }
@@ -496,14 +471,9 @@ impl UiUpdater {
             .upgrade_in_event_loop(move |app_window| {
                 let review_model = model_utils::get_review_model(&app_window, repository_id);
                 let review_model = review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>().unwrap();
-                let Some(mut review) = review_model.get(review_id) else {
-                    model_utils::report_error(
-                        &app_window,
-                        ui::SlintResult::ModelItemNotExists,
-                        SharedString::from(format!("repository id {} review id {}", repository_id, review_id)),
-                    );
-                    return;
-                };
+                let mut review = review_model
+                    .get(review_id)
+                    .unwrap_or_else(|| panic!("Could not find repository-id({})-review-id({})", repository_id, review_id));
 
                 let file_diff_model = review.file_diff_model.as_any().downcast_ref::<IdModel<ui::SlintFileDiff>>().unwrap();
                 file_diff_model.clear();

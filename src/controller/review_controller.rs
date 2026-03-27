@@ -9,7 +9,7 @@ use crate::{
 };
 
 use regex::Regex;
-use slint::{ComponentHandle, Model, ModelRc, SharedString};
+use slint::{ComponentHandle, Model, ModelRc};
 
 fn is_vaild_name(name: &str) -> bool {
     if name.is_empty() {
@@ -97,16 +97,9 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
             if !repository_proxy_models.has_review_proxy_models(&review_id) {
                 let ui = ui_weak.unwrap();
 
-                if let Some(review) = model_utils::get_slint_review(&ui, repository_id.as_usize(), review_id.as_usize()) {
-                    let review_proxy_models = ReviewProxyModels::new(review.file_diff_model.clone(), review.note_model.clone());
-                    repository_proxy_models.add_review_proxy_models(review_id.clone(), review_proxy_models);
-                } else {
-                    model_utils::report_error(
-                        &ui,
-                        ui::SlintResult::ModelItemNotExists,
-                        SharedString::from(format!("repository id {} review id {}", repository_id.as_usize(), review_id.as_usize())),
-                    );
-                }
+                let review = model_utils::get_slint_review(&ui, repository_id.as_usize(), review_id.as_usize());
+                let review_proxy_models = ReviewProxyModels::new(review.file_diff_model.clone(), review.note_model.clone());
+                repository_proxy_models.add_review_proxy_models(review_id.clone(), review_proxy_models);
             }
         }
     });

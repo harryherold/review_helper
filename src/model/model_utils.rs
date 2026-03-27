@@ -22,11 +22,13 @@ pub fn get_review_model(app_window: &ui::AppWindow, repository_id: usize) -> Mod
         None => ModelRc::<ui::SlintReview>::default(),
     }
 }
-pub fn get_slint_review(app_window: &ui::AppWindow, repository_id: usize, review_id: usize) -> Option<ui::SlintReview> {
+pub fn get_slint_review(app_window: &ui::AppWindow, repository_id: usize, review_id: usize) -> ui::SlintReview {
     let review_model = get_review_model(app_window, repository_id);
-    let review_model = review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>()?;
+    let review_model = review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>().expect("Could find model!");
 
-    review_model.get(review_id)
+    review_model
+        .get(review_id)
+        .unwrap_or_else(|| panic!("Could not find repository-id({})-review-id({})", repository_id, review_id))
 }
 pub fn get_note_model(app_window: &ui::AppWindow, repository_id: usize, review_id: usize) -> ModelRc<ui::SlintNote> {
     let review_model = get_review_model(app_window, repository_id);

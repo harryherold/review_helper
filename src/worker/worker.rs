@@ -218,30 +218,21 @@ impl WorkerImpl {
         self.ui_updater.report_error(ui_error, ui_error_text);
     }
     fn show_file_differences(&self, repository_id: RepositoryId, review_id: ReviewId, file_diff_id: FileDiffId) {
-        let Some(repository) = self.repositories.get(&repository_id) else {
-            self.ui_updater
-                .report_error(ui::SlintResult::ModelItemNotExists, &format!("repository  id {}", repository_id.as_usize()));
-            return;
-        };
-        let Some(review) = repository.reviews.get(&review_id) else {
-            self.ui_updater.report_error(
-                ui::SlintResult::ModelItemNotExists,
-                &format!("repository id {} review id {}", repository_id.as_usize(), review_id.as_usize()),
-            );
-            return;
-        };
-        let Some(file_diff) = review.file_diffs.get(&file_diff_id) else {
-            self.ui_updater.report_error(
-                ui::SlintResult::ModelItemNotExists,
-                &format!(
-                    "repository id {} review id {} file diff id {}",
-                    repository_id.as_usize(),
-                    review_id.as_usize(),
-                    file_diff_id.as_usize()
-                ),
-            );
-            return;
-        };
+        let repository = self
+            .repositories
+            .get(&repository_id)
+            .unwrap_or_else(|| panic!("Could not find {}", repository_id));
+
+        let review = repository
+            .reviews
+            .get(&review_id)
+            .unwrap_or_else(|| panic!("Could not find {} in {}", review_id, repository_id));
+
+        let file_diff = review
+            .file_diffs
+            .get(&file_diff_id)
+            .unwrap_or_else(|| panic!("Could not find {} of {} in {}", file_diff_id, review_id, repository_id));
+
         let start_commit = review.diff_range().start.as_str();
         let end_commit = review.diff_range().end.as_str();
         let file = &file_diff.file_path.to_string_lossy();
@@ -253,11 +244,11 @@ impl WorkerImpl {
         }
     }
     fn load_commits(&self, repository_id: &RepositoryId) {
-        let Some(repository) = self.repositories.get(repository_id) else {
-            self.ui_updater
-                .report_error(ui::SlintResult::ModelItemNotExists, &format!("repository  id {}", repository_id.as_usize()));
-            return;
-        };
+        let repository = self
+            .repositories
+            .get(repository_id)
+            .unwrap_or_else(|| panic!("Could not find {}", repository_id));
+
         match git_utils::query_commits(repository.path()) {
             Ok(commits) => self.ui_updater.set_commits(commits),
             Err(e) => {
@@ -374,13 +365,12 @@ impl WorkerImpl {
         self.ui_updater.delete_repository(repository_id.as_usize());
     }
     fn change_repository(&mut self, repository_id: RepositoryId, base_branch: String) {
-        // TODO check if branch exists
-        let Some(repository) = self.repositories.get_mut(&repository_id) else {
-            self.ui_updater
-                .report_error(ui::SlintResult::ModelItemNotExists, &format!("repository  id {}", repository_id.as_usize()));
-            return;
-        };
+        let repository = self
+            .repositories
+            .get_mut(&repository_id)
+            .unwrap_or_else(|| panic!("Could not find {}", repository_id));
 
+        // TODO check if branch exists
         let ui_base_branch = SharedString::from(&base_branch);
         repository.set_base_branch(base_branch);
         if let Err(_) = self.storage.save_repository(&repository.store()) {
@@ -390,11 +380,10 @@ impl WorkerImpl {
         self.ui_updater.change_repository(repository_id.as_usize(), ui_base_branch);
     }
     fn initialize_reviews(&mut self, repository_id: RepositoryId) {
-        let Some(repository) = self.repositories.get_mut(&repository_id) else {
-            self.ui_updater
-                .report_error(ui::SlintResult::ModelItemNotExists, &format!("repository id {}", repository_id.as_usize()));
-            return;
-        };
+        let repository = self
+            .repositories
+            .get_mut(&repository_id)
+            .unwrap_or_else(|| panic!("Could not find {}", repository_id));
 
         match self.storage.load_review_names(&repository.name) {
             Ok(review_names) => {
@@ -409,17 +398,15 @@ impl WorkerImpl {
         }
     }
     fn load_review(&mut self, repository_id: RepositoryId, review_id: ReviewId) {
-        let Some(repository) = self.repositories.get_mut(&repository_id) else {
-            self.ui_updater
-                .report_error(ui::SlintResult::ModelItemNotExists, &format!("repository id {}", repository_id.as_usize()));
-            return;
-        };
+        let repository = self
+            .repositories
+            .get_mut(&repository_id)
+            .unwrap_or_else(|| panic!("Could not find {}", repository_id));
 
-        let Some(review_name) = repository.reviews.review_name(&review_id) else {
-            self.ui_updater
-                .report_error(ui::SlintResult::ModelItemNotExists, &format!("review_id {} not found!", review_id.as_usize()));
-            return;
-        };
+        let review_name = repository
+            .reviews
+            .review_name(&review_id)
+            .unwrap_or_else(|| panic!("Could not find {} ({})", review_id, repository_id));
 
         let load_result = self.storage.load_review(&repository.name, review_name);
         if let Err(e) = load_result {
@@ -464,11 +451,11 @@ impl WorkerImpl {
         }
     }
     fn new_review(&mut self, repository_id: RepositoryId, name: String) {
-        let Some(repository) = self.repositories.get_mut(&repository_id) else {
-            self.ui_updater
-                .report_error(ui::SlintResult::ModelItemNotExists, &format!("repository id {}", repository_id.as_usize()));
-            return;
-        };
+        let repository = self
+            .repositories
+            .get_mut(&repository_id)
+            .unwrap_or_else(|| panic!("Could not find {}", repository_id));
+
         let review_name = ReviewName::from(name.as_str());
         if repository.reviews.has_review_name(&review_name) {
             self.ui_updater.report_error(ui::SlintResult::ReviewAlreadyExists, &name);
@@ -478,7 +465,7 @@ impl WorkerImpl {
             .storage
             .save_review_file_diffs(&repository.name, &review_name, &DiffRangeStore::default(), &[])
         {
-            self.ui_updater.report_error(ui::SlintResult::ModelItemNotExists, &e.to_string());
+            self.ui_updater.report_error(ui::SlintResult::StoreFailed, &e.to_string());
             return;
         }
 
@@ -487,18 +474,15 @@ impl WorkerImpl {
             .new_review(repository_id.as_usize(), review_id.as_usize(), SharedString::from(name.as_str()));
     }
     fn delete_review(&mut self, repository_id: RepositoryId, review_id: ReviewId) {
-        let Some(repository) = self.repositories.get_mut(&repository_id) else {
-            self.ui_updater
-                .report_error(ui::SlintResult::ModelItemNotExists, &format!("repository id {}", repository_id.as_usize()));
-            return;
-        };
-        let Some(review_name) = repository.reviews.delete_review(&review_id) else {
-            self.ui_updater.report_error(
-                ui::SlintResult::ModelItemNotExists,
-                &format!("repository id {} review id {}", repository_id.as_usize(), review_id.as_usize()),
-            );
-            return;
-        };
+        let repository = self
+            .repositories
+            .get_mut(&repository_id)
+            .unwrap_or_else(|| panic!("Could not find {}", repository_id));
+
+        let review_name = repository
+            .reviews
+            .delete_review(&review_id)
+            .unwrap_or_else(|| panic!("Could not delete {}", review_id));
 
         if let Err(e) = self.storage.delete_review(&repository.name, &review_name) {
             self.ui_updater.report_error(ui::SlintResult::DeleteReviewFailed, &e.to_string());
@@ -508,11 +492,11 @@ impl WorkerImpl {
         self.ui_updater.delete_review(repository_id.as_usize(), review_id.as_usize());
     }
     fn rename_review(&mut self, repository_id: RepositoryId, review_id: ReviewId, new_review_name: ReviewName) {
-        let Some(repository) = self.repositories.get_mut(&repository_id) else {
-            self.ui_updater
-                .report_error(ui::SlintResult::ModelItemNotExists, &format!("repository id {}", repository_id.as_usize()));
-            return;
-        };
+        let repository = self
+            .repositories
+            .get_mut(&repository_id)
+            .unwrap_or_else(|| panic!("Could not find {}", repository_id));
+
         let Some(old_review_name) = repository.reviews.rename_review(&review_id, new_review_name.clone()) else {
             return;
         };
@@ -523,19 +507,16 @@ impl WorkerImpl {
             .rename_review(repository_id.as_usize(), review_id.as_usize(), SharedString::from(new_review_name.as_str()));
     }
     fn change_review_notes(&mut self, repository_id: RepositoryId, review_id: ReviewId, note_id: NoteId, change_type: NoteChangeType) {
-        let Some(repository) = self.repositories.get_mut(&repository_id) else {
-            self.ui_updater
-                .report_error(ui::SlintResult::ModelItemNotExists, &format!("repository id {}", repository_id.as_usize()));
-            return;
-        };
+        let repository = self
+            .repositories
+            .get_mut(&repository_id)
+            .unwrap_or_else(|| panic!("Could not find {}", repository_id));
 
-        let Some(review) = repository.reviews.get_mut(&review_id) else {
-            self.ui_updater.report_error(
-                ui::SlintResult::ModelItemNotExists,
-                &format!("repository id {} review id {}", repository_id.as_usize(), review_id.as_usize()),
-            );
-            return;
-        };
+        let review = repository
+            .reviews
+            .get_mut(&review_id)
+            .unwrap_or_else(|| panic!("Could not find {} ({})", review_id, repository_id));
+
         let update_note_references = |note_id: &NoteId, opt_old_file_diff_id: Option<&FileDiffId>, opt_new_file_diff_id: Option<&FileDiffId>| {
             if let Some(old_file_diff_id) = opt_old_file_diff_id {
                 self.ui_updater
@@ -546,11 +527,11 @@ impl WorkerImpl {
                     .add_note_reference(repository_id.as_usize(), review_id.as_usize(), note_id.as_usize(), new_file_diff_id.as_usize());
             }
         };
-        let Some(note) = review.notes.get_mut(&note_id) else {
-            self.ui_updater
-                .report_error(ui::SlintResult::ModelItemNotExists, &format!("note id {}", note_id.as_usize()));
-            return;
-        };
+        let note = review
+            .notes
+            .get_mut(&note_id)
+            .unwrap_or_else(|| panic!("Could not find {} ({}, {})", note_id, review_id, repository_id));
+
         let mut opt_context_type = None;
         match change_type.clone() {
             NoteChangeType::TextChanged(new_text) => note.text = new_text,
@@ -581,19 +562,15 @@ impl WorkerImpl {
         );
     }
     fn change_review_file_diff(&mut self, repository_id: RepositoryId, review_id: ReviewId, file_diff_id: FileDiffId, is_reviewed: bool) {
-        let Some(repository) = self.repositories.get_mut(&repository_id) else {
-            self.ui_updater
-                .report_error(ui::SlintResult::ModelItemNotExists, &format!("repository id {}", repository_id.as_usize()));
-            return;
-        };
+        let repository = self
+            .repositories
+            .get_mut(&repository_id)
+            .unwrap_or_else(|| panic!("Could not find {}", repository_id));
 
-        let Some(review) = repository.reviews.get_mut(&review_id) else {
-            self.ui_updater.report_error(
-                ui::SlintResult::ModelItemNotExists,
-                &format!("repository id {} review id {}", repository_id.as_usize(), review_id.as_usize()),
-            );
-            return;
-        };
+        let review = repository
+            .reviews
+            .get_mut(&review_id)
+            .unwrap_or_else(|| panic!("Could not find {} ({})", review_id, repository_id));
 
         review.file_diffs.set_is_reviewed(&file_diff_id, is_reviewed);
         if let Err(e) = self
@@ -607,11 +584,10 @@ impl WorkerImpl {
             .set_file_diff_is_reviewed(repository_id.as_usize(), review_id.as_usize(), file_diff_id.as_usize(), is_reviewed);
     }
     fn find_file_difference(&mut self, repository_id: RepositoryId, review_id: ReviewId, diff_range: DiffRangeStore) {
-        let Some(repository) = self.repositories.get_mut(&repository_id) else {
-            self.ui_updater
-                .report_error(ui::SlintResult::ModelItemNotExists, &format!("repository id {}", repository_id.as_usize()));
-            return;
-        };
+        let repository = self
+            .repositories
+            .get_mut(&repository_id)
+            .unwrap_or_else(|| panic!("Could not find {}", repository_id));
 
         let Ok(mut file_diff_map) = git_utils::diff_git_repo(&repository.path(), &diff_range.start, &diff_range.end) else {
             self.ui_updater.report_error(ui::SlintResult::FindFileDifferenceFailed, &"".to_string());
@@ -620,11 +596,11 @@ impl WorkerImpl {
 
         let new_files = file_diff_map.keys().cloned().collect::<HashSet<_>>();
 
-        let Some(review) = repository.reviews.get_mut(&review_id) else {
-            self.ui_updater
-                .report_error(ui::SlintResult::ModelItemNotExists, &format!("review id {}", review_id.as_usize()));
-            return;
-        };
+        let review = repository
+            .reviews
+            .get_mut(&review_id)
+            .unwrap_or_else(|| panic!("Could not find {} ({})", review_id, repository_id));
+
         let (deleted_file_diff_ids, added_files) = review.file_diffs.update_file_diffs(new_files);
         review.set_diff_range(diff_range);
 
@@ -659,32 +635,20 @@ impl WorkerImpl {
         }
     }
     fn delete_note(&mut self, repository_id: RepositoryId, review_id: ReviewId, note_id: NoteId) {
-        let Some(repository) = self.repositories.get_mut(&repository_id) else {
-            self.ui_updater
-                .report_error(ui::SlintResult::ModelItemNotExists, &format!("repository id {}", repository_id.as_usize()));
-            return;
-        };
+        let repository = self
+            .repositories
+            .get_mut(&repository_id)
+            .unwrap_or_else(|| panic!("Could not find {}", repository_id));
 
-        let Some(review) = repository.reviews.get_mut(&review_id) else {
-            self.ui_updater.report_error(
-                ui::SlintResult::ModelItemNotExists,
-                &format!("repository id {} review id {}", repository_id.as_usize(), review_id.as_usize()),
-            );
-            return;
-        };
+        let review = repository
+            .reviews
+            .get_mut(&review_id)
+            .unwrap_or_else(|| panic!("Could not find {} ({})", review_id, repository_id));
 
-        let Some(store) = review.notes.delete_note(&note_id) else {
-            self.ui_updater.report_error(
-                ui::SlintResult::ModelItemNotExists,
-                &format!(
-                    "repository id {} review id {} note id {}",
-                    repository_id.as_usize(),
-                    review_id.as_usize(),
-                    note_id.as_usize()
-                ),
-            );
-            return;
-        };
+        let store = review
+            .notes
+            .delete_note(&note_id)
+            .unwrap_or_else(|| panic!("Could not find {} ({}, {})", note_id, review_id, repository_id));
 
         if let Err(e) = self.storage.save_review_notes(&repository.name, &review.name(), &review.notes.stores()) {
             self.ui_updater.report_error(ui::SlintResult::StoreFailed, &e.to_string());
@@ -699,18 +663,15 @@ impl WorkerImpl {
         self.ui_updater.delete_note(repository_id.as_usize(), review_id.as_usize(), note_id.as_usize());
     }
     fn add_note(&mut self, repository_id: RepositoryId, review_id: ReviewId, text: String, context: String) {
-        let Some(repository) = self.repositories.get_mut(&repository_id) else {
-            self.ui_updater
-                .report_error(ui::SlintResult::ModelItemNotExists, &format!("repository id {}", repository_id.as_usize()));
-            return;
-        };
-        let Some(review) = repository.reviews.get_mut(&review_id) else {
-            self.ui_updater.report_error(
-                ui::SlintResult::ModelItemNotExists,
-                &format!("repository id {} review id {}", repository_id.as_usize(), review_id.as_usize()),
-            );
-            return;
-        };
+        let repository = self
+            .repositories
+            .get_mut(&repository_id)
+            .unwrap_or_else(|| panic!("Could not find {}", repository_id));
+
+        let review = repository
+            .reviews
+            .get_mut(&review_id)
+            .unwrap_or_else(|| panic!("Could not find {} ({})", review_id, repository_id));
 
         let ui_text = SharedString::from(text.as_str());
         let ui_context = SharedString::from(context.as_str());
