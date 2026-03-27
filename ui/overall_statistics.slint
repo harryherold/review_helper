@@ -93,7 +93,7 @@ export component OverallStatistics inherits Rectangle {
             StatisticGridBox {
                 title: @tr("Review");
                 show_checked: true;
-                is_checked: root.review_progress.total-count == root.review_progress.completed-count;
+                is_checked: root.review_progress.total-count > 0 && root.review_progress.total-count == root.review_progress.completed-count;
                 Row {
                     StatisticLabel {
                         text: @tr("Files checked");
@@ -118,7 +118,7 @@ export component OverallStatistics inherits Rectangle {
             StatisticGridBox {
                 title: @tr("Notes");
                 show_checked: true;
-                is_checked: root.note_progress.total-count == root.note_progress.completed-count;
+                is_checked: root.note_progress.total-count > 0 && root.note_progress.total-count == root.note_progress.completed-count;
                 Row {
                     StatisticLabel {
                         text: @tr("Notes done");
