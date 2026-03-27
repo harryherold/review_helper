@@ -133,11 +133,29 @@ export component ReviewSelectionTab inherits TabViewItem {
                         }
                     }
                 }
+                delete_timer := Timer {
+                    interval: 2s;
+                    running: false;
+                    triggered => {
+                        self.running = false;
+                    }
+                }
+
                 if edit_switch.checked: ToolButton {
+                    states [
+                        active_delete_timer when delete_timer.running: {
+                            background: red;
+                        }
+                    ]
                     width: Style.size.control-height;
                     source: @image-url("../assets/icons/delete.svg");
                     clicked => {
-                        SlintRepositoryCallbacks.delete_review(review_ids);
+                        if (delete_timer.running) {
+                            SlintRepositoryCallbacks.delete_review(review_ids);
+                            delete_timer.stop();
+                        } else {
+                            delete_timer.start();
+                        }
                     }
                 }
                 if !edit_switch.checked: TabButton {
