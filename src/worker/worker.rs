@@ -374,9 +374,13 @@ impl WorkerImpl {
             Ok(contains_branch) => {
                 if !contains_branch {
                     self.ui_updater.report_error(ui::SlintResult::GitBranchDoesNotExists, "Branch does not exists!");
+                    return;
                 }
             }
-            Err(e) => self.ui_updater.report_error(ui::SlintResult::GitBranchFailed, &e.to_string()),
+            Err(e) => {
+                self.ui_updater.report_error(ui::SlintResult::GitBranchFailed, &e.to_string());
+                return;
+            }
         }
 
         let ui_base_branch = SharedString::from(&base_branch);

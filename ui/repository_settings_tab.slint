@@ -53,10 +53,25 @@ export component RepositorySettingsTab inherits TabViewItem {
             }
 
             LineEdit {
-                // TODO Update property
+                private property <string> branch_name: root.base_branch;
+                changed branch_name => {
+                    self.text = branch_name;
+                }
+                changed has-focus => {
+                    if !self.has-focus {
+                        self.text = branch_name;
+                    }
+                }
                 text: root.base_branch;
                 accepted(text) => {
                     SlintRepositoryCallbacks.repository_changed(root.repository_id, text);
+                }
+                key-pressed(event) => {
+                    if (event.text == Key.Escape) {
+                        self.text = branch_name;
+                        return EventResult.accept;
+                    }
+                    return EventResult.reject;
                 }
             }
         }
