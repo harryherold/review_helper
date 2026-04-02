@@ -77,20 +77,36 @@ pub struct ReviewStore {
     pub notes: Vec<NoteStore>,
 }
 
+#[derive(thiserror::Error, Debug)]
+pub enum StorageError {
+    #[error("Repository '{0}' not found!")]
+    RepositoryNotFound(String),
+    #[error("Review '{0}' not found!")]
+    ReviewNotFound(String),
+    #[error("Io error occured: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("Serialize error occured: {0}")]
+    Serialize(String),
+    #[error("Deserialize error occured: {0}")]
+    Deserialize(String),
+}
+
+pub type StorageResult<T> = Result<T, StorageError>;
+
 pub trait ReviewHelperStorage {
-    fn load_repositories(&self) -> anyhow::Result<Vec<RepositoryStore>>;
-    fn save_repository(&self, repository_store: &RepositoryStore) -> anyhow::Result<()>;
-    fn delete_repository(&self, repository_name: &RepositoryName) -> anyhow::Result<()>;
-    fn load_review_names(&self, repository_name: &RepositoryName) -> anyhow::Result<Vec<ReviewName>>;
-    fn load_review(&self, repository_name: &RepositoryName, review_name: &ReviewName) -> anyhow::Result<Option<ReviewStore>>;
-    fn delete_review(&self, repository_name: &RepositoryName, review_name: &ReviewName) -> anyhow::Result<()>;
-    fn rename_review(&self, repository_name: &RepositoryName, old_review_name: &ReviewName, new_review_name: &ReviewName) -> anyhow::Result<()>;
-    fn save_review_notes(&self, repository_name: &RepositoryName, review_name: &ReviewName, notes: &[&NoteStore]) -> anyhow::Result<()>;
+    fn load_repositories(&self) -> StorageResult<Vec<RepositoryStore>>;
+    fn save_repository(&self, repository_store: &RepositoryStore) -> StorageResult<()>;
+    fn delete_repository(&self, repository_name: &RepositoryName) -> StorageResult<()>;
+    fn load_review_names(&self, repository_name: &RepositoryName) -> StorageResult<Vec<ReviewName>>;
+    fn load_review(&self, repository_name: &RepositoryName, review_name: &ReviewName) -> StorageResult<Option<ReviewStore>>;
+    fn delete_review(&self, repository_name: &RepositoryName, review_name: &ReviewName) -> StorageResult<()>;
+    fn rename_review(&self, repository_name: &RepositoryName, old_review_name: &ReviewName, new_review_name: &ReviewName) -> StorageResult<()>;
+    fn save_review_notes(&self, repository_name: &RepositoryName, review_name: &ReviewName, notes: &[&NoteStore]) -> StorageResult<()>;
     fn save_review_file_diffs(
         &self,
         repository_name: &RepositoryName,
         review_name: &ReviewName,
         diff_range: &DiffRangeStore,
         file_diffs: &[&FileDiffStore],
-    ) -> anyhow::Result<()>;
+    ) -> StorageResult<()>;
 }

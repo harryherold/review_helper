@@ -4084,6 +4084,7 @@ dependencies = [
  "serial_test",
  "slint",
  "slint-build",
+ "thiserror 2.0.18",
  "tokio",
  "toml 0.8.23",
  "which 8.0.0",
