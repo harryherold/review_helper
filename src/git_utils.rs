@@ -2,7 +2,7 @@
 use std::process::Command;
 use std::{
     collections::{HashMap, HashSet},
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 #[cfg(not(windows))]
@@ -229,13 +229,25 @@ pub fn diff_file(repo_path: &PathBuf, start_commit: &str, end_commit: &str, file
     Ok(())
 }
 
-pub fn first_commit(repo_path: &PathBuf) -> anyhow::Result<String> {
-    let args = vec!["rev-list", "--max-parents=0", "HEAD"];
+pub fn first_commit(repo_path: &Path) -> anyhow::Result<String> {
+    let args = vec!["rev-list", "--max-parents=0", "--reverse", "HEAD"];
     let output = git_command!(repo_path, args).output()?;
 
-    String::from_utf8(output.stdout.trim_ascii().to_vec()).map_err(|e| anyhow::Error::from(e))
+    if !output.status.success() {
+        anyhow::bail!("first_commit: git command failed!");
+    }
+
+    let output_str = std::str::from_utf8(&output.stdout)?;
+    let commit = output_str.lines().next().unwrap_or("").trim();
+
+    if commit.is_empty() {
+        anyhow::bail!("Git could not find any commit in {}!", repo_path.display());
+    }
+
+    Ok(commit.to_string())
 }
 
+#[derive(Debug, Clone)]
 pub struct Commit {
     pub hash: String,
     pub message: String,
@@ -243,60 +255,61 @@ pub struct Commit {
     pub date: String,
 }
 
-pub fn query_commits(repo_path: &PathBuf) -> anyhow::Result<Vec<Commit>> {
-    let mut commits = Vec::<Commit>::new();
-    let args = vec!["--no-pager", "log", "--first-parent", "--pretty=format:\"%h¦%an¦%aI¦%s\""];
+pub fn query_commits(repo_path: &Path) -> anyhow::Result<Vec<Commit>> {
+    let args = vec!["--no-pager", "log", "--first-parent", "--pretty=format:%h¦%an¦%aI¦%s"];
     let output = git_command!(repo_path, args).output()?;
-    let output = output.stdout.trim_ascii().to_vec();
 
-    if output.is_empty() {
-        return Ok(Vec::new());
+    if !output.status.success() {
+        anyhow::bail!("query_commits: git command failed!");
     }
 
-    let output_string = String::from_utf8(output)?;
+    let output_str = std::str::from_utf8(&output.stdout)?;
 
-    for line in output_string.split("\n") {
-        let line = line.trim_matches('"');
-        let mut iter = line.splitn(4, "¦");
-
-        let hash = iter.next().expect("Could not get read sha!").to_string();
-        let author = iter.next().expect("Could not get read author!").to_string();
-        let date = iter.next().expect("Could not get read date!").to_string();
-        let message = iter.next().expect("Could not get read message!").to_string();
-
-        let date_time = DateTime::parse_from_rfc3339(&date).expect("Could parse date!");
-
-        let commit = Commit {
-            hash,
-            author,
-            date: date_time.to_string(),
-            message,
-        };
-        commits.push(commit);
-    }
-    Ok(commits)
+    output_str
+        .lines()
+        .filter(|line| !line.is_empty())
+        .map(|line| {
+            let parts = line.splitn(4, "¦").collect::<Vec<_>>();
+            if parts.len() < 4 {
+                anyhow::bail!("query_commits: Malformed git output line: {}", line);
+            }
+            let date_time = DateTime::parse_from_rfc3339(&parts[2]).map_err(|e| anyhow::anyhow!("Invalid date {}: {}", parts[2], e))?;
+            Ok(Commit {
+                hash: parts[0].to_string(),
+                author: parts[1].to_string(),
+                date: date_time.to_string(),
+                message: parts[3].to_string(),
+            })
+        })
+        .collect()
 }
 
 fn query_diff_tools_from_config() -> anyhow::Result<HashSet<String>> {
-    let args = vec!["config", "get", "--all", "--show-names", "--regexp", "difftool\\..*\\.(cmd|path)"];
+    let args = vec!["config", "get", "--all", "--show-names", "--regexp", r"difftool\..*\.(cmd|path)"];
     let output = git_command!(dirs::home_dir().unwrap_or_default(), args).output()?;
-    let output_string = String::from_utf8(output.stdout.trim_ascii().to_vec())?;
 
-    let mut diff_tools = HashSet::new();
-
-    for line in output_string.split("\n") {
-        if let Some((diff_desc, _)) = line.split_once(char::is_whitespace) {
-            if let Some((_, diff_tool, _)) = diff_desc.split(".").into_iter().collect_tuple() {
-                diff_tools.insert(diff_tool.to_string());
-            }
-        }
+    if !output.status.success() {
+        return Ok(HashSet::new());
     }
 
-    Ok(diff_tools)
+    let output_str = std::str::from_utf8(&output.stdout)?;
+
+    Ok(output_str
+        .lines()
+        .filter_map(|line| {
+            let (key, _) = line.split_once(char::is_whitespace)?;
+            let parts: Vec<&str> = key.split('.').collect();
+            if parts.len() >= 3 && parts[0] == "difftool" {
+                Some(parts[1].to_string())
+            } else {
+                None
+            }
+        })
+        .collect::<HashSet<_>>())
 }
 
 fn query_diff_tools_from_path() -> anyhow::Result<HashSet<String>> {
-    let tools = [
+    const DIFF_TOOLS: &[&str] = &[
         "araxis",
         "kdiff3",
         "meld",
@@ -322,32 +335,53 @@ fn query_diff_tools_from_path() -> anyhow::Result<HashSet<String>> {
         "winmerge",
         "xxdiff",
     ];
-    let mut diff_tools = HashSet::new();
-    for tool in tools {
-        if let Ok(_) = which(tool) {
-            diff_tools.insert(tool.to_string());
-        }
-    }
+
+    let diff_tools = DIFF_TOOLS
+        .iter()
+        .filter(|tool| which(tool).is_ok())
+        .map(|tool| tool.to_string())
+        .collect::<HashSet<_>>();
+
     Ok(diff_tools)
 }
 
 pub fn query_diff_tools() -> anyhow::Result<Vec<String>> {
-    let mut tools_from_config = query_diff_tools_from_config()?;
+    let mut all_tools = query_diff_tools_from_config()?;
     let tools_from_path = query_diff_tools_from_path()?;
-    tools_from_config.extend(tools_from_path);
-    Ok(tools_from_config.iter().cloned().sorted().collect_vec())
+
+    all_tools.extend(tools_from_path);
+
+    Ok(all_tools.into_iter().sorted().collect())
 }
 
-pub fn branch_merge_base(repo_path: &PathBuf, base_branch: &str, feature_branch: &str) -> anyhow::Result<String> {
+pub fn branch_merge_base(repo_path: &Path, base_branch: &str, feature_branch: &str) -> anyhow::Result<String> {
     let args = ["merge-base", base_branch, feature_branch];
     let output = git_command!(repo_path, args).output()?;
-    Ok(String::from_utf8(output.stdout.trim_ascii().to_vec())?)
+    if !output.status.success() {
+        anyhow::bail!("Could not find merge base between {} and {}", base_branch, feature_branch);
+    }
+
+    let hash = std::str::from_utf8(&output.stdout)?.trim();
+
+    if hash.is_empty() {
+        anyhow::bail!("Git returned an empty merge base hash");
+    }
+
+    Ok(hash.to_string())
 }
 
-pub fn current_branch(repo_path: &PathBuf) -> anyhow::Result<String> {
+pub fn current_branch(repo_path: &Path) -> anyhow::Result<String> {
     let args = ["branch", "--show-current"];
     let output = git_command!(repo_path, args).output()?;
-    Ok(String::from_utf8(output.stdout.trim_ascii().to_vec())?)
+
+    if !output.status.success() {
+        anyhow::bail!("git branch failed");
+    }
+    let branch = std::str::from_utf8(&output.stdout)?.trim();
+    if branch.is_empty() {
+        anyhow::bail!("Could not determine current branch: {}", repo_path.display());
+    }
+    Ok(branch.to_string())
 }
 
 #[cfg(test)]
@@ -374,7 +408,7 @@ mod tests {
     fn test_first_commit() {
         let ctx = setup();
 
-        let args = ["rev-list", "--max-parents=0", "HEAD"];
+        let args = ["rev-list", "--max-parents=0", "--reverse", "HEAD"];
 
         mock("git")
             .current_dir(&ctx.path)
@@ -499,7 +533,7 @@ mod tests {
     fn test_query_commits() {
         let ctx = setup();
 
-        let args = ["--no-pager", "log", "--first-parent", "--pretty=format:\"%h¦%an¦%aI¦%s\""];
+        let args = ["--no-pager", "log", "--first-parent", "--pretty=format:%h¦%an¦%aI¦%s"];
         let output = "70989e0¦Christian von Wascinski¦2023-10-16T22:34:17+02:00¦feature: add open comments.\n\
                                     dd02a7c¦Christian von Wascinski¦2023-10-15T16:25:02+02:00¦feature: Add saving notes as todo.txt\n\
                                     9f89049¦Christian von Wascinski¦2023-10-14T10:05:19+02:00¦Initial commit\n";
