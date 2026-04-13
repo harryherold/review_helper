@@ -30,17 +30,17 @@ pub enum ChangeType {
 
 impl ChangeType {
     pub fn from_str(change_type: &str) -> ChangeType {
-        match change_type.chars().nth(0).expect("Could not get first char!") {
-            'A' => ChangeType::Added,
-            'C' => ChangeType::Copied,
-            'D' => ChangeType::Deleted,
-            'M' => ChangeType::Modified,
-            'R' => ChangeType::Renamed,
-            'T' => ChangeType::TypChanged,
-            'U' => ChangeType::Unmerged,
-            'X' => ChangeType::Unknown,
-            'B' => ChangeType::Broken,
-            _default => ChangeType::Invalid,
+        match change_type.chars().next() {
+            Some('A') => ChangeType::Added,
+            Some('C') => ChangeType::Copied,
+            Some('D') => ChangeType::Deleted,
+            Some('M') => ChangeType::Modified,
+            Some('R') => ChangeType::Renamed,
+            Some('T') => ChangeType::TypChanged,
+            Some('U') => ChangeType::Unmerged,
+            Some('X') => ChangeType::Unknown,
+            Some('B') => ChangeType::Broken,
+            _ => ChangeType::Invalid,
         }
     }
 }
@@ -98,7 +98,7 @@ pub fn diff_git_repo(repo_path: &PathBuf, start_commit: &str, end_commit: &str) 
     Ok(files_stats)
 }
 
-fn diff_name_status(repo_path: &PathBuf, start_commit: &str, end_commit: &str) -> anyhow::Result<HashMap<String, ChangeType>> {
+fn diff_name_status(repo_path: &Path, start_commit: &str, end_commit: &str) -> anyhow::Result<HashMap<String, ChangeType>> {
     let mut args = vec!["diff", "--name-status"];
 
     if false == start_commit.is_empty() {
@@ -108,26 +108,32 @@ fn diff_name_status(repo_path: &PathBuf, start_commit: &str, end_commit: &str) -
         args.push(end_commit);
     }
 
-    let output = git_command!(repo_path, args).output().expect("git diff name-status not working!");
+    let output = git_command!(repo_path, args).output()?;
 
-    let string_output = String::from_utf8(output.stdout.trim_ascii().to_vec()).expect("String conversion invalid!");
-    let mut files_change_type: HashMap<String, ChangeType> = HashMap::new();
-
-    for line in string_output.lines().collect::<Vec<&str>>() {
-        let infos = line.split_whitespace().collect::<Vec<&str>>();
-        assert!(infos.len() > 1);
-
-        let change_type = ChangeType::from_str(infos[0]);
-        let file = if change_type == ChangeType::Renamed {
-            assert_eq!(infos.len(), 3);
-            infos[2].to_string()
-        } else {
-            infos[1].to_string()
-        };
-        files_change_type.insert(file, change_type);
+    if !output.status.success() {
+        return Ok(HashMap::new());
     }
+    let output_str = std::str::from_utf8(&output.stdout)?;
 
-    Ok(files_change_type)
+    output_str
+        .lines()
+        .map(|line| {
+            let infos = line.split_whitespace().collect::<Vec<&str>>();
+            if infos.len() < 2 {
+                anyhow::bail!("diff_name_status: Malformed status line: {}", line);
+            }
+            let change_type = ChangeType::from_str(infos[0]);
+            let file = if change_type == ChangeType::Renamed {
+                if infos.len() < 3 {
+                    anyhow::bail!("diff_name_status: Malformed status line in rename status: {}", line);
+                }
+                infos[2].to_string()
+            } else {
+                infos[1].to_string()
+            };
+            Ok((file, change_type))
+        })
+        .collect()
 }
 
 fn query_file_stats(
@@ -247,7 +253,7 @@ pub fn first_commit(repo_path: &Path) -> anyhow::Result<String> {
     Ok(commit.to_string())
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Commit {
     pub hash: String,
     pub message: String,
