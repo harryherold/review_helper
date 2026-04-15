@@ -16,14 +16,15 @@ pub fn setup_file_picker(app_window: &ui::AppWindow, proxy_models: Rc<RefCell<Re
 
             let proxy_models = proxy_models.borrow();
 
-            let repository_proxy_models = proxy_models.repository_proxy_models(&repository_id).expect("Could not find repository!");
+            let Some(repository_proxy_models) = proxy_models.repository_proxy_models(&repository_id) else {
+                return ModelRc::default();
+            };
 
-            let files_proxy_model = repository_proxy_models
-                .review_proxy_models(&review_id)
-                .expect("Could not find review!")
-                .files_proxy_model();
+            let Some(review_proxy_model) = repository_proxy_models.review_proxy_models(&review_id) else {
+                return ModelRc::default();
+            };
 
-            files_proxy_model.ui_model()
+            review_proxy_model.files_proxy_model().ui_model()
         }
     });
     app_window.global::<ui::SlintFilePickerAdapter>().on_set_filter({
@@ -46,10 +47,17 @@ pub fn setup_file_picker(app_window: &ui::AppWindow, proxy_models: Rc<RefCell<Re
     app_window.global::<ui::SlintFilePickerAdapter>().on_contains_model_context({
         let app_window_weak = app_window.as_weak();
         move |ids, context| -> bool {
-            let app_window = app_window_weak.unwrap();
+            let Some(app_window) = app_window_weak.upgrade() else {
+                return false;
+            };
             let file_diff_model = model_utils::get_file_diff_model(&app_window, ids.repository_id as usize, ids.review_id as usize);
-            let file_diff_model = file_diff_model.as_any().downcast_ref::<IdModel<ui::SlintFileDiff>>().unwrap();
-            file_diff_model.iter().any(|file_diff| file_diff.file_path == context)
+
+            if let Some(file_diff_model) = file_diff_model.as_any().downcast_ref::<IdModel<ui::SlintFileDiff>>() {
+                file_diff_model.iter().any(|file_diff| file_diff.file_path == context)
+            } else {
+                // TODO Add internal error!
+                false
+            }
         }
     });
 }

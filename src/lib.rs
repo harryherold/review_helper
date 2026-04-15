@@ -45,7 +45,14 @@ impl AppProxyModels {
 }
 
 pub fn main() {
-    let app_window = ui::AppWindow::new().expect("Error while creating app window!");
+    if let Err(e) = run_app() {
+        eprintln!("Critical error: {}", e);
+        process::exit(1);
+    }
+}
+
+fn run_app() -> Result<(), Box<dyn std::error::Error>> {
+    let app_window = ui::AppWindow::new().map_err(|e| format!("Error while creating app window! {}", e))?;
 
     let app_proxy_models = AppProxyModels::new(&app_window);
 
@@ -69,6 +76,8 @@ pub fn main() {
 
     controller::setup_file_diffs(&app_window);
 
-    app_window.run().unwrap();
-    worker.join().unwrap();
+    app_window.run().map_err(|e| format!("Runtime error occured: {}", e))?;
+    worker.join().map_err(|_| "Worker thread could not be terminated!".to_string())?;
+
+    Ok(())
 }
