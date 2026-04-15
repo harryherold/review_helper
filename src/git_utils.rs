@@ -137,7 +137,7 @@ fn diff_name_status(repo_path: &Path, start_commit: &str, end_commit: &str) -> a
 }
 
 fn query_file_stats(
-    repo_path: &PathBuf,
+    repo_path: &Path,
     start_commit: &str,
     end_commit: &str,
     mut files_change_type: HashMap<String, ChangeType>,
@@ -152,65 +152,50 @@ fn query_file_stats(
     }
 
     let output = git_command!(repo_path, args).output()?;
-    let string_output = String::from_utf8(output.stdout.trim_ascii().to_vec())?;
+
+    if !output.status.success() {
+        return Ok(HashMap::new());
+    }
+
+    let output_str = std::str::from_utf8(&output.stdout)?;
 
     let mut files_stats: HashMap<String, DiffStatus> = HashMap::new();
-    let parse_line_number = |number_str: &str| -> anyhow::Result<u32> {
-        if number_str.contains("-") {
-            Ok(0)
-        } else {
-            number_str.parse::<u32>().map_err(|e| anyhow::format_err!(e.to_string()))
-        }
-    };
 
-    let lines = string_output.split("\0").collect::<Vec<&str>>();
-    let mut iter = lines.iter();
+    let mut iter = output_str.split('\0');
 
     while let Some(line) = iter.next() {
         if line.is_empty() {
             continue;
         }
-        let infos = line.split_whitespace().collect::<Vec<&str>>();
-        if infos.len() == 3 {
-            let file = infos[2].to_string();
-            let change_type = if let Some(ct) = files_change_type.remove(&file) {
-                ct
-            } else {
-                ChangeType::Invalid
-            };
-            files_stats.insert(
-                file,
-                DiffStatus {
-                    added_lines: parse_line_number(infos[0])?,
-                    removed_lines: parse_line_number(infos[1])?,
-                    change_type,
-                },
-            );
-        } else {
-            let added_lines = parse_line_number(infos[0])?;
-            let removed_lines = parse_line_number(infos[1])?;
-            let _old_file = iter.next(); // TODO display it as additional information
-
-            let new_file = iter.next().expect("Renamed new file name missing");
-            let change_type = if let Some(ct) = files_change_type.remove(*new_file) {
-                ct
-            } else {
-                ChangeType::Invalid
-            };
-            files_stats.insert(
-                new_file.to_string(),
-                DiffStatus {
-                    added_lines,
-                    removed_lines,
-                    change_type,
-                },
-            );
+        let parts = line.split_whitespace().collect::<Vec<&str>>();
+        if parts.len() < 2 {
+            continue;
         }
+
+        let added = parts[0].parse::<u32>().unwrap_or(0);
+        let removed = parts[1].parse::<u32>().unwrap_or(0);
+
+        let file_path = if parts.len() == 2 {
+            iter.nth(1).ok_or_else(|| anyhow::anyhow!("Missing renamed path!"))?
+        } else {
+            parts[2]
+        };
+
+        let change_type = files_change_type.remove(file_path).unwrap_or(ChangeType::Invalid);
+
+        files_stats.insert(
+            file_path.to_string(),
+            DiffStatus {
+                added_lines: added,
+                removed_lines: removed,
+                change_type,
+            },
+        );
     }
     Ok(files_stats)
 }
 
-pub fn diff_file(repo_path: &PathBuf, start_commit: &str, end_commit: &str, file: &str, diff_tool: &str) -> anyhow::Result<()> {
+pub fn diff_file(repo_path: &Path, start_commit: &str, end_commit: &str, file: &str, diff_tool: &str) -> anyhow::Result<()> {
     let mut args = vec!["difftool", "-U100000", "--no-prompt"];
 
     let diff_tool = format!("--tool={}", diff_tool);
