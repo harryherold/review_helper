@@ -69,7 +69,7 @@ impl UiUpdater {
     pub fn set_diff_tools(&self, diff_tools: Vec<String>) {
         self.ui_weak
             .upgrade_in_event_loop({
-                let ui_diff_tools: Vec<SharedString> = diff_tools.iter().map(|t| SharedString::from(t)).collect();
+                let ui_diff_tools: Vec<SharedString> = diff_tools.iter().map(SharedString::from).collect();
                 move |app_window| {
                     let model: VecModel<_> = VecModel::from(ui_diff_tools);
                     app_window.global::<ui::SlintReviewHelperSettings>().set_diff_tool_model(Rc::new(model).into());
@@ -87,9 +87,7 @@ impl UiUpdater {
                 let color_scheme = SharedString::from(&review_helper_settings.color_scheme);
 
                 move |app_window| {
-                    app_window
-                        .global::<ui::SlintReviewHelperSettings>()
-                        .set_diff_tool(SharedString::from(diff_tool));
+                    app_window.global::<ui::SlintReviewHelperSettings>().set_diff_tool(diff_tool);
                     app_window.global::<ui::SlintReviewHelperSettings>().set_editor(editor);
                     app_window.global::<ui::SlintReviewHelperSettings>().set_editor_args(editor_args);
                     app_window.global::<ui::SlintReviewHelperSettings>().set_color_scheme(color_scheme.clone());
@@ -272,7 +270,7 @@ impl UiUpdater {
                 let review_model = model_utils::get_review_model(&app_window, repository_id);
                 let review_model = review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>().unwrap();
 
-                assert!(false == review_model.has(review_id));
+                assert!(!review_model.has(review_id));
 
                 review_model.add(
                     review_id,
@@ -349,18 +347,18 @@ impl UiUpdater {
 
                 if let Some(mut note) = note_model.get(note_id) {
                     match note_change_type {
-                        NoteChangeType::TextChanged(ref new_text) => note.text = SharedString::from(new_text),
-                        NoteChangeType::ContextChanged(ref new_context) => {
+                        NoteChangeType::Text(ref new_text) => note.text = SharedString::from(new_text),
+                        NoteChangeType::Context(ref new_context) => {
                             if let Some(new_context_type) = opt_context_type {
                                 note.context_type = new_context_type;
                             }
                             note.context = SharedString::from(new_context);
                         }
-                        NoteChangeType::IsDoneChanged(new_is_done) => note.is_fixed = new_is_done,
+                        NoteChangeType::IsDone(new_is_done) => note.is_fixed = new_is_done,
                     }
                     note_model.update(note_id, note);
 
-                    if let NoteChangeType::IsDoneChanged(is_done) = note_change_type {
+                    if let NoteChangeType::IsDone(is_done) = note_change_type {
                         review.note_progress.completed_count = if is_done {
                             review.note_progress.completed_count + 1
                         } else {
@@ -577,13 +575,13 @@ impl UiUpdater {
                 let mut review = review_model.get(review_id).unwrap();
 
                 let note_model = review.note_model.as_any().downcast_ref::<IdModel<ui::SlintNote>>().unwrap();
-                note_model.add(note.id.clone() as usize, note);
+                note_model.add(note.id as usize, note);
 
                 review.note_progress.total_count += 1;
 
                 if let Some(file_diff_id) = opt_file_diff_id {
                     let file_diff_model = review.file_diff_model.as_any().downcast_ref::<IdModel<ui::SlintFileDiff>>().unwrap();
-                    if let Some(file_diff) = file_diff_model.get(file_diff_id as usize) {
+                    if let Some(file_diff) = file_diff_model.get(file_diff_id) {
                         let referenced_notes_model = file_diff.referenced_notes.as_any().downcast_ref::<VecModel<i32>>().unwrap();
                         let note_index = note_model.row_count() - 1;
                         referenced_notes_model.push(note_index as i32);
@@ -607,9 +605,9 @@ impl UiUpdater {
                 let author_model = author_model.as_any().downcast_ref::<VecModel<SharedString>>().unwrap();
                 author_model.set_vec(authors);
 
-                let ui_commits = commits.into_iter().map(|commit| ui::SlintCommit::from(commit)).collect::<Vec<_>>();
+                let ui_commits = commits.into_iter().map(ui::SlintCommit::from).collect::<Vec<_>>();
 
-                let commit_model = model_utils::get_commit_model(&app_window);
+                let commit_model = app_window.global::<ui::SlintCommitPickerAdapter>().get_commit_source_model();
                 let commit_model = commit_model.as_any().downcast_ref::<VecModel<ui::SlintCommit>>().unwrap();
 
                 commit_model.clear();
@@ -620,7 +618,7 @@ impl UiUpdater {
     pub fn clear_commits(&self) {
         self.ui_weak
             .upgrade_in_event_loop(move |app_window| {
-                let commit_model = model_utils::get_commit_model(&app_window);
+                let commit_model = app_window.global::<ui::SlintCommitPickerAdapter>().get_commit_source_model();
                 let commit_model = commit_model.as_any().downcast_ref::<VecModel<ui::SlintCommit>>().unwrap();
                 commit_model.clear();
             })

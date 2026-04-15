@@ -1,3 +1,5 @@
+#![deny(clippy::all)]
+
 use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
 use std::{cell::RefCell, process, rc::Rc};
 

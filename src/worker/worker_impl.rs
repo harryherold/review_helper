@@ -25,15 +25,15 @@ pub enum ReviewHelperError {
 
 #[derive(Clone)]
 pub enum NoteChangeType {
-    TextChanged(String),
-    ContextChanged(String),
-    IsDoneChanged(bool),
+    Text(String),
+    Context(String),
+    IsDone(bool),
 }
 
-pub enum ReviewContentChange {
-    NoteChange { note_id: NoteId, change_type: NoteChangeType },
-    FileDiffChange { file_diff_id: FileDiffId, is_reviewed: bool },
-    NameChange(ReviewName),
+pub enum ReviewContent {
+    Note { note_id: NoteId, change_type: NoteChangeType },
+    FileDiff { file_diff_id: FileDiffId, is_reviewed: bool },
+    Name(ReviewName),
 }
 
 pub enum WorkerMessage {
@@ -70,7 +70,7 @@ pub enum WorkerMessage {
     ChangeReview {
         repository_id: RepositoryId,
         review_id: ReviewId,
-        content_change: ReviewContentChange,
+        content_change: ReviewContent,
     },
     FindFileDifferences {
         repository_id: RepositoryId,
@@ -139,15 +139,13 @@ fn create_repository_store(path: PathBuf) -> Result<RepositoryStore, ReviewHelpe
     }
 
     let name = path.file_name().unwrap_or_default().to_str().unwrap_or_default();
-    let first_commit = git_utils::first_commit(&path)
-        .map_err(|e| ReviewHelperError::GitCommandFailed(e.to_string()))?
-        .into();
+    let first_commit = git_utils::first_commit(&path).map_err(|e| ReviewHelperError::GitCommandFailed(e.to_string()))?;
 
     let repository_name = RepositoryName::from(name);
 
     let repository_store = RepositoryStore {
         base_branch: "main".to_string(),
-        path: path,
+        path,
         first_commit,
         name: repository_name,
     };
@@ -168,7 +166,7 @@ impl WorkerImpl {
         let review_helper_settings = match ReviewHelperSettings::new(&app_data_path) {
             Ok(config) => config,
             Err(e) => {
-                eprintln!("{}", e.to_string());
+                eprintln!("{}", e);
                 ReviewHelperSettings::default()
             }
         };
@@ -182,7 +180,7 @@ impl WorkerImpl {
         {
             let ui_repositories: Vec<_> = repositories
                 .iter()
-                .map(|(id, repo)| (id.as_i32(), UiBasicRepository::new(&repo.store())))
+                .map(|(id, repo)| (id.as_i32(), UiBasicRepository::new(repo.store())))
                 .collect();
 
             ui_updater.initialize_repositories(ui_repositories);
@@ -287,11 +285,9 @@ impl WorkerImpl {
                     review_id,
                     content_change,
                 } => match content_change {
-                    ReviewContentChange::FileDiffChange { file_diff_id, is_reviewed } => {
-                        self.change_review_file_diff(repository_id, review_id, file_diff_id, is_reviewed)
-                    }
-                    ReviewContentChange::NoteChange { note_id, change_type } => self.change_review_notes(repository_id, review_id, note_id, change_type),
-                    ReviewContentChange::NameChange(new_review_name) => self.rename_review(repository_id, review_id, new_review_name),
+                    ReviewContent::FileDiff { file_diff_id, is_reviewed } => self.change_review_file_diff(repository_id, review_id, file_diff_id, is_reviewed),
+                    ReviewContent::Note { note_id, change_type } => self.change_review_notes(repository_id, review_id, note_id, change_type),
+                    ReviewContent::Name(new_review_name) => self.rename_review(repository_id, review_id, new_review_name),
                 },
                 WorkerMessage::FindFileDifferences {
                     repository_id,
@@ -329,8 +325,7 @@ impl WorkerImpl {
     }
     fn new_repository(&mut self, path: PathBuf) -> Option<RepositoryId> {
         if self.repositories.contains_repository_path(&path) {
-            self.ui_updater
-                .report_error(ui::SlintResult::RepositoryExists, &path.to_string_lossy().as_ref());
+            self.ui_updater.report_error(ui::SlintResult::RepositoryExists, path.to_string_lossy().as_ref());
             return None;
         }
         match create_repository_store(path) {
@@ -370,7 +365,7 @@ impl WorkerImpl {
             .get_mut(&repository_id)
             .unwrap_or_else(|| panic!("Could not find {}", repository_id));
 
-        match git_utils::repo_contains_branch(&repository.path(), &base_branch) {
+        match git_utils::repo_contains_branch(repository.path(), &base_branch) {
             Ok(contains_branch) => {
                 if !contains_branch {
                     self.ui_updater.report_error(ui::SlintResult::GitBranchDoesNotExists, "Branch does not exists!");
@@ -385,8 +380,8 @@ impl WorkerImpl {
 
         let ui_base_branch = SharedString::from(&base_branch);
         repository.set_base_branch(base_branch);
-        if let Err(_) = self.storage.save_repository(&repository.store()) {
-            self.ui_updater.report_error(ui::SlintResult::StoreFailed, &repository.name.as_str());
+        if let Err(e) = self.storage.save_repository(repository.store()) {
+            self.ui_updater.report_error(ui::SlintResult::StoreFailed, &e.to_string());
             return;
         }
         self.ui_updater.change_repository(repository_id.as_usize(), ui_base_branch);
@@ -513,7 +508,7 @@ impl WorkerImpl {
             return;
         };
         if let Err(e) = self.storage.rename_review(&repository.name, &old_review_name, &new_review_name) {
-            self.ui_updater.report_error(ui::SlintResult::RenameReviewFailed, &format!("{}", e.to_string()));
+            self.ui_updater.report_error(ui::SlintResult::RenameReviewFailed, &e.to_string());
         }
         self.ui_updater
             .rename_review(repository_id.as_usize(), review_id.as_usize(), SharedString::from(new_review_name.as_str()));
@@ -546,8 +541,8 @@ impl WorkerImpl {
 
         let mut opt_context_type = None;
         match change_type.clone() {
-            NoteChangeType::TextChanged(new_text) => note.text = new_text,
-            NoteChangeType::ContextChanged(new_context) => {
+            NoteChangeType::Text(new_text) => note.text = new_text,
+            NoteChangeType::Context(new_context) => {
                 opt_context_type = if review.file_diffs.file_id_map.contains_key(&new_context) {
                     Some(SlintContextType::File)
                 } else {
@@ -559,9 +554,9 @@ impl WorkerImpl {
 
                 note.context = new_context;
             }
-            NoteChangeType::IsDoneChanged(new_is_done) => note.is_done = new_is_done,
+            NoteChangeType::IsDone(new_is_done) => note.is_done = new_is_done,
         }
-        if let Err(e) = self.storage.save_review_notes(&repository.name, &review.name(), &review.notes.stores()) {
+        if let Err(e) = self.storage.save_review_notes(&repository.name, review.name(), &review.notes.stores()) {
             self.ui_updater.report_error(ui::SlintResult::StoreFailed, &e.to_string());
             return;
         }
@@ -587,7 +582,7 @@ impl WorkerImpl {
         review.file_diffs.set_is_reviewed(&file_diff_id, is_reviewed);
         if let Err(e) = self
             .storage
-            .save_review_file_diffs(&repository.name, &review.name(), &review.diff_range(), &review.file_diffs.stores())
+            .save_review_file_diffs(&repository.name, review.name(), review.diff_range(), &review.file_diffs.stores())
         {
             self.ui_updater.report_error(ui::SlintResult::StoreFailed, &e.to_string());
             return;
@@ -601,8 +596,8 @@ impl WorkerImpl {
             .get_mut(&repository_id)
             .unwrap_or_else(|| panic!("Could not find {}", repository_id));
 
-        let Ok(mut file_diff_map) = git_utils::diff_git_repo(&repository.path(), &diff_range.start, &diff_range.end) else {
-            self.ui_updater.report_error(ui::SlintResult::FindFileDifferenceFailed, &"".to_string());
+        let Ok(mut file_diff_map) = git_utils::diff_git_repo(repository.path(), &diff_range.start, &diff_range.end) else {
+            self.ui_updater.report_error(ui::SlintResult::FindFileDifferenceFailed, "");
             return;
         };
 
@@ -634,14 +629,14 @@ impl WorkerImpl {
         self.ui_updater.migrate_file_diff_notes_to_file_context(
             repository_id.as_usize(),
             review_id.as_usize(),
-            added_files.into_iter().map(|f| SharedString::from(f)),
+            added_files.into_iter().map(SharedString::from),
         );
 
         self.ui_updater.set_file_diffs(repository_id.as_usize(), review_id.as_usize(), ui_file_diffs);
 
         if let Err(e) = self
             .storage
-            .save_review_file_diffs(&repository.name, &review.name(), review.diff_range(), &review.file_diffs.stores())
+            .save_review_file_diffs(&repository.name, review.name(), review.diff_range(), &review.file_diffs.stores())
         {
             self.ui_updater.report_error(ui::SlintResult::StoreFailed, &e.to_string());
         }
@@ -662,7 +657,7 @@ impl WorkerImpl {
             .delete_note(&note_id)
             .unwrap_or_else(|| panic!("Could not find {} ({}, {})", note_id, review_id, repository_id));
 
-        if let Err(e) = self.storage.save_review_notes(&repository.name, &review.name(), &review.notes.stores()) {
+        if let Err(e) = self.storage.save_review_notes(&repository.name, review.name(), &review.notes.stores()) {
             self.ui_updater.report_error(ui::SlintResult::StoreFailed, &e.to_string());
             return;
         }
@@ -691,7 +686,7 @@ impl WorkerImpl {
         let opt_file_diff_id = review.file_diffs.file_id_map.get(&context).map(|id| id.as_usize());
         let note_id = review.notes.add_note(text, context);
 
-        if let Err(e) = self.storage.save_review_notes(&repository.name, &review.name(), &review.notes.stores()) {
+        if let Err(e) = self.storage.save_review_notes(&repository.name, review.name(), &review.notes.stores()) {
             self.ui_updater.report_error(ui::SlintResult::StoreFailed, &e.to_string());
             return;
         }

@@ -5,7 +5,7 @@ use crate::{
     repositories::{FileDiffId, NoteId, RepositoryId, ReviewId},
     storage::repository_storage::{DiffRangeStore, ReviewName},
     ui,
-    worker::{NoteChangeType, ReviewContentChange, WorkerChannel, WorkerMessage},
+    worker::{NoteChangeType, ReviewContent, WorkerChannel, WorkerMessage},
 };
 
 use regex::Regex;
@@ -132,7 +132,7 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
         move |ids, new_is_reviewed| {
             let repository_id = RepositoryId::from(ids.review_id_parameters.repository_id);
             let review_id = ReviewId::from(ids.review_id_parameters.review_id);
-            let content_change = ReviewContentChange::FileDiffChange {
+            let content_change = ReviewContent::FileDiff {
                 file_diff_id: FileDiffId::from(ids.file_diff_id),
                 is_reviewed: new_is_reviewed,
             };
@@ -150,9 +150,9 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
             let repository_id = RepositoryId::from(ids.review_id_parameters.repository_id);
             let review_id = ReviewId::from(ids.review_id_parameters.review_id);
             let note_id = NoteId::from(ids.note_id);
-            let content_change = ReviewContentChange::NoteChange {
+            let content_change = ReviewContent::Note {
                 note_id,
-                change_type: NoteChangeType::TextChanged(String::from(&new_text)),
+                change_type: NoteChangeType::Text(String::from(&new_text)),
             };
             let message = WorkerMessage::ChangeReview {
                 repository_id,
@@ -168,9 +168,9 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
             let repository_id = RepositoryId::from(ids.review_id_parameters.repository_id);
             let review_id = ReviewId::from(ids.review_id_parameters.review_id);
             let note_id = NoteId::from(ids.note_id);
-            let content_change = ReviewContentChange::NoteChange {
+            let content_change = ReviewContent::Note {
                 note_id,
-                change_type: NoteChangeType::ContextChanged(String::from(&new_context)),
+                change_type: NoteChangeType::Context(String::from(&new_context)),
             };
             let message = WorkerMessage::ChangeReview {
                 repository_id,
@@ -186,9 +186,9 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
             let repository_id = RepositoryId::from(ids.review_id_parameters.repository_id);
             let review_id = ReviewId::from(ids.review_id_parameters.review_id);
             let note_id = NoteId::from(ids.note_id);
-            let content_change = ReviewContentChange::NoteChange {
+            let content_change = ReviewContent::Note {
                 note_id,
-                change_type: NoteChangeType::IsDoneChanged(new_is_done),
+                change_type: NoteChangeType::IsDone(new_is_done),
             };
             let message = WorkerMessage::ChangeReview {
                 repository_id,
@@ -295,7 +295,7 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
             let message = WorkerMessage::ChangeReview {
                 repository_id: RepositoryId::from(ids.repository_id),
                 review_id: ReviewId::from(ids.review_id),
-                content_change: ReviewContentChange::NameChange(ReviewName::from(new_review_name.as_str())),
+                content_change: ReviewContent::Name(ReviewName::from(new_review_name.as_str())),
             };
             channel.send(message).unwrap();
         }

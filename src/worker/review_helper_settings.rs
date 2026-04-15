@@ -1,10 +1,13 @@
-use std::{fs, path::PathBuf};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use serde_derive::{Deserialize, Serialize};
 
 extern crate dirs;
 
-const REVIEW_HELPER_CONFIG_FILENAME: &'static str = "review_helper_settings.toml";
+const REVIEW_HELPER_CONFIG_FILENAME: &str = "review_helper_settings.toml";
 
 #[derive(Serialize, Deserialize)]
 pub struct ReviewHelperSettings {
@@ -29,15 +32,14 @@ impl Default for ReviewHelperSettings {
 }
 
 impl ReviewHelperSettings {
-    pub fn new(path: &PathBuf) -> anyhow::Result<Self> {
+    pub fn new(path: &Path) -> anyhow::Result<Self> {
         let mut review_helper_settings = ReviewHelperSettings::default();
 
         let settings_path = path.join(REVIEW_HELPER_CONFIG_FILENAME);
 
         if settings_path.exists() && settings_path.is_file() {
-            let file_content = fs::read_to_string(&settings_path).map_err(|e| anyhow::format_err!("Could not read app config: {}", e.to_string()))?;
-            review_helper_settings =
-                toml::from_str(&file_content).map_err(|e| anyhow::format_err!("Could not convert file content to toml: {}", e.to_string()))?;
+            let file_content = fs::read_to_string(&settings_path).map_err(|e| anyhow::format_err!("Could not read app config: {}", e))?;
+            review_helper_settings = toml::from_str(&file_content).map_err(|e| anyhow::format_err!("Could not convert file content to toml: {}", e))?;
         }
         review_helper_settings.path = settings_path.clone();
         Ok(review_helper_settings)
@@ -49,11 +51,11 @@ impl ReviewHelperSettings {
 
         let parent_dir = self.path.parent().expect("path has no parent dir!");
         if !parent_dir.exists() {
-            fs::create_dir(parent_dir).map_err(|e| anyhow::format_err!("Could not create app config dir: {}", e.to_string()))?;
+            fs::create_dir(parent_dir).map_err(|e| anyhow::format_err!("Could not create app config dir: {}", e))?;
         }
 
         let contents = toml::to_string(self).expect("Could not convert ReviewHelperSettings struct to toml string!");
-        fs::write(&self.path, contents).map_err(|e| anyhow::format_err!("Could not write app config file: {}", e.to_string()))
+        fs::write(&self.path, contents).map_err(|e| anyhow::format_err!("Could not write app config file: {}", e))
     }
 }
 

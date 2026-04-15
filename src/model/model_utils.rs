@@ -2,11 +2,6 @@ use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 
 use crate::{model::IdModel, ui};
 
-pub fn get_commit_model(app_window: &ui::AppWindow) -> ModelRc<ui::SlintCommit> {
-    let commit_model = app_window.global::<ui::SlintCommitPickerAdapter>().get_commit_source_model();
-    commit_model
-}
-
 pub fn get_review_model(app_window: &ui::AppWindow, repository_id: usize) -> ModelRc<ui::SlintReview> {
     let repository_model = app_window.global::<ui::SlintReviewHelper>().get_repositories();
     let Some(repository_model) = repository_model.as_any().downcast_ref::<IdModel<ui::SlintRepository>>() else {

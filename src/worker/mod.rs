@@ -1,10 +1,6 @@
-pub mod worker;
+mod worker_impl;
 
-pub use worker::NoteChangeType;
-pub use worker::ReviewContentChange;
-pub use worker::Worker;
-pub use worker::WorkerChannel;
-pub use worker::WorkerMessage;
+pub use self::worker_impl::*;
 
 mod review_helper_settings;
 mod ui_updater;

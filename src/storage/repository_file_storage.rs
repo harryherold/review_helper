@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::fs::{self, File, OpenOptions};
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use toml::{Table, Value};
 
@@ -21,7 +21,7 @@ impl ReviewHelperFileStorage {
     }
 }
 
-fn is_toml(path: &PathBuf) -> bool {
+fn is_toml(path: &Path) -> bool {
     match path.extension() {
         Some(e) => e == "toml",
         None => false,
@@ -157,8 +157,10 @@ impl ReviewHelperStorage for ReviewHelperFileStorage {
             diff_range.end = end.to_string();
         }
 
-        let mut review_store = ReviewStore::default();
-        review_store.diff_range = diff_range;
+        let mut review_store = ReviewStore {
+            diff_range,
+            ..Default::default()
+        };
 
         if table.contains_key("diff_files")
             && let Some(diff_files) = table["diff_files"].as_array()
@@ -213,7 +215,7 @@ impl ReviewHelperStorage for ReviewHelperFileStorage {
         let new_review_dir_path = repository_path.join(new_review_name.as_str());
         let new_file_name = PathBuf::from(format!("{}.toml", new_review_name.as_str()));
 
-        fs::rename(&old_review_file_path, &old_review_dir_path.join(new_file_name))?;
+        fs::rename(&old_review_file_path, old_review_dir_path.join(new_file_name))?;
         fs::rename(&old_review_dir_path, &new_review_dir_path)?;
 
         Ok(())
@@ -230,7 +232,7 @@ impl ReviewHelperStorage for ReviewHelperFileStorage {
         }
 
         let note_file = review_dir_path.join(NOTE_FILE_NAME);
-        save_notes(&notes, note_file)
+        save_notes(notes, note_file)
     }
 
     fn save_review_file_diffs(
@@ -278,7 +280,7 @@ impl ReviewHelperStorage for ReviewHelperFileStorage {
 fn load_notes(note_file: PathBuf) -> StorageResult<Vec<NoteStore>> {
     let to_note = |line: &str| -> Option<(bool, String)> {
         let pos = line.find("[")?;
-        let is_done = false == line.get(pos + 1..)?.starts_with("]");
+        let is_done = !line.get(pos + 1..)?.starts_with("]");
         let text: String = if is_done {
             let pos = line.find("]")?;
             line.get(pos + 1..)?.trim().to_string()
@@ -294,10 +296,10 @@ fn load_notes(note_file: PathBuf) -> StorageResult<Vec<NoteStore>> {
     };
     let buffer = fs::read_to_string(note_file)?;
     let mut notes = Vec::new();
-    let mut iter = buffer.lines().into_iter();
+    let iter = buffer.lines();
     let mut context = String::new();
 
-    while let Some(line) = iter.next() {
+    for line in iter {
         let line = line.trim();
         if line.starts_with("#") {
             context = to_file(line).ok_or_else(|| StorageError::Deserialize("Could not parse file context!".to_string()))?;
@@ -323,24 +325,24 @@ fn save_notes(notes: &[&NoteStore], note_file: PathBuf) -> StorageResult<()> {
         let notes: &mut Vec<String> = if item.context.is_empty() {
             &mut general_notes
         } else {
-            file_notes.entry(item.context.to_string()).or_insert(Vec::new())
+            file_notes.entry(item.context.to_string()).or_default()
         };
         notes.push(note_item_to_string(item));
     }
     let mut file = OpenOptions::new().create(true).truncate(true).write(true).open(note_file)?;
 
     for note in general_notes {
-        write!(file, "{}\n", note)?;
+        writeln!(file, "{}", note)?;
     }
 
-    write!(file, "\n")?;
+    writeln!(file)?;
 
     for (file_name, notes) in file_notes {
-        write!(file, "# Notes of '{}'\n", file_name)?;
+        writeln!(file, "# Notes of '{}'", file_name)?;
         for note in notes {
-            write!(file, "{}\n", note)?;
+            writeln!(file, "{}", note)?;
         }
-        write!(file, "\n")?;
+        writeln!(file)?;
     }
 
     Ok(())
@@ -398,7 +400,7 @@ mod tests {
         path
     }
 
-    fn create_test_repos(path: &PathBuf) {
+    fn create_test_repos(path: &Path) {
         let review_helper_content = r#"name = "review_helper"
 path = "/home/harry/workspace/review_helper"
 first_commit = "9f89049b7f99682c48474d421ac126316adaed15"
@@ -410,7 +412,7 @@ path = "/home/harry/workspace/trackme"
 first_commit = "5a99f0351a9dcbe5f2414e84e6f5bb9f617af33a"
 base_branch = "main"
 "#;
-        create_repo(path.clone(), "review_helper", review_helper_content);
+        create_repo(path.to_path_buf(), "review_helper", review_helper_content);
 
         let cool_feature_contents = r#"start_diff = "a261b7b"
 end_diff = ""
@@ -428,15 +430,15 @@ is_reviewed = true
 file_name = "foo.md"
 "#;
 
-        create_review(path.clone(), "review_helper", "cool_feature", cool_feature_contents, Vec::new());
+        create_review(path.to_path_buf(), "review_helper", "cool_feature", cool_feature_contents, Vec::new());
 
         let notes = vec![NoteStore {
             context: "foo/bar.cpp".to_string(),
             is_done: true,
             text: "fix bug".to_string(),
         }];
-        create_review(path.clone(), "review_helper", "fancy_ui", fancy_ui_contents, notes);
-        create_repo(path.clone(), "trackme", trackme_content);
+        create_review(path.to_path_buf(), "review_helper", "fancy_ui", fancy_ui_contents, notes);
+        create_repo(path.to_path_buf(), "trackme", trackme_content);
     }
 
     #[serial]
@@ -577,7 +579,7 @@ file_name = "foo.md"
         let review_result = repository_storage.load_review(&RepositoryName::from("review_helper"), &ReviewName::from("fancy_ui"));
         assert!(review_result.is_ok());
 
-        let expected_file_diffs = vec![
+        let expected_file_diffs = [
             FileDiffStore {
                 file_path: PathBuf::from("bar.md"),
                 is_reviewed: false,
