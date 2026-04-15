@@ -73,26 +73,26 @@ macro_rules! git_command {
     };
 }
 
-pub fn is_git_repo(path: &PathBuf) -> bool {
+pub fn is_git_repo(path: &Path) -> bool {
     let git_folder = path.join(PathBuf::from(".git"));
     git_folder.is_dir()
 }
 
-pub fn _repo_contains_commit(path: &PathBuf, commit: &str) -> anyhow::Result<bool> {
+pub fn _repo_contains_commit(path: &Path, commit: &str) -> anyhow::Result<bool> {
     let args = vec!["cat-file", "-t", commit];
     let output = git_command!(path, args).output()?;
     let msg = String::from_utf8(output.stdout)?;
     Ok(msg.contains("commit"))
 }
 
-pub fn repo_contains_branch(path: &PathBuf, branch: &str) -> anyhow::Result<bool> {
+pub fn repo_contains_branch(path: &Path, branch: &str) -> anyhow::Result<bool> {
     let args = vec!["branch", "--list", branch];
     let output = git_command!(path, args).output()?;
     let msg = String::from_utf8(output.stdout)?;
     Ok(!msg.is_empty())
 }
 
-pub fn diff_git_repo(repo_path: &PathBuf, start_commit: &str, end_commit: &str) -> anyhow::Result<FileDiffMap> {
+pub fn diff_git_repo(repo_path: &Path, start_commit: &str, end_commit: &str) -> anyhow::Result<FileDiffMap> {
     let files_change_type = diff_name_status(repo_path, start_commit, end_commit)?;
     let files_stats = query_file_stats(repo_path, start_commit, end_commit, files_change_type)?;
     Ok(files_stats)
@@ -101,10 +101,10 @@ pub fn diff_git_repo(repo_path: &PathBuf, start_commit: &str, end_commit: &str) 
 fn diff_name_status(repo_path: &Path, start_commit: &str, end_commit: &str) -> anyhow::Result<HashMap<String, ChangeType>> {
     let mut args = vec!["diff", "--name-status"];
 
-    if false == start_commit.is_empty() {
+    if !start_commit.is_empty() {
         args.push(start_commit);
     }
-    if false == end_commit.is_empty() {
+    if !end_commit.is_empty() {
         args.push(end_commit);
     }
 
@@ -144,10 +144,10 @@ fn query_file_stats(
 ) -> anyhow::Result<HashMap<String, DiffStatus>> {
     let mut args = vec!["diff", "-z", "--numstat"];
 
-    if false == start_commit.is_empty() {
+    if !start_commit.is_empty() {
         args.push(start_commit);
     }
-    if false == end_commit.is_empty() {
+    if !end_commit.is_empty() {
         args.push(end_commit);
     }
 
@@ -202,10 +202,10 @@ pub fn diff_file(repo_path: &Path, start_commit: &str, end_commit: &str, file: &
 
     args.push(&diff_tool);
 
-    if false == start_commit.is_empty() {
+    if !start_commit.is_empty() {
         args.push(start_commit);
     }
-    if false == end_commit.is_empty() {
+    if !end_commit.is_empty() {
         args.push(end_commit);
     }
 
@@ -264,7 +264,7 @@ pub fn query_commits(repo_path: &Path) -> anyhow::Result<Vec<Commit>> {
             if parts.len() < 4 {
                 anyhow::bail!("query_commits: Malformed git output line: {}", line);
             }
-            let date_time = DateTime::parse_from_rfc3339(&parts[2]).map_err(|e| anyhow::anyhow!("Invalid date {}: {}", parts[2], e))?;
+            let date_time = DateTime::parse_from_rfc3339(parts[2]).map_err(|e| anyhow::anyhow!("Invalid date {}: {}", parts[2], e))?;
             Ok(Commit {
                 hash: parts[0].to_string(),
                 author: parts[1].to_string(),
@@ -403,7 +403,7 @@ mod tests {
 
         mock("git")
             .current_dir(&ctx.path)
-            .with_args(&args)
+            .with_args(args)
             .with_stdout("9f89049b7f99682c48474d421ac126316adaed15")
             .register();
 
@@ -429,7 +429,7 @@ mod tests {
         let commit = "9f89049b7f99682c48474d421ac126316adaed15";
         let args = ["cat-file", "-t", commit];
 
-        mock("git").current_dir(&ctx.path).with_args(&args).with_stdout("commit").register();
+        mock("git").current_dir(&ctx.path).with_args(args).with_stdout("commit").register();
 
         let expected_cmd = [&["git"], &args[..]].concat();
 
@@ -447,7 +447,7 @@ mod tests {
         let branch = "main";
         let args = ["branch", "--list", branch];
 
-        mock("git").current_dir(&ctx.path).with_args(&args).with_stdout("main").register();
+        mock("git").current_dir(&ctx.path).with_args(args).with_stdout("main").register();
         let expected_cmd = [&["git"], &args[..]].concat();
 
         let result = repo_contains_branch(&ctx.path, branch);
@@ -479,7 +479,7 @@ mod tests {
 
         git_mock(&ctx)
             .with_args(git_file_status_args)
-            .with_stdout("6       0       rustfmt.toml\0137       0       src/lib.rs\022  94      src/main.rs\0")
+            .with_stdout("6       0       rustfmt.toml\0 137       0       src/lib.rs\0 22  94      src/main.rs\0")
             .register();
 
         let result = diff_git_repo(&ctx.path, start_commit, end_commit);
@@ -568,7 +568,7 @@ mod tests {
         assert!(diff_tools_result.is_ok());
 
         let diff_tools = diff_tools_result.unwrap();
-        assert!(diff_tools.len() > 0);
+        assert!(!diff_tools.is_empty());
 
         assert!(diff_tools.contains(&"vscode".to_string()));
     }

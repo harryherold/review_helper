@@ -20,7 +20,7 @@ impl<T: Clone + 'static> Model for IdModel<T> {
     fn row_data(&self, row: usize) -> Option<Self::Data> {
         match self.entity_map.borrow().keys().nth(row) {
             None => None,
-            Some(key) => self.entity_map.borrow().get(key).map_or(None, |s| Some(s.to_owned())),
+            Some(key) => self.entity_map.borrow().get(key).map(|s| s.to_owned()),
         }
     }
     fn set_row_data(&self, row: usize, data: Self::Data) {
@@ -85,7 +85,7 @@ mod test {
 
     fn map_id() -> usize {
         static COUNTER: AtomicUsize = AtomicUsize::new(1);
-        COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed) as usize
+        COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
     }
 
     #[test]

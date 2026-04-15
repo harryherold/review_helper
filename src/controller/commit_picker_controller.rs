@@ -12,9 +12,7 @@ use slint::{ComponentHandle, Model, ModelRc, SharedString};
 fn query_merge_base(app_window: &ui::AppWindow, repository_id: usize) -> Option<SharedString> {
     let repositories = app_window.global::<ui::SlintReviewHelper>().get_repositories();
     let repositories = repositories.as_any().downcast_ref::<IdModel<ui::SlintRepository>>().unwrap();
-    let Some(repository) = repositories.get(repository_id) else {
-        return None;
-    };
+    let repository = repositories.get(repository_id)?;
     let path = PathBuf::from(repository.path.as_str());
     let base_branch = repository.base_branch.as_str();
     let Ok(feature_branch) = git_utils::current_branch(&path) else {

@@ -52,9 +52,9 @@ mod tests {
         assert!(is_vaild_name("Foo123"));
         assert!(is_vaild_name("Foo12Bar"));
 
-        assert!(false == is_vaild_name("12Foo"));
-        assert!(false == is_vaild_name("Bar*Blubb"));
-        assert!(false == is_vaild_name("Foo123__"));
-        assert!(false == is_vaild_name("_Foo12Bar"));
+        assert!(!is_vaild_name("12Foo"));
+        assert!(!is_vaild_name("Bar*Blubb"));
+        assert!(!is_vaild_name("Foo123__"));
+        assert!(!is_vaild_name("_Foo12Bar"));
     }
 }

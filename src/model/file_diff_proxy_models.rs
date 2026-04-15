@@ -10,6 +10,7 @@ use wildcard::Wildcard;
 
 type FileDiffFilterModel = Rc<FilterModel<ModelRc<ui::SlintFileDiff>, Box<dyn Fn(&ui::SlintFileDiff) -> bool>>>;
 type FileDiffSortModel = Rc<SortModel<FileDiffFilterModel, Box<dyn Fn(&ui::SlintFileDiff, &ui::SlintFileDiff) -> Ordering>>>;
+type SortCallback = Box<dyn Fn(&ui::SlintFileDiff, &ui::SlintFileDiff) -> Ordering>;
 
 pub struct FileDiffProxyModels {
     filter_model: FileDiffFilterModel,
@@ -24,18 +25,20 @@ impl FileDiffProxyModels {
         lhs.file_path.to_lowercase().cmp(&rhs.file_path.to_lowercase())
     }
     fn sort_by_extension(lhs: &ui::SlintFileDiff, rhs: &ui::SlintFileDiff) -> Ordering {
-        let lhs_opt = extension_from_filename(&lhs.file_path);
-        let rhs_opt = extension_from_filename(&rhs.file_path);
-        if lhs_opt.is_some() && rhs_opt.is_some() {
-            let result = lhs_opt.unwrap().cmp(rhs_opt.unwrap());
+        let lhs_opt_ext = extension_from_filename(&lhs.file_path);
+        let rhs_opt_ext = extension_from_filename(&rhs.file_path);
+        if let Some(lhs_ext) = lhs_opt_ext
+            && let Some(rhs_ext) = rhs_opt_ext
+        {
+            let result = lhs_ext.cmp(rhs_ext);
             if result == Ordering::Equal {
                 lhs.file_path.to_lowercase().cmp(&rhs.file_path.to_lowercase())
             } else {
                 result
             }
-        } else if lhs_opt.is_some() && rhs_opt.is_none() {
+        } else if lhs_opt_ext.is_some() && rhs_opt_ext.is_none() {
             Ordering::Greater
-        } else if lhs_opt.is_none() && rhs_opt.is_some() {
+        } else if lhs_opt_ext.is_none() && rhs_opt_ext.is_some() {
             Ordering::Less
         } else {
             lhs.file_path.to_lowercase().cmp(&rhs.file_path.to_lowercase())
@@ -46,9 +49,9 @@ impl FileDiffProxyModels {
         let rhs_is_done = rhs.is_reviewed;
 
         if lhs_is_done && !rhs_is_done {
-            return Ordering::Less;
+            Ordering::Less
         } else if !lhs_is_done && rhs_is_done {
-            return Ordering::Greater;
+            Ordering::Greater
         } else {
             lhs.file_path.to_lowercase().cmp(&rhs.file_path.to_lowercase())
         }
@@ -70,7 +73,7 @@ impl FileDiffProxyModels {
                     return false;
                 }
                 if filter_pattern.borrow().is_empty() {
-                    return true;
+                    true
                 } else {
                     let pattern_text = filter_pattern.borrow().as_str().to_lowercase();
                     let pattern = Wildcard::new(pattern_text.as_bytes()).expect("Could not build wildcard!");
@@ -82,9 +85,10 @@ impl FileDiffProxyModels {
 
         let filter_model = Rc::new(FilterModel::new(source_model, filter_callback));
 
-        let sort_citeria = Rc::new(RefCell::new(ui::SlintSortCriteria::Name));
-        let sort_callback: Box<dyn Fn(&ui::SlintFileDiff, &ui::SlintFileDiff) -> Ordering> = Box::new({
-            let sort_citeria = sort_citeria.clone();
+        let sort_criteria = Rc::new(RefCell::new(ui::SlintSortCriteria::Name));
+
+        let sort_callback: SortCallback = Box::new({
+            let sort_citeria = sort_criteria.clone();
             move |lhs, rhs| -> Ordering {
                 match *sort_citeria.borrow() {
                     ui::SlintSortCriteria::Name => Self::sort_by_name(lhs, rhs),
@@ -98,10 +102,10 @@ impl FileDiffProxyModels {
 
         FileDiffProxyModels {
             filter_model: filter_model.clone(),
-            filter_pattern: filter_pattern,
-            filter_review_state: filter_review_state,
-            sort_model: sort_model,
-            sort_criteria: sort_citeria,
+            filter_pattern,
+            filter_review_state,
+            sort_model,
+            sort_criteria,
         }
     }
 

@@ -23,21 +23,17 @@ pub struct CommitProxyModels {
     sort_model: CommitSortModel,
 }
 
+type SortCallback = Box<dyn Fn(&ui::SlintCommit, &ui::SlintCommit) -> std::cmp::Ordering>;
+
 impl CommitProxyModels {
-    fn get_sort_callback(criteria: ui::SlintCommitSortCriterion, is_sort_ascending: bool) -> Box<dyn Fn(&ui::SlintCommit, &ui::SlintCommit) -> Ordering> {
+    fn get_sort_callback(criteria: ui::SlintCommitSortCriterion, is_sort_ascending: bool) -> SortCallback {
         Box::new(move |lhs: &ui::SlintCommit, rhs: &ui::SlintCommit| -> Ordering {
             use ui::SlintCommitSortCriterion::*;
 
-            let compare_text = |lhs_text: &str, rhs_text: &str| -> Ordering {
-                if is_sort_ascending {
-                    lhs_text.cmp(&rhs_text)
-                } else {
-                    rhs_text.cmp(&lhs_text)
-                }
-            };
+            let compare_text = |lhs_text: &str, rhs_text: &str| -> Ordering { if is_sort_ascending { lhs_text.cmp(rhs_text) } else { rhs_text.cmp(lhs_text) } };
             match criteria {
                 Text => compare_text(lhs.message.as_str(), rhs.message.as_str()),
-                Author => compare_text(&lhs.author.as_str(), rhs.author.as_str()),
+                Author => compare_text(lhs.author.as_str(), rhs.author.as_str()),
                 Date => {
                     let lhs_date: DateTime<FixedOffset> = DateTime::from_str(&lhs.date).unwrap();
                     let rhs_date: DateTime<FixedOffset> = DateTime::from_str(&rhs.date).unwrap();
@@ -92,7 +88,7 @@ impl CommitProxyModels {
         let clone_sort_criteria = sort_criteria.clone();
 
         let sm: CommitSortModel = Rc::new(SortModel::new(
-            fm.clone().into(),
+            fm.clone(),
             Box::new(move |lhs, rhs| {
                 let criteria = clone_sort_criteria.borrow();
                 let compare = Self::get_sort_callback(criteria.criterion, criteria.is_sort_ascending);
@@ -104,7 +100,7 @@ impl CommitProxyModels {
             filter_model: fm.clone(),
             filter_text: clone_filter_text,
             filter_author: clone_filter_author,
-            sort_criteria: sort_criteria,
+            sort_criteria,
             sort_model: sm,
         }
     }

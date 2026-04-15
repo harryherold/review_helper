@@ -49,7 +49,7 @@ pub fn setup_file_picker(app_window: &ui::AppWindow, proxy_models: Rc<RefCell<Re
             let app_window = app_window_weak.unwrap();
             let file_diff_model = model_utils::get_file_diff_model(&app_window, ids.repository_id as usize, ids.review_id as usize);
             let file_diff_model = file_diff_model.as_any().downcast_ref::<IdModel<ui::SlintFileDiff>>().unwrap();
-            file_diff_model.iter().find(|file_diff| file_diff.file_path == context).is_some()
+            file_diff_model.iter().any(|file_diff| file_diff.file_path == context)
         }
     });
 }
