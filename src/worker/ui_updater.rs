@@ -373,7 +373,7 @@ impl UiUpdater {
             .unwrap();
     }
 
-    fn note_id_to_index(review: &SlintReview, note_id: usize) -> i32 {
+    fn note_id_to_index(review: &SlintReview, note_id: usize) -> Option<usize> {
         let note_model = review.note_model.as_any().downcast_ref::<IdModel<ui::SlintNote>>().unwrap();
         note_model.id_to_index(note_id)
     }
@@ -437,13 +437,12 @@ impl UiUpdater {
         self.ui_weak
             .upgrade_in_event_loop(move |app_window| {
                 let review = model_utils::get_slint_review(&app_window, repository_id, review_id);
-                let note_index = Self::note_id_to_index(&review, note_id);
-                if note_index < 0 {
+                let Some(note_index) = Self::note_id_to_index(&review, note_id) else {
                     return;
-                }
+                };
                 let referenced_notes_model = Self::get_note_references(&review, file_diff_id);
                 let referenced_notes_model = referenced_notes_model.as_any().downcast_ref::<VecModel<i32>>().unwrap();
-                referenced_notes_model.push(note_index);
+                referenced_notes_model.push(note_index as i32);
             })
             .unwrap();
     }
@@ -451,15 +450,14 @@ impl UiUpdater {
         self.ui_weak
             .upgrade_in_event_loop(move |app_window| {
                 let review = model_utils::get_slint_review(&app_window, repository_id, review_id);
-                let note_index = Self::note_id_to_index(&review, note_id);
-                if note_index < 0 {
+                let Some(note_index) = Self::note_id_to_index(&review, note_id) else {
                     return;
-                }
+                };
                 let referenced_notes_model = Self::get_note_references(&review, file_diff_id);
                 let referenced_notes_model = referenced_notes_model.as_any().downcast_ref::<VecModel<i32>>().unwrap();
                 let remove_index = referenced_notes_model
                     .iter()
-                    .position(|i| i == note_index)
+                    .position(|i| i == note_index as i32)
                     .unwrap_or_else(|| panic!("Could not find referenced note index {} ({}, {})", note_index, review_id, repository_id));
                 referenced_notes_model.remove(remove_index);
             })

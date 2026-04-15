@@ -122,7 +122,10 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
             }
 
             let review_model = review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>().unwrap();
-            review_model.id_to_index(review_id as usize)
+            match review_model.id_to_index(review_id as usize) {
+                Some(index) => index as i32,
+                None => -1,
+            }
         });
     app_window.global::<ui::SlintReviewCallbacks>().on_change_file_diff_is_reviewed({
         let channel = worker_channel.clone();

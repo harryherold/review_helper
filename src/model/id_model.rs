@@ -1,10 +1,11 @@
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 use slint::{Model, ModelNotify};
 
 #[derive(Default)]
 pub struct IdModel<T> {
-    entity_map: std::cell::RefCell<BTreeMap<usize, T>>,
+    entity_map: std::cell::RefCell<HashMap<usize, T>>,
+    index_id_map: std::cell::RefCell<Vec<usize>>,
     notify: ModelNotify,
 }
 
@@ -12,21 +13,21 @@ impl<T: Clone + 'static> Model for IdModel<T> {
     type Data = T;
 
     fn row_count(&self) -> usize {
-        self.entity_map.borrow().len()
+        self.index_id_map.borrow().len()
     }
     fn model_tracker(&self) -> &dyn slint::ModelTracker {
         &self.notify
     }
     fn row_data(&self, row: usize) -> Option<Self::Data> {
-        match self.entity_map.borrow().keys().nth(row) {
-            None => None,
-            Some(key) => self.entity_map.borrow().get(key).map(|s| s.to_owned()),
-        }
+        let index_id_map = self.index_id_map.borrow();
+        let id = index_id_map.get(row)?;
+
+        self.entity_map.borrow().get(id).cloned()
     }
     fn set_row_data(&self, row: usize, data: Self::Data) {
-        let key_result = self.entity_map.borrow().keys().nth(row).cloned();
-        if let Some(key) = key_result {
-            self.entity_map.borrow_mut().insert(key, data);
+        let index_id_map = self.index_id_map.borrow();
+        if let Some(id) = index_id_map.get(row) {
+            self.entity_map.borrow_mut().insert(*id, data);
             self.notify.row_changed(row);
         }
     }
@@ -37,22 +38,36 @@ impl<T: Clone + 'static> Model for IdModel<T> {
 
 impl<T: Clone> IdModel<T> {
     pub fn add(&self, id: usize, value: T) {
-        self.entity_map.borrow_mut().insert(id, value);
-
-        if let Some(index) = self.entity_map.borrow().keys().position(|&k| k == id) {
-            self.notify.row_added(index, 1);
+        {
+            let mut entity_map = self.entity_map.borrow_mut();
+            if entity_map.contains_key(&id) {
+                return;
+            }
+            entity_map.insert(id, value);
         }
+        let row = {
+            let mut index_id_map = self.index_id_map.borrow_mut();
+            index_id_map.push(id);
+            index_id_map.len() - 1
+        };
+        self.notify.row_added(row, 1);
     }
     pub fn remove(&self, id: usize) {
-        let opt_index = self.entity_map.borrow().keys().position(|&k| k == id);
-        if let Some(index) = opt_index {
-            self.entity_map.borrow_mut().remove(&id);
-            self.notify.row_removed(index, 1);
+        let mut entity_map = self.entity_map.borrow_mut();
+        if !entity_map.contains_key(&id) {
+            return;
+        }
+
+        let mut id_index_map = self.index_id_map.borrow_mut();
+        if let Some(row) = id_index_map.iter().position(|&i| i == id) {
+            id_index_map.remove(row);
+            entity_map.remove(&id);
+            self.notify.row_removed(row, 1);
         }
     }
     pub fn update(&self, id: usize, value: T) {
-        let opt_index = self.entity_map.borrow().keys().position(|&k| k == id);
-        if let Some(index) = opt_index {
+        let id_index_map = self.index_id_map.borrow();
+        if let Some(index) = id_index_map.iter().position(|&i| i == id) {
             self.entity_map.borrow_mut().insert(id, value);
             self.notify.row_changed(index);
         }
@@ -62,13 +77,11 @@ impl<T: Clone> IdModel<T> {
     }
     pub fn clear(&self) {
         self.entity_map.borrow_mut().clear();
+        self.index_id_map.borrow_mut().clear();
         self.notify.reset();
     }
-    pub fn id_to_index(&self, id: usize) -> i32 {
-        match self.entity_map.borrow().keys().position(|&k| k == id) {
-            Some(index) => index as i32,
-            None => -1,
-        }
+    pub fn id_to_index(&self, id: usize) -> Option<usize> {
+        self.index_id_map.borrow().iter().position(|&i| i == id)
     }
     pub fn has(&self, id: usize) -> bool {
         self.entity_map.borrow().contains_key(&id)
