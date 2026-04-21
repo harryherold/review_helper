@@ -8,6 +8,8 @@ build = "build.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+simplelog = "0.12.2"
+log = "0.4.29"
 thiserror = "2.0.18"
 regex = "1.12.2"
 tokio = { version = "1.47.1", features = ["full"] }

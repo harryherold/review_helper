@@ -4,6 +4,7 @@ use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
 use std::{cell::RefCell, process, rc::Rc};
 
 use crate::{
+    log_utils::init_logger,
     model::{CommitProxyModels, RepositoriesProxyModels},
     worker::Worker,
 };
@@ -14,6 +15,7 @@ mod storage;
 
 mod command_utils;
 mod git_utils;
+mod log_utils;
 mod repositories;
 mod worker;
 
@@ -52,6 +54,10 @@ pub fn main() {
 }
 
 fn run_app() -> Result<(), Box<dyn std::error::Error>> {
+    init_logger();
+
+    log::info!("Start review_helper!");
+
     let app_window = ui::AppWindow::new().map_err(|e| format!("Error while creating app window! {}", e))?;
 
     let app_proxy_models = AppProxyModels::new(&app_window);

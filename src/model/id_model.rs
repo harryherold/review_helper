@@ -119,7 +119,7 @@ mod test {
     #[test]
     fn test_btree_map() {
         let mut map = BTreeMap::<usize, String>::new();
-        let get_position = |m: &BTreeMap<usize, String>, id: usize| m.keys().position(|&k| k == id).unwrap();
+        let get_position = |m: &BTreeMap<usize, String>, id: usize| m.keys().position(|&k| k == id).expect("Key should be found!");
 
         map.insert(1, "A".to_string());
         assert_eq!(get_position(&map, 1), 0);
