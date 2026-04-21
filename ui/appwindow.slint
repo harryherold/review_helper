@@ -61,7 +61,6 @@ export {
 export component AppWindow inherits Window {
     private property <int> selected_repository_index <=> tab-view.current-index;
     in property <string> config_color_scheme;
-    callback close;
     callback request_show_error();
     request_show_error() => {
         error-popup.show();

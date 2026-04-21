@@ -5,8 +5,6 @@ use std::{
 
 use serde_derive::{Deserialize, Serialize};
 
-extern crate dirs;
-
 const REVIEW_HELPER_CONFIG_FILENAME: &str = "review_helper_settings.toml";
 
 #[derive(Serialize, Deserialize)]
@@ -79,36 +77,36 @@ mod tests {
         }
     }
 
-    fn setup(is_clean_enabled: bool) -> TestContext {
+    fn setup(is_clean_enabled: bool) -> anyhow::Result<TestContext> {
         let mut path = env::temp_dir();
         path.push(std::env!("CARGO_CRATE_NAME"));
 
         if !path.exists() {
-            let result = fs::create_dir(&path);
-            assert!(result.is_ok());
+            fs::create_dir(&path)?;
         }
 
         let review_helper_settings = ReviewHelperSettings::new(&path);
         assert!(review_helper_settings.is_ok());
-        TestContext {
+        Ok(TestContext {
             review_helper_settings: review_helper_settings.unwrap(),
             path,
             is_clean_enabled,
-        }
+        })
     }
 
     #[test]
-    fn test_new_config() {
+    fn test_new_config() -> anyhow::Result<()> {
         {
-            let mut ctx = setup(false);
+            let mut ctx = setup(false)?;
             assert_eq!(ctx.review_helper_settings.diff_tool, "meld");
 
             ctx.review_helper_settings.diff_tool = "vscode".to_string();
-            assert!(ctx.review_helper_settings.save().is_ok());
+            ctx.review_helper_settings.save()?;
         }
         {
-            let ctx = setup(true);
+            let ctx = setup(true)?;
             assert_eq!(ctx.review_helper_settings.diff_tool, "vscode");
         }
+        Ok(())
     }
 }

@@ -58,8 +58,6 @@ fn run_app() -> Result<(), Box<dyn std::error::Error>> {
 
     let worker = Worker::new(&app_window);
 
-    app_window.on_close(move || process::exit(0));
-
     controller::setup_review_helper_settings(&app_window, worker.channel.clone());
 
     controller::setup_review_helper(&app_window, worker.channel.clone());

@@ -1,6 +1,7 @@
 use std::{cell::RefCell, rc::Rc};
 
 use crate::{
+    controller::utils_controller::is_valid_name,
     model::{FileDiffProxyModels, IdModel, NotesProxyModels, RepositoriesProxyModels, ReviewProxyModels, model_utils},
     repositories::{FileDiffId, NoteId, RepositoryId, ReviewId},
     storage::repository_storage::{DiffRangeStore, ReviewName},
@@ -8,16 +9,7 @@ use crate::{
     worker::{NoteChangeType, ReviewContent, WorkerChannel, WorkerMessage},
 };
 
-use regex::Regex;
 use slint::{ComponentHandle, Model, ModelRc};
-
-fn is_vaild_name(name: &str) -> bool {
-    if name.is_empty() {
-        return false;
-    }
-    let re = Regex::new(r"^[A-Za-z][A-Za-z0-9]*$").unwrap();
-    re.is_match(name)
-}
 
 pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: WorkerChannel, proxy_models: Rc<RefCell<RepositoriesProxyModels>>) {
     fn get_file_diff_proxy_model(ids: ui::SlintReviewIdParameters, proxy_models: &Rc<RefCell<RepositoriesProxyModels>>) -> Rc<FileDiffProxyModels> {
@@ -303,7 +295,7 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
     app_window.global::<ui::SlintReviewCallbacks>().on_is_valid_review_name({
         let app_window_weak = app_window.as_weak();
         move |ids, name| -> bool {
-            if !is_vaild_name(name.as_str()) {
+            if !is_valid_name(name.as_str()) {
                 return false;
             }
             let app_window = app_window_weak.unwrap();

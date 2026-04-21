@@ -9,6 +9,7 @@ type FilesMapModel = Rc<MapModel<ModelRc<ui::SlintFileDiff>, fn(ui::SlintFileDif
 type FilesFilterModel = Rc<FilterModel<FilesMapModel, Box<dyn Fn(&SharedString) -> bool>>>;
 type SortFilesModel = Rc<SortModel<FilesFilterModel, fn(&SharedString, &SharedString) -> std::cmp::Ordering>>;
 pub struct FilesProxyModel {
+    // needed for further proxy models
     _files_map_model: FilesMapModel,
     files_filter_model: FilesFilterModel,
     filter_pattern: Rc<RefCell<SharedString>>,
@@ -30,7 +31,7 @@ impl FilesProxyModel {
             let filter_pattern = filter_pattern.clone();
             move |text: &SharedString| -> bool {
                 let pattern = filter_pattern.borrow();
-                text.to_lowercase().contains(pattern.to_lowercase().as_str())
+                text.to_lowercase().contains(pattern.as_str())
             }
         });
         let filter_model = Rc::new(FilterModel::new(map_model.clone(), filter_callback));
@@ -47,7 +48,7 @@ impl FilesProxyModel {
         }
     }
     pub fn set_filter_pattern(&self, new_filter_pattern: SharedString) {
-        *self.filter_pattern.borrow_mut() = new_filter_pattern;
+        *self.filter_pattern.borrow_mut() = SharedString::from(new_filter_pattern.to_lowercase());
         self.files_filter_model.reset();
     }
     pub fn ui_model(&self) -> ModelRc<SharedString> {

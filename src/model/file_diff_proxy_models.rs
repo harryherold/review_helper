@@ -88,9 +88,9 @@ impl FileDiffProxyModels {
         let sort_criteria = Rc::new(RefCell::new(ui::SlintSortCriteria::Name));
 
         let sort_callback: SortCallback = Box::new({
-            let sort_citeria = sort_criteria.clone();
+            let sort_criteria = sort_criteria.clone();
             move |lhs, rhs| -> Ordering {
-                match *sort_citeria.borrow() {
+                match *sort_criteria.borrow() {
                     ui::SlintSortCriteria::Name => Self::sort_by_name(lhs, rhs),
                     ui::SlintSortCriteria::Extension => Self::sort_by_extension(lhs, rhs),
                     ui::SlintSortCriteria::IsDone => Self::sort_by_is_done(lhs, rhs),

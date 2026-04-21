@@ -421,41 +421,41 @@ impl WorkerImpl {
             return;
         }
 
-        let optional_store = load_result.unwrap_or_default();
+        let Ok(Some(store)) = load_result else {
+            return;
+        };
 
-        if let Some(store) = optional_store {
-            let start_diff = SharedString::from(&store.diff_range.start);
-            let end_diff = SharedString::from(&store.diff_range.end);
+        let start_diff = SharedString::from(&store.diff_range.start);
+        let end_diff = SharedString::from(&store.diff_range.end);
 
-            let review = Review::new(store, review_name.clone());
+        let review = Review::new(store, review_name.clone());
 
-            let mut ui_notes = Vec::new();
-            review.notes.iter().for_each(|id_store_tuple| {
-                let context_type = if review.file_diffs.file_id_map.contains_key(&id_store_tuple.1.context) {
-                    SlintContextType::File
-                } else {
-                    SlintContextType::Text
-                };
+        let mut ui_notes = Vec::new();
+        review.notes.iter().for_each(|id_store_tuple| {
+            let context_type = if review.file_diffs.file_id_map.contains_key(&id_store_tuple.1.context) {
+                SlintContextType::File
+            } else {
+                SlintContextType::Text
+            };
 
-                ui_notes.push(SlintNote {
-                    id: id_store_tuple.0.as_i32(),
-                    context: SharedString::from(&id_store_tuple.1.context),
-                    context_type,
-                    is_fixed: id_store_tuple.1.is_done,
-                    text: SharedString::from(&id_store_tuple.1.text),
-                });
+            ui_notes.push(SlintNote {
+                id: id_store_tuple.0.as_i32(),
+                context: SharedString::from(&id_store_tuple.1.context),
+                context_type,
+                is_fixed: id_store_tuple.1.is_done,
+                text: SharedString::from(&id_store_tuple.1.text),
             });
-            let ui_file_diffs: Vec<_> = review
-                .file_diffs
-                .iter()
-                .map(|id_store_tuple| (id_store_tuple.0.as_i32(), id_store_tuple.1.clone()))
-                .collect();
+        });
+        let ui_file_diffs: Vec<_> = review
+            .file_diffs
+            .iter()
+            .map(|id_store_tuple| (id_store_tuple.0.as_i32(), id_store_tuple.1.clone()))
+            .collect();
 
-            repository.reviews.insert_review(review_id.clone(), review);
+        repository.reviews.insert_review(review_id.clone(), review);
 
-            self.ui_updater
-                .set_review(repository_id.as_usize(), review_id.as_usize(), start_diff, end_diff, ui_notes, ui_file_diffs);
-        }
+        self.ui_updater
+            .set_review(repository_id.as_usize(), review_id.as_usize(), start_diff, end_diff, ui_notes, ui_file_diffs);
     }
     fn new_review(&mut self, repository_id: RepositoryId, name: String) {
         let repository = self

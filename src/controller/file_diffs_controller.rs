@@ -26,7 +26,7 @@ pub fn setup_file_diffs(app_window: &ui::AppWindow) {
                             arg.to_string()
                         }
                     })
-                    .collect()
+                    .collect::<Vec<String>>()
             };
             let repository_path = {
                 let repository_model = app_window.global::<ui::SlintReviewHelper>().get_repositories();

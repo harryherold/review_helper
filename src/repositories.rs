@@ -3,7 +3,7 @@ use std::{
     convert::From,
     fmt,
     hash::Hash,
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 use crate::storage::{
@@ -351,7 +351,7 @@ impl Repositories {
     pub fn iter(&self) -> hash_map::Iter<'_, RepositoryId, Repository> {
         self.id_repository_map.iter()
     }
-    pub fn contains_repository_path(&self, path: &PathBuf) -> bool {
+    pub fn contains_repository_path(&self, path: &Path) -> bool {
         self.repository_path_set.contains(path)
     }
     pub fn get(&self, id: &RepositoryId) -> Option<&Repository> {
