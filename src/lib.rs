@@ -54,7 +54,7 @@ pub fn main() {
 }
 
 fn run_app() -> Result<(), Box<dyn std::error::Error>> {
-    init_logger();
+    init_logger()?;
 
     log::info!("Start review_helper!");
 

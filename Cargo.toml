@@ -31,5 +31,6 @@ serial_test = "3.2.0"
 mockcmd = { git = "https://github.com/harryherold/mockcmd.git", features = ["test"], rev = "0e2d6aaf8787f90071fade81585910b84dfd69c9" }
 
 [build-dependencies]
+anyhow = "1.0.89"
 slint-build = "1.15.1"
 winresource = "0.1.23"

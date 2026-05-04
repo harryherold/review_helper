@@ -219,17 +219,17 @@ impl WorkerImpl {
         let repository = self
             .repositories
             .get(&repository_id)
-            .unwrap_or_else(|| panic!("Could not find {}", repository_id));
+            .unwrap_or_else(|| panic!("[BUG] Could not find {}", repository_id));
 
         let review = repository
             .reviews
             .get(&review_id)
-            .unwrap_or_else(|| panic!("Could not find {} in {}", review_id, repository_id));
+            .unwrap_or_else(|| panic!("[BUG] Could not find {} in {}", review_id, repository_id));
 
         let file_diff = review
             .file_diffs
             .get(&file_diff_id)
-            .unwrap_or_else(|| panic!("Could not find {} of {} in {}", file_diff_id, review_id, repository_id));
+            .unwrap_or_else(|| panic!("[BUG] Could not find {} of {} in {}", file_diff_id, review_id, repository_id));
 
         let start_commit = review.diff_range().start.as_str();
         let end_commit = review.diff_range().end.as_str();
@@ -245,7 +245,7 @@ impl WorkerImpl {
         let repository = self
             .repositories
             .get(repository_id)
-            .unwrap_or_else(|| panic!("Could not find {}", repository_id));
+            .unwrap_or_else(|| panic!("[BUG] Could not find {}", repository_id));
 
         match git_utils::query_commits(repository.path()) {
             Ok(commits) => self.ui_updater.set_commits(commits),
@@ -363,7 +363,7 @@ impl WorkerImpl {
         let repository = self
             .repositories
             .get_mut(&repository_id)
-            .unwrap_or_else(|| panic!("Could not find {}", repository_id));
+            .unwrap_or_else(|| panic!("[BUG] Could not find {}", repository_id));
 
         match git_utils::repo_contains_branch(repository.path(), &base_branch) {
             Ok(contains_branch) => {
@@ -390,7 +390,7 @@ impl WorkerImpl {
         let repository = self
             .repositories
             .get_mut(&repository_id)
-            .unwrap_or_else(|| panic!("Could not find {}", repository_id));
+            .unwrap_or_else(|| panic!("[BUG] Could not find {}", repository_id));
 
         match self.storage.load_review_names(&repository.name) {
             Ok(review_names) => {
@@ -408,12 +408,12 @@ impl WorkerImpl {
         let repository = self
             .repositories
             .get_mut(&repository_id)
-            .unwrap_or_else(|| panic!("Could not find {}", repository_id));
+            .unwrap_or_else(|| panic!("[BUG] Could not find {}", repository_id));
 
         let review_name = repository
             .reviews
             .review_name(&review_id)
-            .unwrap_or_else(|| panic!("Could not find {} ({})", review_id, repository_id));
+            .unwrap_or_else(|| panic!("[BUG] Could not find {} ({})", review_id, repository_id));
 
         let load_result = self.storage.load_review(&repository.name, review_name);
         if let Err(e) = load_result {
@@ -461,7 +461,7 @@ impl WorkerImpl {
         let repository = self
             .repositories
             .get_mut(&repository_id)
-            .unwrap_or_else(|| panic!("Could not find {}", repository_id));
+            .unwrap_or_else(|| panic!("[BUG] Could not find {}", repository_id));
 
         let review_name = ReviewName::from(name.as_str());
         if repository.reviews.has_review_name(&review_name) {
@@ -484,12 +484,12 @@ impl WorkerImpl {
         let repository = self
             .repositories
             .get_mut(&repository_id)
-            .unwrap_or_else(|| panic!("Could not find {}", repository_id));
+            .unwrap_or_else(|| panic!("[BUG] Could not find {}", repository_id));
 
         let review_name = repository
             .reviews
             .delete_review(&review_id)
-            .unwrap_or_else(|| panic!("Could not delete {}", review_id));
+            .unwrap_or_else(|| panic!("[BUG] Could not delete {}", review_id));
 
         if let Err(e) = self.storage.delete_review(&repository.name, &review_name) {
             self.ui_updater.report_error(ui::SlintResult::DeleteReviewFailed, &e.to_string());
@@ -502,7 +502,7 @@ impl WorkerImpl {
         let repository = self
             .repositories
             .get_mut(&repository_id)
-            .unwrap_or_else(|| panic!("Could not find {}", repository_id));
+            .unwrap_or_else(|| panic!("[BUG] Could not find {}", repository_id));
 
         let Some(old_review_name) = repository.reviews.rename_review(&review_id, new_review_name.clone()) else {
             return;
@@ -517,12 +517,12 @@ impl WorkerImpl {
         let repository = self
             .repositories
             .get_mut(&repository_id)
-            .unwrap_or_else(|| panic!("Could not find {}", repository_id));
+            .unwrap_or_else(|| panic!("[BUG] Could not find {}", repository_id));
 
         let review = repository
             .reviews
             .get_mut(&review_id)
-            .unwrap_or_else(|| panic!("Could not find {} ({})", review_id, repository_id));
+            .unwrap_or_else(|| panic!("[BUG] Could not find {} ({})", review_id, repository_id));
 
         let update_note_references = |note_id: &NoteId, opt_old_file_diff_id: Option<&FileDiffId>, opt_new_file_diff_id: Option<&FileDiffId>| {
             if let Some(old_file_diff_id) = opt_old_file_diff_id {
@@ -537,7 +537,7 @@ impl WorkerImpl {
         let note = review
             .notes
             .get_mut(&note_id)
-            .unwrap_or_else(|| panic!("Could not find {} ({}, {})", note_id, review_id, repository_id));
+            .unwrap_or_else(|| panic!("[BUG] Could not find {} ({}, {})", note_id, review_id, repository_id));
 
         let mut opt_context_type = None;
         match change_type.clone() {
@@ -572,12 +572,12 @@ impl WorkerImpl {
         let repository = self
             .repositories
             .get_mut(&repository_id)
-            .unwrap_or_else(|| panic!("Could not find {}", repository_id));
+            .unwrap_or_else(|| panic!("[BUG] Could not find {}", repository_id));
 
         let review = repository
             .reviews
             .get_mut(&review_id)
-            .unwrap_or_else(|| panic!("Could not find {} ({})", review_id, repository_id));
+            .unwrap_or_else(|| panic!("[BUG] Could not find {} ({})", review_id, repository_id));
 
         review.file_diffs.set_is_reviewed(&file_diff_id, is_reviewed);
         if let Err(e) = self
@@ -594,7 +594,7 @@ impl WorkerImpl {
         let repository = self
             .repositories
             .get_mut(&repository_id)
-            .unwrap_or_else(|| panic!("Could not find {}", repository_id));
+            .unwrap_or_else(|| panic!("[BUG] Could not find {}", repository_id));
 
         let Ok(mut file_diff_map) = git_utils::diff_git_repo(repository.path(), &diff_range.start, &diff_range.end) else {
             self.ui_updater.report_error(ui::SlintResult::FindFileDifferenceFailed, "");
@@ -606,7 +606,7 @@ impl WorkerImpl {
         let review = repository
             .reviews
             .get_mut(&review_id)
-            .unwrap_or_else(|| panic!("Could not find {} ({})", review_id, repository_id));
+            .unwrap_or_else(|| panic!("[BUG] Could not find {} ({})", review_id, repository_id));
 
         let (deleted_file_diff_ids, added_files) = review.file_diffs.update_file_diffs(new_files);
         review.set_diff_range(diff_range);
@@ -645,17 +645,17 @@ impl WorkerImpl {
         let repository = self
             .repositories
             .get_mut(&repository_id)
-            .unwrap_or_else(|| panic!("Could not find {}", repository_id));
+            .unwrap_or_else(|| panic!("[BUG] Could not find {}", repository_id));
 
         let review = repository
             .reviews
             .get_mut(&review_id)
-            .unwrap_or_else(|| panic!("Could not find {} ({})", review_id, repository_id));
+            .unwrap_or_else(|| panic!("[BUG] Could not find {} ({})", review_id, repository_id));
 
         let store = review
             .notes
             .delete_note(&note_id)
-            .unwrap_or_else(|| panic!("Could not find {} ({}, {})", note_id, review_id, repository_id));
+            .unwrap_or_else(|| panic!("[BUG] Could not find {} ({}, {})", note_id, review_id, repository_id));
 
         if let Err(e) = self.storage.save_review_notes(&repository.name, review.name(), &review.notes.stores()) {
             self.ui_updater.report_error(ui::SlintResult::StoreFailed, &e.to_string());
@@ -673,12 +673,12 @@ impl WorkerImpl {
         let repository = self
             .repositories
             .get_mut(&repository_id)
-            .unwrap_or_else(|| panic!("Could not find {}", repository_id));
+            .unwrap_or_else(|| panic!("[BUG] Could not find {}", repository_id));
 
         let review = repository
             .reviews
             .get_mut(&review_id)
-            .unwrap_or_else(|| panic!("Could not find {} ({})", review_id, repository_id));
+            .unwrap_or_else(|| panic!("[BUG] Could not find {} ({})", review_id, repository_id));
 
         let ui_text = SharedString::from(text.as_str());
         let ui_context = SharedString::from(context.as_str());

@@ -1,4 +1,4 @@
-use chrono::{DateTime, FixedOffset};
+use chrono::{DateTime, FixedOffset, Local};
 use slint::{FilterModel, ModelRc, SharedString, SortModel};
 use std::cell::RefCell;
 use std::cmp::Ordering;
@@ -35,8 +35,17 @@ impl CommitProxyModels {
                 Text => compare_text(lhs.message.as_str(), rhs.message.as_str()),
                 Author => compare_text(lhs.author.as_str(), rhs.author.as_str()),
                 Date => {
-                    let lhs_date: DateTime<FixedOffset> = DateTime::from_str(&lhs.date).unwrap();
-                    let rhs_date: DateTime<FixedOffset> = DateTime::from_str(&rhs.date).unwrap();
+                    let convert_datetime = |date| -> DateTime<FixedOffset> {
+                        match DateTime::from_str(date) {
+                            Ok(dt) => dt,
+                            Err(e) => {
+                                log::error!("Could not convert to datetime: {}", &e.to_string());
+                                Local::now().into()
+                            }
+                        }
+                    };
+                    let lhs_date = convert_datetime(&lhs.date);
+                    let rhs_date = convert_datetime(&rhs.date);
                     if is_sort_ascending {
                         lhs_date.cmp(&rhs_date)
                     } else {

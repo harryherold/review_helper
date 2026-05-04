@@ -1,7 +1,7 @@
-use std::{env, io};
+use std::env;
 use winresource::WindowsResource;
 
-fn main() -> io::Result<()> {
+fn main() -> anyhow::Result<()> {
     if env::var_os("CARGO_CFG_WINDOWS").is_some() {
         WindowsResource::new()
             // This path can be absolute, or relative to your crate root.
@@ -10,6 +10,6 @@ fn main() -> io::Result<()> {
     }
 
     let config = slint_build::CompilerConfiguration::new().with_style("fluent-dark".into());
-    slint_build::compile_with_config("ui/appwindow.slint", config).unwrap();
+    slint_build::compile_with_config("ui/appwindow.slint", config)?;
     Ok(())
 }

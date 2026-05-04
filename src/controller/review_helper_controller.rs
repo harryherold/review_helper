@@ -15,7 +15,9 @@ pub fn setup_review_helper(app_window: &ui::AppWindow, worker_channel: WorkerCha
                 .show_open_single_dir()
                 .expect("Could not create FileDialog! Check your dependencies!")
             {
-                channel.send(crate::worker::WorkerMessage::NewRepository(repository_path)).unwrap();
+                channel
+                    .send(crate::worker::WorkerMessage::NewRepository(repository_path))
+                    .expect("Worker channel broken!");
             }
         }
     });
@@ -23,7 +25,7 @@ pub fn setup_review_helper(app_window: &ui::AppWindow, worker_channel: WorkerCha
         let channel = worker_channel.clone();
         move |repository_id| {
             let message = crate::worker::WorkerMessage::DeleteRepository(RepositoryId::from(repository_id));
-            channel.send(message).unwrap();
+            channel.send(message).expect("Worker channel broken!");
         }
     });
 }

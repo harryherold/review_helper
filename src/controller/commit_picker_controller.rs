@@ -1,17 +1,18 @@
 use std::{path::PathBuf, rc::Rc};
 
 use crate::{
-    git_utils,
+    cast_model, git_utils,
     model::{CommitProxyModels, IdModel, model_utils},
     repositories::RepositoryId,
     ui::{self, SlintCommit, SlintResult},
+    unwrap_or_return,
     worker::{WorkerChannel, WorkerMessage},
 };
 use slint::{ComponentHandle, Model, ModelRc, SharedString};
 
 fn query_merge_base(app_window: &ui::AppWindow, repository_id: usize) -> Option<SharedString> {
     let repositories = app_window.global::<ui::SlintReviewHelper>().get_repositories();
-    let repositories = repositories.as_any().downcast_ref::<IdModel<ui::SlintRepository>>().unwrap();
+    let repositories = cast_model!(repositories, IdModel<ui::SlintRepository>);
     let repository = repositories.get(repository_id)?;
     let path = PathBuf::from(repository.path.as_str());
     let base_branch = repository.base_branch.as_str();
@@ -53,13 +54,13 @@ pub fn setup_commit_picker(app_window: &ui::AppWindow, commit_proxy_model: Rc<Co
         let channel = worker_channel.clone();
         move |repository_id| {
             let message = WorkerMessage::QueryCommits(RepositoryId::from(repository_id));
-            channel.send(message).unwrap();
+            channel.send(message).expect("Worker channel broken!");
         }
     });
     app_window.global::<ui::SlintCommitPickerAdapter>().on_merge_base({
         let ui_weak = app_window.as_weak();
         move |repository_id| -> SharedString {
-            let ui = ui_weak.unwrap();
+            let ui = unwrap_or_return!(ui_weak.upgrade(), "Upgrade to AppWindow failed!", SharedString::new());
             match query_merge_base(&ui, repository_id as usize) {
                 Some(merge_base) => merge_base,
                 None => SharedString::new(),
@@ -70,7 +71,7 @@ pub fn setup_commit_picker(app_window: &ui::AppWindow, commit_proxy_model: Rc<Co
         let commit_proxy_model = commit_proxy_model.clone();
         let ui_weak = app_window.as_weak();
         move |repository_id| -> i32 {
-            let ui = ui_weak.unwrap();
+            let ui = unwrap_or_return!(ui_weak.upgrade(), "Upgrade to AppWindow failed!", -1);
 
             let Some(commit_hash) = query_merge_base(&ui, repository_id as usize) else {
                 return -1;
@@ -94,7 +95,7 @@ pub fn setup_commit_picker(app_window: &ui::AppWindow, commit_proxy_model: Rc<Co
     app_window.global::<ui::SlintCommitPickerAdapter>().on_commit_message_of({
         let ui_weak = app_window.as_weak();
         move |commit_hash| -> SharedString {
-            let ui = ui_weak.unwrap();
+            let ui = unwrap_or_return!(ui_weak.upgrade(), "Upgrade to AppWindow failed!", SharedString::new());
             let commit_model = ui.global::<ui::SlintCommitPickerAdapter>().get_commit_source_model();
             match commit_model.iter().find(|c| commit_hash.contains(c.commit_id.as_str())) {
                 Some(commit) => commit.message,

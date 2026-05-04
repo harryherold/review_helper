@@ -12,13 +12,17 @@ pub fn setup_repository_callbacks(app_window: &ui::AppWindow, worker_channel: Wo
         move |id, base_branch| {
             let base_branch = String::from(base_branch);
             let id = RepositoryId::from(id);
-            channel.send(WorkerMessage::ChangeRepository { id, base_branch }).unwrap();
+            channel
+                .send(WorkerMessage::ChangeRepository { id, base_branch })
+                .expect("Worker channel broken!");
         }
     });
     app_window.global::<ui::SlintRepositoryCallbacks>().on_load_repository({
         let channel = worker_channel.clone();
         move |id| {
-            channel.send(WorkerMessage::LoadRepository { id: RepositoryId::from(id) }).unwrap();
+            channel
+                .send(WorkerMessage::LoadRepository { id: RepositoryId::from(id) })
+                .expect("Worker channel broken!");
         }
     });
     app_window.global::<ui::SlintRepositoryCallbacks>().on_new_review({
@@ -29,7 +33,7 @@ pub fn setup_repository_callbacks(app_window: &ui::AppWindow, worker_channel: Wo
                     repository_id: RepositoryId::from(id),
                     name: String::from(&name),
                 })
-                .unwrap();
+                .expect("Worker channel broken!");
         }
     });
     app_window.global::<ui::SlintRepositoryCallbacks>().on_delete_review({
@@ -40,7 +44,7 @@ pub fn setup_repository_callbacks(app_window: &ui::AppWindow, worker_channel: Wo
                 review_id: ReviewId::from(ids.review_id),
             };
 
-            channel.send(message).unwrap();
+            channel.send(message).expect("Worker channel broken!");
         }
     });
 }

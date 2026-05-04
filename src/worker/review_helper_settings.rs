@@ -85,10 +85,10 @@ mod tests {
             fs::create_dir(&path)?;
         }
 
-        let review_helper_settings = ReviewHelperSettings::new(&path);
-        assert!(review_helper_settings.is_ok());
+        let review_helper_settings = ReviewHelperSettings::new(&path)?;
+
         Ok(TestContext {
-            review_helper_settings: review_helper_settings.unwrap(),
+            review_helper_settings,
             path,
             is_clean_enabled,
         })

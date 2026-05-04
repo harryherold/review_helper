@@ -7,9 +7,19 @@ use chrono::{DateTime, Local};
 use regex::Regex;
 
 pub fn is_valid_name(name: &str) -> bool {
-    static RE: std::sync::OnceLock<Regex> = std::sync::OnceLock::new();
-    let re = RE.get_or_init(|| Regex::new(r"^[A-Za-z][A-Za-z0-9]*$").unwrap());
-    !name.is_empty() && re.is_match(name)
+    if name.is_empty() {
+        return false;
+    }
+    static RE: std::sync::OnceLock<Option<Regex>> = std::sync::OnceLock::new();
+    let re_opt = RE.get_or_init(|| match Regex::new(r"^[A-Za-z][A-Za-z0-9]*$") {
+        Ok(re) => Some(re),
+        Err(e) => {
+            log::error!("Could not create Regex: {}", &e.to_string());
+            None
+        }
+    });
+
+    re_opt.as_ref().is_some_and(|re| re.is_match(name))
 }
 
 pub fn setup_utils(app_window: &ui::AppWindow) {

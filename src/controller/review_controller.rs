@@ -1,5 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
+use crate::{cast_model, unwrap_or_return};
 use crate::{
     controller::utils_controller::is_valid_name,
     model::{FileDiffProxyModels, IdModel, NotesProxyModels, RepositoriesProxyModels, ReviewProxyModels, model_utils},
@@ -87,9 +88,10 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
             let repository_proxy_models = proxy_models.mut_repository_proxy_models(&repository_id).expect("Add repository failed!");
 
             if !repository_proxy_models.has_review_proxy_models(&review_id) {
-                let ui = ui_weak.unwrap();
+                let ui = unwrap_or_return!(ui_weak.upgrade(), "Upgrade to AppWindow failed!");
 
                 let review = model_utils::get_slint_review(&ui, repository_id.as_usize(), review_id.as_usize());
+                let review = review.unwrap_or_else(|| panic!("[BUG] {}, {} not found", repository_id, review_id));
                 let review_proxy_models = ReviewProxyModels::new(review.file_diff_model.clone(), review.note_model.clone());
                 repository_proxy_models.add_review_proxy_models(review_id.clone(), review_proxy_models);
             }
@@ -98,12 +100,12 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
     app_window.global::<ui::SlintReviewCallbacks>().on_load_review({
         let channel = worker_channel.clone();
         move |ids| {
-            channel
-                .send(crate::worker::WorkerMessage::LoadReview {
-                    repository_id: RepositoryId::from(ids.repository_id),
-                    review_id: ReviewId::from(ids.review_id),
-                })
-                .unwrap();
+            let message = crate::worker::WorkerMessage::LoadReview {
+                repository_id: RepositoryId::from(ids.repository_id),
+                review_id: ReviewId::from(ids.review_id),
+            };
+
+            channel.send(message).expect("Worker channel broken!");
         }
     });
     app_window
@@ -113,7 +115,7 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
                 return -1;
             }
 
-            let review_model = review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>().unwrap();
+            let review_model = cast_model!(review_model, IdModel<ui::SlintReview>);
             match review_model.id_to_index(review_id as usize) {
                 Some(index) => index as i32,
                 None => -1,
@@ -133,7 +135,7 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
                 review_id,
                 content_change,
             };
-            channel.send(message).unwrap();
+            channel.send(message).expect("Worker channel broken!");
         }
     });
     app_window.global::<ui::SlintReviewCallbacks>().on_change_note_text({
@@ -151,7 +153,7 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
                 review_id,
                 content_change,
             };
-            channel.send(message).unwrap();
+            channel.send(message).expect("Worker channel broken!");
         }
     });
     app_window.global::<ui::SlintReviewCallbacks>().on_change_note_context({
@@ -169,7 +171,7 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
                 review_id,
                 content_change,
             };
-            channel.send(message).unwrap();
+            channel.send(message).expect("Worker channel broken!");
         }
     });
     app_window.global::<ui::SlintReviewCallbacks>().on_change_note_is_done({
@@ -187,7 +189,7 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
                 review_id,
                 content_change,
             };
-            channel.send(message).unwrap();
+            channel.send(message).expect("Worker channel broken!");
         }
     });
     app_window.global::<ui::SlintReviewCallbacks>().on_find_file_changes({
@@ -203,7 +205,7 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
                     end: String::from(diff_range.end.as_str()),
                 },
             };
-            channel.send(message).unwrap();
+            channel.send(message).expect("Worker channel broken!");
         }
     });
     app_window.global::<ui::SlintReviewCallbacks>().on_show_file_differences({
@@ -214,7 +216,7 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
                 review_id: ReviewId::from(ids.review_id_parameters.review_id),
                 file_diff_id: FileDiffId::from(ids.file_diff_id),
             };
-            channel.send(message).unwrap();
+            channel.send(message).expect("Worker channel broken!");
         }
     });
     app_window.global::<ui::SlintReviewCallbacks>().on_delete_note({
@@ -225,7 +227,7 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
                 review_id: ReviewId::from(ids.review_id_parameters.review_id),
                 note_id: NoteId::from(ids.note_id),
             };
-            channel.send(message).unwrap();
+            channel.send(message).expect("Worker channel broken!");
         }
     });
     app_window.global::<ui::SlintReviewCallbacks>().on_add_note({
@@ -237,7 +239,7 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
                 text: String::from(note_text.as_str()),
                 context: String::from(note_context.as_str()),
             };
-            channel.send(message).unwrap();
+            channel.send(message).expect("Worker channel broken!");
         }
     });
     app_window.global::<ui::SlintReviewCallbacks>().on_note_ui_model({
@@ -271,13 +273,16 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
     app_window.global::<ui::SlintReviewCallbacks>().on_exists_file_diff({
         let app_window_weak = app_window.as_weak();
         move |file_diff_id_parameter| -> bool {
-            let app_window = app_window_weak.unwrap();
-            let model = model_utils::get_file_diff_model(
+            let app_window = unwrap_or_return!(app_window_weak.upgrade(), "Upgrade to AppWindow failed!", false);
+
+            let Some(model) = model_utils::get_file_diff_model(
                 &app_window,
                 file_diff_id_parameter.review_id_parameters.repository_id as usize,
                 file_diff_id_parameter.review_id_parameters.review_id as usize,
-            );
-            let model = model.as_any().downcast_ref::<IdModel<ui::SlintFileDiff>>().unwrap();
+            ) else {
+                return false;
+            };
+            let model = cast_model!(model, IdModel<ui::SlintFileDiff>);
             model.has(file_diff_id_parameter.file_diff_id as usize)
         }
     });
@@ -289,7 +294,7 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
                 review_id: ReviewId::from(ids.review_id),
                 content_change: ReviewContent::Name(ReviewName::from(new_review_name.as_str())),
             };
-            channel.send(message).unwrap();
+            channel.send(message).expect("Worker channel broken!");
         }
     });
     app_window.global::<ui::SlintReviewCallbacks>().on_is_valid_review_name({
@@ -298,9 +303,11 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
             if !is_valid_name(name.as_str()) {
                 return false;
             }
-            let app_window = app_window_weak.unwrap();
-            let review_model = model_utils::get_review_model(&app_window, ids.repository_id as usize);
-            let review_model = review_model.as_any().downcast_ref::<IdModel<ui::SlintReview>>().unwrap();
+            let app_window = unwrap_or_return!(app_window_weak.upgrade(), "Upgrade to AppWindow failed!", false);
+            let review_model = model_utils::get_review_model(&app_window, ids.repository_id as usize)
+                .unwrap_or_else(|| panic!("[BUG] RepositoryId {} not found", ids.repository_id));
+            let review_model = cast_model!(review_model, IdModel<ui::SlintReview>);
+
             !review_model.iter().any(|review| {
                 if ids.review_id == 0 {
                     review.name == name
