@@ -26,7 +26,7 @@ review_helper requires git to be installed!
 
 ## Build from source
 
-Frist checkout the source from GitHub and execute the following commands:
+First checkout the source from GitHub and execute the following commands:
 
 ```
 ~> cargo build --release
