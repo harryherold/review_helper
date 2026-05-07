@@ -311,11 +311,21 @@ impl UiUpdater {
 
     pub fn delete_note(&self, repository_id: usize, review_id: usize, note_id: usize) {
         self.execute_in_event_loop(move |app_window| {
-            let note_model = model_utils::get_note_model(&app_window, repository_id, review_id)
-                .unwrap_or_else(|| panic!("[BUG] RepositoryId {} ReviewId {} not found", repository_id, review_id));
-            let note_model = cast_model!(note_model, IdModel<ui::SlintNote>);
+            let review_model =
+                model_utils::get_review_model(&app_window, repository_id).unwrap_or_else(|| panic!("[BUG] RepositoryId {} not found", repository_id));
+            let review_model = cast_model!(review_model, IdModel<ui::SlintReview>);
+            let mut review = review_model.get(review_id).unwrap_or_else(|| panic!("[BUG] ReviewId {} not found", review_id));
+            let note_model = cast_model!(review.note_model, IdModel<ui::SlintNote>);
 
+            let old_note = note_model.get(note_id).unwrap_or_else(|| panic!("[BUG] NoteId {} not found", note_id));
             note_model.remove(note_id);
+
+            if old_note.is_fixed {
+                review.note_progress.completed_count -= 1;
+            }
+            review.note_progress.total_count -= 1;
+
+            review_model.update(review_id, review);
         });
     }
     pub fn update_note(
