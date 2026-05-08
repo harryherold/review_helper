@@ -1,13 +1,16 @@
 # review_helper
 
+https://github.com/harryherold/review_helper/assets/demo_v0.4.mp4
+
 review_helper is a standalone code review tool that runs locally on the system and provides an graphical user interface.
 The tool provides following functionality:
 
-* determine changes based on two commits or against a working copy
-* file changes can be visualized using external tool like meld, vscode or what-ever-you-want-to-configure
-* mark changed files and add notes to them
-* apply various filter, sort mechanisms in different views
-* store review result based on text files (markdown, toml)
+* Adding Git repositories and creating reviews
+* Determine changes based on two commits or against a working copy
+* File changes can be visualized using external tool like meld, vscode or what-ever-you-want-to-configure
+* Mark changed files and add notes to them
+* Apply various filter, sort mechanisms in different views
+* Store review result based on text files (markdown, toml)
 
 ## Supported Platforms
 
