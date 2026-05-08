@@ -1,8 +1,14 @@
-import { VerticalBox, LineEdit, ListView, CheckBox, Button } from "std-widgets.slint";
+import {
+    VerticalBox,
+    LineEdit,
+    ListView,
+    CheckBox,
+    Button,
+} from "std-widgets.slint";
 
 import { Popup } from "popup.slint";
 import { Style } from "style.slint";
-import { Notes, NoteItem, StringUtils } from "globals.slint";
+import { Notes, NoteItem, SlintStringUtils } from "globals.slint";
 import { FileNoteDelegate } from "file_note_delegate.slint";
 
 export component FileNotesPopup inherits Popup {
@@ -15,7 +21,7 @@ export component FileNotesPopup inherits Popup {
         self.open();
     }
 
-    title: StringUtils.filename(self.file);
+    title: SlintStringUtils.filename(self.file);
 
     VerticalBox {
         LineEdit {

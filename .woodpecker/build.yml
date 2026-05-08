@@ -1,0 +1,19 @@
+kind: pipeline
+name: rust-build
+
+# Entspricht 'on: push'
+when:
+  event: push
+
+steps:
+  # Woodpecker checkt das Repo standardmäßig automatisch aus (Clone-Step).
+
+  build-and-test:
+    image: rust:1.80 # Oder eine spezifische Version deiner Wahl
+    environment:
+      - CARGO_TERM_COLOR=always
+    commands:
+      # Da wir in einem Container als root arbeiten, brauchen wir kein 'sudo'
+      - apt-get update && apt-get install -y libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libxkbcommon-x11-dev libudev-dev libinput-dev libfontconfig-dev
+      - cargo build --verbose
+      - cargo test --verbose

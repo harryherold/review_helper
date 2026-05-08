@@ -1,0 +1,14 @@
+FROM rust:1.80-slim
+
+# Abhängigkeiten einmalig im Image installieren
+RUN apt-get update && apt-get install -y \
+    libxcb-shape0-dev \
+    libxcb-xfixes0-dev \
+    libxkbcommon-dev \
+    libxkbcommon-x11-dev \
+    libudev-dev \
+    libinput-dev \
+    libfontconfig-dev \
+    pkg-config \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*

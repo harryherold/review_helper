@@ -1,0 +1,77 @@
+import { Style } from "style.slint";
+import { ToolButton } from "controls/tool_button.slint";
+import { CommitEditor, CommitPickerPosition } from "commit_editor.slint";
+import {
+    SlintReview,
+    SlintReviewIdParameters,
+    SlintReviewCallbacks,
+    SlintDiffRange,
+    SlintFileDiffIdParamters,
+    SlintChangeTypeUtils,
+    SlintNoteIdParamters,
+    SlintContextType,
+} from "globals.slint";
+import { CenterTabView, TabViewItem } from "controls/tabview.slint";
+import { OverallStatistics } from "overall_statistics.slint";
+import {
+    Palette,
+    Switch,
+    ListView,
+    CheckBox,
+    Button,
+    LineEdit,
+} from "std-widgets.slint";
+import { FileDiffSetupView } from "file_diff_setup_view.slint";
+import { FileDiffView } from "file_diff_view.slint";
+import { NotesView } from "notes_view.slint";
+
+
+export component ReviewView inherits Rectangle {
+    in property <SlintReviewIdParameters> review_id_parameters;
+    in property <[SlintReview]> review_model;
+    private property <int> review_index: SlintReviewCallbacks.review_id_to_index(root.review_id_parameters.review_id, root.review_model);
+    if root.review_index != -1: CenterTabView {
+        image_model: [
+            @image-url("../assets/icons/differences.svg"),
+            @image-url("../assets/icons/notes.svg"),
+        ];
+        spacing: Style.size.big-spacing;
+        TabViewItem {
+            index: 0;
+            current-index <=> parent.current-index;
+            VerticalLayout {
+                padding-top: Style.size.spacing;
+                spacing: Style.size.big-spacing;
+                FileDiffSetupView {
+                    review_id_parameters: root.review_id_parameters;
+                    start_diff: root.review_model[root.review_index].start_diff;
+                    end_diff: root.review_model[root.review_index].end_diff;
+                }
+
+                OverallStatistics {
+                    review_progress: root.review_model[root.review_index].review_progress;
+                    note_progress: root.review_model[root.review_index].note_progress;
+                    difference_statistics: root.review_model[root.review_index].difference_statistics;
+                }
+
+                FileDiffView {
+                    review_id_parameters: root.review_id_parameters;
+                    notes_model: root.review_model[root.review_index].note_model;
+                }
+            }
+        }
+
+        TabViewItem {
+            index: 1;
+            current-index <=> parent.current-index;
+            VerticalLayout {
+                padding-top: Style.size.spacing;
+                spacing: Style.size.big-spacing;
+                NotesView {
+                    review_id_parameters: root.review_id_parameters;
+                    notes_model: root.review_model[root.review_index].note_model;
+                }
+            }
+        }
+    }
+}

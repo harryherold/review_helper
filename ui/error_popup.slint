@@ -1,0 +1,91 @@
+
+import { Button } from "std-widgets.slint";
+
+import { SlintResult, SlintErrors } from "globals.slint";
+import { NewPopup } from "controls/new_popup.slint";
+import { Style } from "style.slint";
+
+export component ErrorPopup inherits NewPopup {
+    private property <SlintResult> result: {
+        if (SlintErrors.model.length > 0) {
+            return SlintErrors.model[SlintErrors.model.length - 1].error_type;
+        }
+        return SlintResult.Unknown;
+    }
+    title: @tr("Error");
+    control_buttons_enabled: false;
+    height: 120px;
+    width: 200px;
+    VerticalLayout {
+        alignment: center;
+        padding-top: Style.size.padding * 2;
+        padding-bottom: Style.size.padding;
+        padding-left: Style.size.padding;
+        padding-right: Style.size.padding;
+        spacing: Style.size.padding;
+        HorizontalLayout {
+            alignment: space-around;
+            spacing: Style.size.spacing;
+            Image {
+                width: Style.size.image-width * 2;
+                source: @image-url("../assets/icons/error.svg");
+                colorize: red;
+            }
+
+            Text {
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                wrap: word-wrap;
+                max-width: Style.size.control-width * 2;
+                text: {
+                    if (root.result == SlintResult.RepositoryExists) {
+                        return @tr("Repository already exists!");
+                    }
+                    if (root.result == SlintResult.GitCommandFailed) {
+                        return @tr("Could not exec git commands!");
+                    }
+                    if (root.result == SlintResult.NoGitDirectory) {
+                        return @tr("This folder is not Git-controlled!");
+                    }
+                    if (root.result == SlintResult.StoreFailed) {
+                        return @tr("Could store repository data!");
+                    }
+                    if (root.result == SlintResult.LoadReviewNamesFailed) {
+                        return @tr("Could not load review names of repository!");
+                    }
+                    if (root.result == SlintResult.ReviewAlreadyExists) {
+                        return @tr("Review already exists in the repository!");
+                    }
+                    if (root.result == SlintResult.FindFileDifferenceFailed) {
+                        return @tr("Could not determine file difference!");
+                    }
+                    if (root.result == SlintResult.ShowFileDifferencesFailed) {
+                        return @tr("Could not show file difference!");
+                    }
+                    if (root.result == SlintResult.DeleteRepositoryFailed) {
+                        return @tr("Could not delete repository!");
+                    }
+                    if (root.result == SlintResult.QueryingCommitsFailed) {
+                        return @tr("Querying commits failed!");
+                    }
+                    if (root.result == SlintResult.QueryingMergeBaseFailed) {
+                        return @tr("Querying merge base failed!");
+                    }
+                    if (root.result == SlintResult.OpenEditorFailed) {
+                        return @tr("Open editor failed!");
+                    }
+                    if (root.result == SlintResult.RenameReviewFailed) {
+                        return @tr("Rename review failed!");
+                    }
+                    if (root.result == SlintResult.GitBranchFailed) {
+                        return @tr("Execute git branch failed!");
+                    }
+                    if (root.result == SlintResult.GitBranchDoesNotExists) {
+                        return @tr("Branch does not exists!");
+                    }
+                    return @tr("Unknown Result");
+                }
+            }
+        }
+    }
+}

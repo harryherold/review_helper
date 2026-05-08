@@ -1,39 +1,46 @@
 import { LineEdit, CheckBox, Button } from "std-widgets.slint";
 
-import { NoteItem, Notes } from "globals.slint";
+import {
+    SlintNote,
+    SlintNoteIdParamters,
+    SlintReviewIdParameters,
+    SlintReviewCallbacks,
+} from "globals.slint";
 import { Style } from "style.slint";
 import { LineEdit } from "std-widgets.slint";
-import { ToolButton } from "tool_button.slint";
+import { ToolButton } from "controls/tool_button.slint";
 
 export component FileNoteDelegate inherits HorizontalLayout {
-    in property <NoteItem> note;
-
+    in property <SlintReviewIdParameters> review_id_parameters;
+    in property <SlintNote> note;
+    private property <SlintNoteIdParamters> note_id_parameters: {
+        review_id_parameters: root.review_id_parameters,
+        note_id: note.id,
+    };
     spacing: Style.size.big_spacing;
-
     CheckBox {
         checked: note.is_fixed;
         toggled => {
-            Notes.toggle-fixed(note.id)
+            SlintReviewCallbacks.change_note_is_done(root.note_id_parameters, !note.is_fixed);
         }
     }
 
     LineEdit {
         property <string> note_text: note.text;
-
         changed note_text => {
             self.text = note_text;
         }
         height: Style.size.control_height;
         text: note.text;
-        accepted => {
-            Notes.change-text(note.id, self.text)
+        accepted(new_text) => {
+            SlintReviewCallbacks.change_note_text(root.note_id_parameters, new_text);
         }
     }
 
     ToolButton {
         source: @image-url("../assets/icons/delete.svg");
         clicked => {
-            Notes.delete-note(note.id)
+            SlintReviewCallbacks.delete_note(root.note_id_parameters);
         }
     }
 }

@@ -1,0 +1,60 @@
+import { Style } from "../style.slint";
+import { Palette } from "std-widgets.slint";
+
+export component ToolButton inherits Rectangle {
+    in property <bool> checkable: false;
+    in property <image> source;
+    in property <bool> highlighted: false;
+    in property <string> text: "";
+    in-out property <bool> enabled <=> ta.enabled;
+    in-out property <bool> checked: false;
+    out property <bool> pressed: ta.pressed;
+    callback clicked();
+    background: Palette.control-background;
+    border-radius: Style.size.border_radius;
+    border-width: Style.size.border_width;
+    border-color: root.highlighted ? Palette.selection-background : Palette.border;
+    states [
+        is_pressed when ta.pressed: {
+            background: Palette.alternate-background;
+        }
+        is_checked when root.checked: {
+            background: Palette.alternate-background;
+        }
+    ]
+    HorizontalLayout {
+        padding-left: Style.size.big_spacing;
+        padding-right: Style.size.big_spacing;
+        spacing: Style.size.spacing;
+        alignment: center;
+        if (root.source.width > 0): Image {
+            vertical-alignment: center;
+            horizontal-alignment: center;
+            width: Style.size.image_width;
+            source: root.source;
+            colorize: {
+                if root.highlighted {
+                    return Palette.selection-background;
+                }
+                return root.enabled ? Palette.foreground : Style.palette.disabled;
+            }
+        }
+        if !root.text.is-empty: Text {
+            text: root.text;
+            vertical-alignment: center;
+            horizontal-alignment: center;
+            color: {
+                return root.enabled ? Palette.foreground : Style.palette.disabled;
+            }
+        }
+    }
+
+    ta := TouchArea {
+        clicked => {
+            root.clicked();
+            if root.checkable {
+                root.checked = !root.checked;
+            }
+        }
+    }
+}

@@ -1,0 +1,73 @@
+import { Button, Palette } from "std-widgets.slint";
+
+import { Style } from "../style.slint";
+
+export component NewPopup inherits PopupWindow {
+    in property <string> title;
+    in property <bool> control_buttons_enabled: true;
+    in-out property <string> accept_button_text: @tr("Ok");
+    in-out property <string> cancel_button_text: @tr("Cancel");
+    callback accepted();
+    callback canceled();
+
+    close-policy: close-on-click-outside;
+
+    content := Rectangle {
+        background: Palette.alternate-background;
+        border-width: Style.size.border_width;
+        border-color: Palette.border;
+        border-radius: Style.size.border_radius;
+
+        content-layout := VerticalLayout {
+            alignment: start;
+            spacing: Style.size.spacing;
+            padding-top: content.border-width;
+            padding-left: content.border-width;
+            padding-right: content.border-width;
+            title-bar := Rectangle {
+                height: Style.size.control_height;
+                background: Palette.alternate-background.darker(0.1);
+                border-top-left-radius: content.border-radius;
+                border-top-right-radius: content.border-radius;
+
+                Rectangle {
+                    x: (parent.width / 2) - (self.width / 2);
+
+                    Text {
+                        text: root.title;
+                    }
+                }
+            }
+
+            @children
+
+            if (root.control_buttons_enabled): Rectangle {
+                height: 50px;
+
+                HorizontalLayout {
+                    alignment: end;
+                    spacing: Style.size.spacing;
+                    padding: Style.size.padding;
+
+                    Button {
+                        width: Style.size.control_width;
+                        text: root.accept_button_text;
+                        clicked => {
+                            root.accepted();
+                            root.close();
+                        }
+                    }
+
+                    Button {
+                        width: Style.size.control_width;
+                        text: root.cancel_button_text;
+                        clicked => {
+                            root.canceled();
+                            root.close();
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,4 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-fn main() -> Result<(), slint::PlatformError> {
-    review_helper::main()
+
+extern crate log;
+extern crate simplelog;
+
+fn main() {
+    review_helper::main();
 }

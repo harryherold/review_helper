@@ -1,45 +1,200 @@
 import { GroupBox, HorizontalBox, Palette } from "std-widgets.slint";
 
 import { Style } from "style.slint";
-import { ChangeTypeUtils, ChangeType, OverallDiffStats } from "globals.slint";
+import {
+    SlintDifferenceStatistics,
+    SlintChangeTypeUtils,
+    SlintChangeType,
+    SlintProgress,
+} from "globals.slint";
 
-export component OverallStatistics inherits HorizontalLayout {
-    alignment: start;
-    for data in OverallDiffStats.model: VerticalLayout {
-        Image {
-            source: ChangeTypeUtils.to_icon(data.change_type);
-            height: Style.size.control_height;
-            colorize: Palette.foreground;
+component StatisticGridBox inherits Rectangle {
+    in property <string> title;
+    in property <bool> show_checked: false;
+    in property <bool> is_checked: false;
+    border-width: Style.size.border-width;
+    border-color: Palette.border;
+    GridLayout {
+        padding: 10px;
+        spacing-horizontal: 50px;
+        spacing-vertical: 10px;
+
+        Row {
+            Text {
+                text: root.title;
+                font-weight: 800;
+                horizontal-alignment: left;
+                vertical-alignment: center;
+            }
+
+            Rectangle {
+                height: Style.size.image_width;
+                if root.show_checked: Image {
+                    x: parent.width - self.width;
+                    vertical-alignment: center;
+                    horizontal-alignment: right;
+                    width: Style.size.image_width;
+                    states [
+                        checked when root.is_checked: {
+                            source: @image-url("../assets/icons/checked.svg");
+                        }
+                    ]
+                }
+            }
         }
 
-        Text {
-            text: "\{data.count}";
-            horizontal-alignment: center;
-        }
+        @children
     }
-    VerticalLayout {
-        Image {
-            source: @image-url("../assets/icons/add.svg");
-            colorize: Style.palette.lines-added;
-            height: Style.size.control_height;
+}
+
+component StatisticLabel inherits Text {
+    vertical-alignment: center;
+    horizontal-alignment: left;
+    width: 80px;
+}
+
+component StatisticValue inherits Text {
+    in property <int> value;
+    text: "\{root.value}";
+    vertical-alignment: center;
+    horizontal-alignment: right;
+    min-width: 50px;
+}
+
+export component OverallStatistics inherits Rectangle {
+    in property <SlintProgress> review_progress;
+    in property <SlintProgress> note_progress;
+    in property <SlintDifferenceStatistics> difference_statistics;
+    border-width: Style.size.border-width;
+    border-color: Palette.border;
+    HorizontalLayout {
+        alignment: start;
+        padding: 10px;
+        spacing: 10px;
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                height: Style.size.control-height;
+                width: Style.size.control-small-width;
+                Image {
+                    vertical-alignment: center;
+                    width: Style.size.image_width;
+                    source: @image-url("../assets/icons/diff_stats.svg");
+                    colorize: Palette.foreground;
+                }
+            }
         }
 
-        Text {
-            text: OverallDiffStats.added_lines > 0 ? "\{OverallDiffStats.added_lines}" : "??";
-            horizontal-alignment: center;
-        }
-    }
+        HorizontalLayout {
+            alignment: start;
+            spacing: 10px * 2;
+            padding-left: 10px;
+            padding-right: 10px;
+            StatisticGridBox {
+                title: @tr("Review");
+                show_checked: true;
+                is_checked: root.review_progress.total-count > 0 && root.review_progress.total-count == root.review_progress.completed-count;
+                Row {
+                    StatisticLabel {
+                        text: @tr("Files checked");
+                    }
 
-    VerticalLayout {
-        Image {
-            source: @image-url("../assets/icons/remove.svg");
-            colorize: Style.palette.lines-removed;
-            height: Style.size.control_height;
-        }
+                    StatisticValue {
+                        value: root.review_progress.completed-count;
+                    }
+                }
 
-        Text {
-            text: OverallDiffStats.removed_lines > 0 ? "\{OverallDiffStats.removed_lines}" : "??";
-            horizontal-alignment: center;
+                Row {
+                    StatisticLabel {
+                        text: @tr("Files open");
+                    }
+
+                    StatisticValue {
+                        value: root.review_progress.total-count - root.review_progress.completed-count;
+                    }
+                }
+            }
+
+            StatisticGridBox {
+                title: @tr("Notes");
+                show_checked: true;
+                is_checked: root.note_progress.total-count > 0 && root.note_progress.total-count == root.note_progress.completed-count;
+                Row {
+                    StatisticLabel {
+                        text: @tr("Notes done");
+                    }
+
+                    StatisticValue {
+                        value: root.note_progress.completed-count;
+                    }
+                }
+
+                Row {
+                    StatisticLabel {
+                        text: @tr("Notes open");
+                    }
+
+                    StatisticValue {
+                        value: root.note_progress.total-count - root.note_progress.completed-count;
+                    }
+                }
+            }
+
+            if root.difference_statistics.change_type_model.length > 0: StatisticGridBox {
+                title: @tr("Lines");
+                Row {
+                    StatisticLabel {
+                        text: @tr("Added");
+                    }
+
+                    StatisticValue {
+                        value: difference_statistics.added_lines;
+                    }
+                }
+
+                Row {
+                    StatisticLabel {
+                        text: @tr("Removed");
+                    }
+
+                    StatisticValue {
+                        value: difference_statistics.removed_lines;
+                    }
+                }
+            }
+            if root.difference_statistics.change_type_model.length > 0: StatisticGridBox {
+                title: @tr("Files");
+                for data in root.difference_statistics.change_type_model: Row {
+                    StatisticLabel {
+                        text: {
+                            if (data.change_type == SlintChangeType.Added) {
+                                return @tr("Added");
+                            } else if (data.change_type == SlintChangeType.Broken) {
+                                return @tr("Broken");
+                            } else if (data.change_type == SlintChangeType.Copied) {
+                                return @tr("Copied");
+                            } else if (data.change_type == SlintChangeType.Deleted) {
+                                return @tr("Deleted");
+                            } else if (data.change_type == SlintChangeType.Modified) {
+                                return @tr("Modified");
+                            } else if (data.change_type == SlintChangeType.Renamed) {
+                                return @tr("Renamed");
+                            } else if (data.change_type == SlintChangeType.TypChanged) {
+                                return @tr("Type changed");
+                            } else if (data.change_type == SlintChangeType.Unknown) {
+                                return @tr("Unknown");
+                            } else if (data.change_type == SlintChangeType.Unmerged) {
+                                return @tr("Unmerged");
+                            }
+                            return "";
+                        };
+                    }
+
+                    StatisticValue {
+                        value: data.count;
+                    }
+                }
+            }
         }
     }
 }

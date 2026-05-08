@@ -1,0 +1,79 @@
+import {
+    LineEdit,
+} from "std-widgets.slint";
+
+import {
+    SlintReviewHelper,
+    SlintRepositoryCallbacks,
+} from "globals.slint";
+import { TabViewItem } from "controls/tabview.slint";
+import { ToolButton } from "controls/tool_button.slint";
+import { Style } from "style.slint";
+
+export component RepositorySettingsTab inherits TabViewItem {
+    in property <int> repository_id;
+    in property <string> base_branch;
+    VerticalLayout {
+        alignment: start;
+        padding-top: Style.size.spacing;
+        spacing: Style.size.spacing;
+        delete_timer := Timer {
+            interval: 2s;
+            running: false;
+            triggered => {
+                self.running = false;
+            }
+        }
+
+        ToolButton {
+            states [
+                active_delete_timer when delete_timer.running: {
+                    background: red;
+                    text: @tr("Confirm!");
+                }
+            ]
+            preferred-height: Style.size.control-height;
+            text: @tr("Delete Repository");
+            clicked => {
+                if (delete_timer.running) {
+                    SlintReviewHelper.delete_repository(root.repository_id);
+                    delete_timer.stop();
+                } else {
+                    delete_timer.start();
+                }
+            }
+        }
+
+        HorizontalLayout {
+            alignment: space-between;
+            Text {
+                vertical-alignment: center;
+                horizontal-alignment: center;
+                text: @tr("base-branch");
+            }
+
+            LineEdit {
+                private property <string> branch_name: root.base_branch;
+                changed branch_name => {
+                    self.text = branch_name;
+                }
+                changed has-focus => {
+                    if !self.has-focus {
+                        self.text = branch_name;
+                    }
+                }
+                text: root.base_branch;
+                accepted(text) => {
+                    SlintRepositoryCallbacks.repository_changed(root.repository_id, text);
+                }
+                key-pressed(event) => {
+                    if (event.text == Key.Escape) {
+                        self.text = branch_name;
+                        return EventResult.accept;
+                    }
+                    return EventResult.reject;
+                }
+            }
+        }
+    }
+}

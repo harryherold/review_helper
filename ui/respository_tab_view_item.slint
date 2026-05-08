@@ -1,0 +1,102 @@
+import {
+    VerticalBox,
+    TabWidget,
+    ListView,
+    Palette,
+    LineEdit,
+    CheckBox,
+    Button,
+    HorizontalBox,
+    ComboBox,
+    Slider,
+    Switch,
+} from "std-widgets.slint";
+import { ToolButton } from "controls/tool_button.slint";
+import { Style } from "style.slint";
+import {
+    SlintChangeTypeUtils,
+    SlintDiffRange,
+    SlintReviewHelper,
+    SlintRepositoryCallbacks,
+    SlintReview,
+    SlintReviewCallbacks,
+    SlintStringUtils,
+    SlintReviewIdParameters,
+    SlintFileDiffIdParamters,
+    SlintNoteIdParamters,
+    SlintFilePickerAdapter,
+    SlintFilterReviewState,
+} from "globals.slint";
+import {
+    TabView,
+    TabViewItem,
+    TabCreateButton,
+    TabButton,
+} from "controls/tabview.slint";
+import { CommitPicker } from "commit_picker.slint";
+import { FilePicker } from "file_picker.slint";
+import { RepositorySettingsTab } from "repository_settings_tab.slint";
+import { ReviewSelectionTab } from "review_selection_tab.slint";
+import { ReviewView } from "review_view.slint";
+
+export component RepositoryTabViewItem inherits TabViewItem {
+    in property <int> repository_id;
+    in property <string> repository_name;
+    in property <[SlintReview]> review_model;
+    in property <string> base_branch;
+    private property <bool> is_repository_loaded: false;
+    private property <int> selected_review_id: -1;
+    private property <SlintReviewIdParameters> review_id_parameters: {
+        repository_id: root.repository_id,
+        review_id: root.selected_review_id,
+    };
+    function load_repository() {
+        if (root.is_active && !root.is_repository_loaded) {
+            SlintRepositoryCallbacks.load_repository(root.repository_id);
+            root.is_repository_loaded = true;
+        }
+    }
+    changed is_active => {
+        load_repository();
+    }
+    init => {
+        load_repository();
+    }
+    HorizontalLayout {
+        Rectangle {
+            width: 260px;
+            VerticalLayout {
+                padding-left: Style.size.spacing;
+                padding-right: Style.size.spacing;
+                spacing: Style.size.spacing;
+                TabView {
+                    create_button_enabled: false;
+                    model: [@tr("Reviews"), @tr("Settings")];
+                    alignment: center;
+                    ReviewSelectionTab {
+                        index: 0;
+                        current-index <=> parent.current-index;
+                        repository_id: root.repository_id;
+                        selected_review_id: root.selected_review_id;
+                        review_model: root.review_model;
+                        review-selected(review_id) => {
+                            root.selected_review_id = review-id;
+                        }
+                    }
+
+                    RepositorySettingsTab {
+                        index: 1;
+                        current-index <=> parent.current-index;
+                        repository_id: root.repository_id;
+                        base_branch: root.base_branch;
+                    }
+                }
+            }
+        }
+
+        ReviewView {
+            review_id_parameters: root.review_id_parameters;
+            review_model: root.review_model;
+        }
+    }
+}

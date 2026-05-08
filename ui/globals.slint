@@ -1,31 +1,38 @@
-export global AppConfig {
+export global SlintReviewHelperSettings {
     in-out property <string> diff_tool;
     in-out property <[string]> diff_tool_model;
     in-out property <string> editor;
     in-out property <string> editor_args;
     in-out property <string> color_scheme;
-    in property <int> difftool_index;
-
     callback save();
     callback refresh_diff_tool_model();
 }
 
-export global Project {
-    in property <bool> has_modifications: false;
-    in property <string> path;
-    out property <bool> is_loaded: path != "";
-    callback open;
-    callback new;
-    callback save;
+export enum SlintResult {
+    Unknown,
+    Ok,
+    GitCommandFailed,
+    RepositoryExists,
+    NoGitDirectory,
+    StoreFailed,
+    LoadReviewNamesFailed,
+    QueryingDiffToolsFailed,
+    ReviewAlreadyLoaded,
+    LoadReviewFailed,
+    ReviewAlreadyExists,
+    FindFileDifferenceFailed,
+    ShowFileDifferencesFailed,
+    DeleteReviewFailed,
+    RenameReviewFailed,
+    DeleteRepositoryFailed,
+    QueryingCommitsFailed,
+    QueryingMergeBaseFailed,
+    OpenEditorFailed,
+    GitBranchFailed,
+    GitBranchDoesNotExists,
 }
 
-export global Repository {
-    in property <string> path;
-    out property <bool> is_loaded: path != "";
-    callback open;
-}
-
-export enum ChangeType {
+export enum SlintChangeType {
     Invalid,
     Added,
     Copied,
@@ -38,125 +45,232 @@ export enum ChangeType {
     Broken
 }
 
-export global ChangeTypeUtils {
-    public pure function to_icon(change_type: ChangeType) -> image {
-        if (change_type == ChangeType.Added) {
+export global SlintChangeTypeUtils {
+    public pure function to_icon(change_type: SlintChangeType) -> image {
+        if (change_type == SlintChangeType.Added) {
             return @image-url("../assets/icons/git_file_added.svg");
-        } else if (change_type == ChangeType.Broken) {
+        } else if (change_type == SlintChangeType.Broken) {
             return @image-url("../assets/icons/git_file_broken.svg");
-        } else if (change_type == ChangeType.Copied) {
+        } else if (change_type == SlintChangeType.Copied) {
             return @image-url("../assets/icons/git_file_copied.svg");
-        } else if (change_type == ChangeType.Deleted) {
+        } else if (change_type == SlintChangeType.Deleted) {
             return @image-url("../assets/icons/git_file_deleted.svg");
-        } else if (change_type == ChangeType.Modified) {
+        } else if (change_type == SlintChangeType.Modified) {
             return @image-url("../assets/icons/git_file_edited.svg");
-        } else if (change_type == ChangeType.Renamed) {
+        } else if (change_type == SlintChangeType.Renamed) {
             return @image-url("../assets/icons/git_file_renamed.svg");
-        } else if (change_type == ChangeType.TypChanged) {
+        } else if (change_type == SlintChangeType.TypChanged) {
             return @image-url("../assets/icons/git_file_type_changed.svg");
-        } else if (change_type == ChangeType.Unknown) {
+        } else if (change_type == SlintChangeType.Unknown) {
             return @image-url("../assets/icons/git_file_unknown.svg");
-        } else if (change_type == ChangeType.Unmerged) {
+        } else if (change_type == SlintChangeType.Unmerged) {
             return @image-url("../assets/icons/git_file_unmerged.svg");
         }
         return @image-url("../assets/icons/invalid.svg");
     }
 }
 
-export enum SortCriteria {
-    Name,
-    Extension,
-    IsDone
-}
-
-export struct DiffFileItem {
+export struct SlintFileDiff {
     id: int,
     added_lines: int,
     removed_lines: int,
-    text: string,
+    file_path: string,
     is_reviewed: bool,
-    change_type: ChangeType,
+    change_type: SlintChangeType,
+    referenced_notes: [int],
 }
 
-export enum FilterReviewState {
+export enum SlintContextType {
+    Text,
+    File,
+}
+
+export struct SlintNote {
+    id: int,
+    text: string,
+    is_fixed: bool,
+    context: string,
+    context_type: SlintContextType,
+}
+
+export struct SlintChangeTypeOccurrence {
+    change_type: SlintChangeType,
+    count: int,
+}
+
+export struct SlintDifferenceStatistics {
+    added_lines: int,
+    removed_lines: int,
+    change_type_model: [SlintChangeTypeOccurrence],
+}
+
+export struct SlintProgress {
+    completed_count: int,
+    total_count: int,
+}
+
+export struct SlintReview {
+    id: int,
+    name: string,
+    start_diff: string,
+    end_diff: string,
+    note_model: [SlintNote],
+    file_diff_model: [SlintFileDiff],
+    difference_statistics: SlintDifferenceStatistics,
+    review_progress: SlintProgress,
+    note_progress: SlintProgress,
+    is_loaded: bool,
+}
+
+export struct SlintCommit {
+    commit_id: string,
+    message: string,
+    author: string,
+    date: string,
+}
+
+export struct SlintRepository {
+    id: int,
+    name: string,
+    path: string,
+    first_commit: string,
+    base_branch: string,
+    review_model: [SlintReview],
+}
+
+export struct SlintErrorEntry {
+    error_type: SlintResult,
+    text: string,
+}
+
+export global SlintErrors {
+    in property <[SlintErrorEntry]> model;
+}
+
+export struct SlintDiffRange {
+    start: string,
+    end: string,
+}
+
+export struct SlintReviewIdParameters {
+    repository_id: int,
+    review_id: int,
+}
+
+export struct SlintNoteIdParamters {
+    review_id_parameters: SlintReviewIdParameters,
+    note_id: int,
+}
+
+export struct SlintFileDiffIdParamters {
+    review_id_parameters: SlintReviewIdParameters,
+    file_diff_id: int,
+}
+
+export enum SlintFilterReviewState {
     Unfiltered,
     Done,
     Open
 }
 
-export global Diff {
-    in property <string> start_commit;
-    in property <string> end_commit;
-    in property <[DiffFileItem]> diff_model;
-    in property <SortCriteria> current_sort_criteria: SortCriteria.Name;
-    in property <FilterReviewState> current_filter_review_state: FilterReviewState.Unfiltered;
-    callback diff-start-end(string, string);
-    callback open-file-diff(int);
-    callback open-file(string);
-    callback toggle-is-reviewed(int);
-    callback set-sort-criteria(SortCriteria);
-    callback filter-file-diff(string);
-    callback set-filter-review-state(FilterReviewState);
-    callback diff-model-contains-id(int) -> bool;
+export enum SlintSortCriteria {
+    Name,
+    Extension,
+    IsDone
 }
 
-export struct OverallStat {
-    change_type: ChangeType,
-    count: int,
+export enum SlintNoteSortCriteria {
+    Text,
+    Context
 }
 
-export global OverallDiffStats {
-    in property <int> added_lines: 0;
-    in property <int> removed_lines: 0;
-    in property <[OverallStat]> model;
-}
-
-export global CommitPickerAdapter {
-    in property <[[StandardListViewItem]]> commit_model;
-
-    callback filter_commits(string);
-    callback sort_commits(int, bool);
-    callback refresh();
-    callback index_of_merge_base(string) -> int;
-}
-
-export struct NoteItem  {
-    id: int,
-    text: string,
-    is_fixed: bool,
-    context: string,
-}
-
-export enum SortOrder {
+export enum SlintSortOrder {
     Ascending,
     Descending
 }
 
-export enum NoteSortCriteria {
-    NoteText,
-    Context
+export global SlintFileDiffs {
+    callback open_file_by_editor(int, string);
 }
 
-export global Notes {
-    in property <[NoteItem]> notes_model;
-    in property <SortOrder> sort_order;
-    in property <NoteSortCriteria> sort_criteria;
-    callback add-note(string, string);
-    callback change-text(int, string);
-    callback change-context(int, string);
-    callback toggle-fixed(int);
-    callback delete-note(int);
-    pure callback file-notes-model(string) -> [NoteItem];
-    callback set-notes-text-filter(string);
-    callback set-notes-context-filter(string);
-    callback set-notes-sorting(NoteSortCriteria, SortOrder);
+export global SlintReviewCallbacks {
+    pure callback note_ui_model(SlintReviewIdParameters) -> [SlintNote];
+    callback set_notes_text_filter(SlintReviewIdParameters, string);
+    callback set_notes_context-filter(SlintReviewIdParameters, string);
+    callback set_notes_sort_parameter(SlintReviewIdParameters, SlintNoteSortCriteria, SlintSortOrder);
+    pure callback file_diff_ui_model(SlintReviewIdParameters) -> [SlintFileDiff];
+    callback exists_file_diff(SlintFileDiffIdParamters) -> bool;
+    callback set_file_diff_sort-criteria(SlintReviewIdParameters, SlintSortCriteria);
+    callback set_file_diff_file_pattern(SlintReviewIdParameters, string);
+    callback set_file_diff_review_state(SlintReviewIdParameters, SlintFilterReviewState);
+    callback initialize_ui_models(SlintReviewIdParameters);
+    callback load_review(SlintReviewIdParameters);
+    pure callback review_id_to_index(int, [SlintReview]) -> int;
+    callback find_file_changes(SlintReviewIdParameters, SlintDiffRange);
+    callback change_note_text(SlintNoteIdParamters, string);
+    callback change_note_context(SlintNoteIdParamters, string);
+    callback change_note_is_done(SlintNoteIdParamters, bool);
+    callback delete_note(SlintNoteIdParamters);
+    callback add_note(SlintReviewIdParameters, string, string);
+    callback change_file_diff_is_reviewed(SlintFileDiffIdParamters, bool);
+    callback show_file_differences(SlintFileDiffIdParamters);
+    callback change_review_name(SlintReviewIdParameters, string);
+    pure callback is_valid_review_name(SlintReviewIdParameters, string) -> bool;
 }
 
-export global StringUtils {
+export global SlintFilePickerAdapter {
+    pure callback file_model(SlintReviewIdParameters) -> [string];
+    pure callback contains_model_context(SlintReviewIdParameters, string) -> bool;
+    callback set_filter(SlintReviewIdParameters, string);
+}
+
+export global SlintRepositoryCallbacks {
+    callback delete_review(SlintReviewIdParameters);
+    callback new_review(int, string);
+    callback load_repository(int);
+    callback repository_changed(int, string);
+}
+
+export enum SlintCommitSortCriterion {
+    Text,
+    Author,
+    Date,
+}
+
+export enum SlintCommitFilterType {
+    Message,
+    Author,
+}
+
+export global SlintCommitPickerAdapter {
+    in property <[SlintCommit]> commit_source_model;
+    in property <[string]> author_model;
+    in-out property <string> current_author_filter;
+    in-out property <string> current_text_filter;
+    pure callback ui_commit_model() -> [SlintCommit];
+    callback filter_commits(string, SlintCommitFilterType);
+    callback sort_commits(SlintCommitSortCriterion, bool);
+    callback refresh(int);
+    callback index_of_merge_base(int) -> int;
+    pure callback index_of_commit(string) -> int;
+    callback merge_base(int) -> string;
+    callback commit_message_of(string) -> string;
+}
+
+export global SlintReviewHelper {
+    in property <[SlintRepository]> repositories;
+    in property <[string]> repository_names;
+    callback new_repository();
+    callback delete_repository(int);
+}
+
+export global SlintStringUtils {
     pure callback filename(string) -> string;
+    pure callback is_valid_name(string) -> bool;
+    pure callback format_datetime(string) -> string;
 }
 
-export global ModelUtils {
+export global SlintModelUtils {
     pure callback index_of_string([string], string) -> int;
 }
 

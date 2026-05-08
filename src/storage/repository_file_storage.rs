@@ -1,0 +1,739 @@
+use std::collections::BTreeMap;
+use std::fs::{self, File, OpenOptions};
+use std::io::Write;
+use std::path::{Path, PathBuf};
+
+use toml::{Table, Value};
+
+use crate::storage::repository_storage::{DiffRangeStore, FileDiffStore, NoteStore, ReviewName, ReviewStore, StorageError};
+use crate::storage::{RepositoryName, RepositoryStore, ReviewHelperStorage, StorageResult};
+
+const NOTE_FILE_NAME: &str = "notes.md";
+
+#[derive(Debug, Default, Clone)]
+pub struct ReviewHelperFileStorage {
+    storage_path: PathBuf,
+}
+
+impl ReviewHelperFileStorage {
+    pub fn new(path: PathBuf) -> Self {
+        Self { storage_path: path }
+    }
+}
+
+fn is_toml(path: &Path) -> bool {
+    match path.extension() {
+        Some(e) => e == "toml",
+        None => false,
+    }
+}
+
+impl ReviewHelperStorage for ReviewHelperFileStorage {
+    fn load_repositories(&self) -> StorageResult<Vec<RepositoryStore>> {
+        if !self.storage_path.exists() {
+            return Ok(Vec::new());
+        }
+
+        let nested_directories = fs::read_dir(&self.storage_path)?
+            .filter_map(|entry| {
+                let path = entry.ok()?.path();
+                if path.is_dir() { Some(path) } else { None }
+            })
+            .collect::<Vec<PathBuf>>();
+
+        let tomls = nested_directories
+            .iter()
+            .filter_map(|directory| {
+                fs::read_dir(directory).ok()?.find_map(|entry| {
+                    let path = entry.ok()?.path();
+                    if path.is_file() && is_toml(&path) { Some(path) } else { None }
+                })
+            })
+            .collect::<Vec<_>>();
+
+        let repositories = tomls
+            .into_iter()
+            .filter_map(|toml| {
+                let contents = fs::read_to_string(&toml).ok()?;
+                let table = contents.parse::<Table>().ok()?;
+                let mut repository_store = RepositoryStore::default();
+                if let Some(path) = table["path"].as_str() {
+                    repository_store.path = PathBuf::from(path);
+                }
+                if let Some(first_commit) = table["first_commit"].as_str() {
+                    repository_store.first_commit = first_commit.to_string();
+                }
+                if let Some(name) = table["name"].as_str() {
+                    repository_store.name = name.into();
+                }
+                if let Some(base_branch) = table["base_branch"].as_str() {
+                    repository_store.base_branch = base_branch.to_string();
+                }
+                Some(repository_store)
+            })
+            .collect::<Vec<_>>();
+
+        Ok(repositories)
+    }
+
+    fn save_repository(&self, repository_store: &RepositoryStore) -> StorageResult<()> {
+        if !self.storage_path.exists() {
+            fs::create_dir_all(&self.storage_path)?;
+        }
+
+        let mut repository_sub_dir = self.storage_path.join(repository_store.name.as_str());
+
+        if !repository_sub_dir.exists() {
+            fs::create_dir(&repository_sub_dir)?;
+        }
+
+        repository_sub_dir.push(repository_store.name.as_str());
+        repository_sub_dir.set_extension("toml");
+
+        let mut table = Table::new();
+        table.insert("path".to_string(), Value::String(repository_store.path.to_str().unwrap_or_default().into()));
+        table.insert("first_commit".to_string(), Value::String(repository_store.first_commit.clone()));
+        table.insert("name".to_string(), Value::String(String::from(repository_store.name.as_str())));
+        table.insert("base_branch".to_string(), Value::String(String::from(repository_store.base_branch.as_str())));
+
+        let mut file = File::create(&repository_sub_dir)?;
+
+        let contents = toml::to_string_pretty(&table).map_err(|e| StorageError::Serialize(e.to_string()))?;
+        file.write_all(contents.as_bytes())?;
+        Ok(())
+    }
+
+    fn delete_repository(&self, repository_name: &RepositoryName) -> StorageResult<()> {
+        let repository_path = self.storage_path.join(repository_name.as_str());
+        if !repository_path.exists() {
+            return Err(StorageError::RepositoryNotFound(repository_path.to_string_lossy().to_string()));
+        }
+        fs::remove_dir_all(repository_path)?;
+        Ok(())
+    }
+
+    fn load_review_names(&self, repository_name: &RepositoryName) -> StorageResult<Vec<ReviewName>> {
+        let repository_path = self.storage_path.join(PathBuf::from(String::from(repository_name)));
+
+        if !repository_path.exists() {
+            return Err(StorageError::RepositoryNotFound(repository_path.to_string_lossy().to_string()));
+        }
+
+        let review_directories = fs::read_dir(&repository_path)?
+            .filter_map(|entry| {
+                let path = entry.ok()?.path();
+                if path.is_dir() {
+                    let has_toml = fs::read_dir(&path).ok()?.any(|e| e.map(|ne| is_toml(&ne.path())).unwrap_or(false));
+                    if has_toml {
+                        return path.file_name()?.to_str().map(ReviewName::from);
+                    }
+                }
+                None
+            })
+            .collect::<Vec<ReviewName>>();
+
+        Ok(review_directories)
+    }
+
+    fn load_review(&self, repository_name: &RepositoryName, review_name: &ReviewName) -> StorageResult<Option<ReviewStore>> {
+        let file_name = PathBuf::from(format!("{}.toml", review_name.as_str()));
+        let repository_dir_path = self.storage_path.join(repository_name.as_str());
+        if !repository_dir_path.exists() {
+            return Err(StorageError::RepositoryNotFound(repository_dir_path.to_string_lossy().to_string()));
+        }
+        let review_dir_path = repository_dir_path.join(review_name.as_str());
+        let review_file_path = review_dir_path.join(file_name);
+        if !review_file_path.exists() {
+            return Ok(None);
+        }
+        let contents = fs::read_to_string(review_file_path)?;
+        let table: Table = toml::from_str(&contents).map_err(|e| StorageError::Deserialize(e.to_string()))?;
+
+        let mut diff_range = DiffRangeStore::default();
+        if let Some(start) = table["start_diff"].as_str() {
+            diff_range.start = start.to_string();
+        }
+        if let Some(end) = table["end_diff"].as_str() {
+            diff_range.end = end.to_string();
+        }
+
+        let mut review_store = ReviewStore {
+            diff_range,
+            ..Default::default()
+        };
+
+        if table.contains_key("diff_files")
+            && let Some(diff_files) = table["diff_files"].as_array()
+        {
+            for diff_file in diff_files {
+                if let Some(diff_file_table) = diff_file.as_table() {
+                    let mut file_diff_item = FileDiffStore::default();
+                    if let Some(file_name) = diff_file_table["file_name"].as_str() {
+                        file_diff_item.file_path = PathBuf::from(file_name);
+                    }
+                    if let Some(is_reviewed) = diff_file_table["is_reviewed"].as_bool() {
+                        file_diff_item.is_reviewed = is_reviewed;
+                    }
+                    review_store.file_diff_list.push(file_diff_item);
+                }
+            }
+        }
+        let note_file = review_dir_path.join(NOTE_FILE_NAME);
+        if note_file.exists() {
+            review_store.notes = load_notes(note_file)?;
+        }
+
+        Ok(Some(review_store))
+    }
+
+    fn delete_review(&self, repository_name: &RepositoryName, review_name: &ReviewName) -> StorageResult<()> {
+        let repository_path = self.storage_path.join(repository_name.as_str());
+        if !repository_path.exists() {
+            return Err(StorageError::RepositoryNotFound(repository_path.to_string_lossy().to_string()));
+        }
+        let review_dir_path = repository_path.join(review_name.as_str());
+        if !review_dir_path.exists() {
+            return Err(StorageError::ReviewNotFound(review_dir_path.to_string_lossy().to_string()));
+        }
+
+        fs::remove_dir_all(review_dir_path)?;
+        Ok(())
+    }
+
+    fn rename_review(&self, repository_name: &RepositoryName, old_review_name: &ReviewName, new_review_name: &ReviewName) -> StorageResult<()> {
+        let repository_path = self.storage_path.join(repository_name.as_str());
+        if !repository_path.exists() {
+            return Err(StorageError::RepositoryNotFound(repository_path.to_string_lossy().to_string()));
+        }
+        let old_review_dir_path = repository_path.join(old_review_name.as_str());
+        if !old_review_dir_path.exists() {
+            return Err(StorageError::ReviewNotFound(old_review_dir_path.to_string_lossy().to_string()));
+        }
+        let old_file_name = PathBuf::from(format!("{}.toml", old_review_name.as_str()));
+        let old_review_file_path = old_review_dir_path.join(old_file_name);
+
+        let new_review_dir_path = repository_path.join(new_review_name.as_str());
+        let new_file_name = PathBuf::from(format!("{}.toml", new_review_name.as_str()));
+
+        fs::rename(&old_review_file_path, old_review_dir_path.join(new_file_name))?;
+        fs::rename(&old_review_dir_path, &new_review_dir_path)?;
+
+        Ok(())
+    }
+
+    fn save_review_notes(&self, repository_name: &RepositoryName, review_name: &ReviewName, notes: &[&NoteStore]) -> StorageResult<()> {
+        let repository_path = self.storage_path.join(repository_name.as_str());
+        if !repository_path.exists() {
+            return Err(StorageError::RepositoryNotFound(repository_path.to_string_lossy().to_string()));
+        }
+        let review_dir_path = repository_path.join(review_name.as_str());
+        if !review_dir_path.exists() {
+            fs::create_dir(&review_dir_path)?;
+        }
+
+        let note_file = review_dir_path.join(NOTE_FILE_NAME);
+        save_notes(notes, note_file)
+    }
+
+    fn save_review_file_diffs(
+        &self,
+        repository_name: &RepositoryName,
+        review_name: &ReviewName,
+        diff_range: &DiffRangeStore,
+        file_diffs: &[&FileDiffStore],
+    ) -> StorageResult<()> {
+        let file_name = PathBuf::from(format!("{}.toml", review_name.as_str()));
+        let repository_path = self.storage_path.join(repository_name.as_str());
+        if !repository_path.exists() {
+            return Err(StorageError::RepositoryNotFound(repository_path.to_string_lossy().to_string()));
+        }
+        let review_dir_path = repository_path.join(review_name.as_str());
+        if !review_dir_path.exists() {
+            fs::create_dir(&review_dir_path)?;
+        }
+        let review_file_path = review_dir_path.join(file_name);
+
+        let mut table = Table::new();
+        table.insert("start_diff".to_string(), Value::String(diff_range.start.clone()));
+        table.insert("end_diff".to_string(), Value::String(diff_range.end.clone()));
+
+        let file_diff_list: Vec<Value> = file_diffs
+            .iter()
+            .map(|file_diff_item| {
+                let mut table = Table::new();
+                table.insert("file_name".to_string(), Value::String(file_diff_item.file_path.to_string_lossy().to_string()));
+                table.insert("is_reviewed".to_string(), Value::Boolean(file_diff_item.is_reviewed));
+                Value::Table(table)
+            })
+            .collect();
+        table.insert("diff_files".to_string(), Value::Array(file_diff_list));
+
+        let mut file = File::create(&review_file_path)?;
+
+        let contents = toml::to_string_pretty(&table).map_err(|e| StorageError::Deserialize(e.to_string()))?;
+        file.write_all(contents.as_bytes())?;
+
+        Ok(())
+    }
+}
+
+fn load_notes(note_file: PathBuf) -> StorageResult<Vec<NoteStore>> {
+    let to_note = |line: &str| -> Option<(bool, String)> {
+        let pos = line.find("[")?;
+        let is_done = !line.get(pos + 1..)?.starts_with("]");
+        let text: String = if is_done {
+            let pos = line.find("]")?;
+            line.get(pos + 1..)?.trim().to_string()
+        } else {
+            line.get(pos + 2..)?.trim().to_string()
+        };
+        Some((is_done, text))
+    };
+    let to_file = |line: &str| -> Option<String> {
+        let start = line.find("'")? + 1;
+        let end = line.rfind("'")?;
+        Some(line.get(start..end)?.to_string())
+    };
+    let buffer = fs::read_to_string(note_file)?;
+    let mut notes = Vec::new();
+    let iter = buffer.lines();
+    let mut context = String::new();
+
+    for line in iter {
+        let line = line.trim();
+        if line.starts_with("#") {
+            context = to_file(line).ok_or_else(|| StorageError::Deserialize("Could not parse file context!".to_string()))?;
+        } else if line.starts_with("*") {
+            let (is_done, text) = to_note(line).ok_or_else(|| StorageError::Deserialize("Could not parse list item!".to_string()))?;
+            notes.push(NoteStore {
+                text,
+                context: context.clone(),
+                is_done,
+            });
+        }
+    }
+    Ok(notes)
+}
+
+fn save_notes(notes: &[&NoteStore], note_file: PathBuf) -> StorageResult<()> {
+    let mut general_notes = Vec::<String>::new();
+    let mut file_notes = BTreeMap::<String, Vec<String>>::new();
+
+    let note_item_to_string = |item: &NoteStore| -> String { format!("* [{}] {}", if item.is_done { "x" } else { "" }, item.text) };
+
+    for item in notes {
+        let notes: &mut Vec<String> = if item.context.is_empty() {
+            &mut general_notes
+        } else {
+            file_notes.entry(item.context.to_string()).or_default()
+        };
+        notes.push(note_item_to_string(item));
+    }
+    let mut file = OpenOptions::new().create(true).truncate(true).write(true).open(note_file)?;
+
+    for note in general_notes {
+        writeln!(file, "{}", note)?;
+    }
+
+    writeln!(file)?;
+
+    for (file_name, notes) in file_notes {
+        writeln!(file, "# Notes of '{}'", file_name)?;
+        for note in notes {
+            writeln!(file, "{}", note)?;
+        }
+        writeln!(file)?;
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use anyhow::Ok;
+    use serial_test::serial;
+
+    use crate::storage::repository_storage::{DiffRangeStore, FileDiffStore, RepositoryStore, ReviewName};
+
+    use super::*;
+    use std::{
+        collections::HashSet,
+        env,
+        fs::{self, File},
+    };
+
+    fn create_repo(mut path: PathBuf, name: &str, contents: &str) -> anyhow::Result<()> {
+        path.push(name);
+
+        if !path.exists() {
+            fs::create_dir_all(&path)?;
+        }
+        path.push(name);
+        path.set_extension("toml");
+        File::create(&path)?;
+        fs::write(&path, contents)?;
+        Ok(())
+    }
+
+    fn create_review(mut path: PathBuf, repository_name: &str, review_name: &str, contents: &str, notes: Vec<NoteStore>) -> anyhow::Result<()> {
+        path.push(repository_name);
+        path.push(review_name);
+        if !path.exists() {
+            fs::create_dir_all(&path)?;
+        }
+        if !notes.is_empty() {
+            let note_file = path.join(NOTE_FILE_NAME);
+            save_notes(&notes.iter().collect::<Vec<_>>(), note_file)?;
+        }
+
+        path.push(review_name);
+        path.set_extension("toml");
+
+        File::create(&path)?;
+        fs::write(&path, contents)?;
+
+        Ok(())
+    }
+
+    fn create_test_dir() -> PathBuf {
+        let mut path = env::temp_dir();
+        let mut app_name = std::env!("CARGO_CRATE_NAME").to_string();
+        app_name.push_str("_repository_storage_test");
+        path.push(app_name);
+
+        path
+    }
+
+    fn create_test_repos(path: &Path) -> anyhow::Result<()> {
+        let review_helper_content = r#"name = "review_helper"
+path = "/home/harry/workspace/review_helper"
+first_commit = "9f89049b7f99682c48474d421ac126316adaed15"
+base_branch = "main"
+"#;
+
+        let trackme_content = r#"name = "trackme"
+path = "/home/harry/workspace/trackme"
+first_commit = "5a99f0351a9dcbe5f2414e84e6f5bb9f617af33a"
+base_branch = "main"
+"#;
+        create_repo(path.to_path_buf(), "review_helper", review_helper_content)?;
+
+        let cool_feature_contents = r#"start_diff = "a261b7b"
+end_diff = ""
+"#;
+
+        let fancy_ui_contents = r#"start_diff = "ed7811b"
+end_diff = "a261b7b"
+
+[[diff_files]]
+is_reviewed = false
+file_name = "bar.md"
+
+[[diff_files]]
+is_reviewed = true
+file_name = "foo.md"
+"#;
+
+        create_review(path.to_path_buf(), "review_helper", "cool_feature", cool_feature_contents, Vec::new())?;
+
+        let notes = vec![NoteStore {
+            context: "foo/bar.cpp".to_string(),
+            is_done: true,
+            text: "fix bug".to_string(),
+        }];
+        create_review(path.to_path_buf(), "review_helper", "fancy_ui", fancy_ui_contents, notes)?;
+        create_repo(path.to_path_buf(), "trackme", trackme_content)?;
+
+        Ok(())
+    }
+
+    #[serial]
+    #[test]
+    fn test_loading_repositories() -> anyhow::Result<()> {
+        struct Context(PathBuf);
+        impl Drop for Context {
+            fn drop(&mut self) {
+                let _ = fs::remove_dir_all(&self.0);
+            }
+        }
+
+        let context = Context(create_test_dir());
+        create_test_repos(&context.0)?;
+
+        let repository_storage = ReviewHelperFileStorage::new(context.0.clone());
+
+        let repositories = repository_storage.load_repositories()?;
+
+        let expected_repository = vec![
+            RepositoryStore {
+                path: PathBuf::from("/home/harry/workspace/review_helper"),
+                first_commit: "9f89049b7f99682c48474d421ac126316adaed15".to_string(),
+                name: "review_helper".into(),
+                base_branch: "main".to_string(),
+            },
+            RepositoryStore {
+                path: PathBuf::from("/home/harry/workspace/trackme"),
+                first_commit: "5a99f0351a9dcbe5f2414e84e6f5bb9f617af33a".to_string(),
+                name: "trackme".into(),
+                base_branch: "main".to_string(),
+            },
+        ];
+
+        for expected_repository in &expected_repository {
+            assert!(repositories.iter().any(|r| r == expected_repository));
+        }
+
+        Ok(())
+    }
+
+    #[serial]
+    #[test]
+    fn test_saving_repository() -> anyhow::Result<()> {
+        struct Context(PathBuf);
+        impl Drop for Context {
+            fn drop(&mut self) {
+                let _ = fs::remove_dir_all(&self.0);
+            }
+        }
+
+        let context = Context(create_test_dir());
+        let repository_storage = ReviewHelperFileStorage::new(context.0.clone());
+
+        let repository_store = RepositoryStore {
+            path: PathBuf::from("/home/harry/workspace/review_helper"),
+            name: "review_helper".into(),
+            first_commit: "9f89049b7f99682c48474d421ac126316adaed15".to_string(),
+            base_branch: "main".to_string(),
+        };
+        let expected_repository_store = repository_store.clone();
+
+        repository_storage.save_repository(&repository_store)?;
+
+        let load_result = repository_storage.load_repositories()?;
+
+        assert_eq!(load_result, vec![expected_repository_store]);
+
+        Ok(())
+    }
+
+    #[serial]
+    #[test]
+    fn test_removing_repository() -> anyhow::Result<()> {
+        struct Context(PathBuf);
+        impl Drop for Context {
+            fn drop(&mut self) {
+                let _ = fs::remove_dir_all(&self.0);
+            }
+        }
+
+        let context = Context(create_test_dir());
+        create_test_repos(&context.0)?;
+
+        let repository_storage = ReviewHelperFileStorage::new(context.0.clone());
+
+        let repository_name = RepositoryName::from("review_helper");
+
+        let repository_path = context.0.join(repository_name.as_str());
+
+        assert!(repository_path.exists());
+
+        repository_storage.delete_repository(&repository_name)?;
+
+        assert!(!repository_path.exists());
+
+        Ok(())
+    }
+
+    #[serial]
+    #[test]
+    fn test_loading_review_names() -> anyhow::Result<()> {
+        struct Context(PathBuf);
+        impl Drop for Context {
+            fn drop(&mut self) {
+                let _ = fs::remove_dir_all(&self.0);
+            }
+        }
+
+        let context = Context(create_test_dir());
+        create_test_repos(&context.0)?;
+
+        let repository_storage = ReviewHelperFileStorage::new(context.0.clone());
+
+        let current_names = repository_storage.load_review_names(&"review_helper".into())?;
+        let expected_names = HashSet::from([ReviewName::from("cool_feature"), ReviewName::from("fancy_ui")]);
+
+        assert_eq!(expected_names.len(), current_names.len());
+        for name in current_names {
+            assert!(expected_names.contains(&name));
+        }
+
+        Ok(())
+    }
+    #[serial]
+    #[test]
+    fn test_loading_review() -> anyhow::Result<()> {
+        struct Context(PathBuf);
+        impl Drop for Context {
+            fn drop(&mut self) {
+                let _ = fs::remove_dir_all(&self.0);
+            }
+        }
+
+        let context = Context(create_test_dir());
+        create_test_repos(&context.0)?;
+
+        let expected_file_diffs = [
+            FileDiffStore {
+                file_path: PathBuf::from("bar.md"),
+                is_reviewed: false,
+            },
+            FileDiffStore {
+                file_path: PathBuf::from("foo.md"),
+                is_reviewed: true,
+            },
+        ];
+
+        let repository_storage = ReviewHelperFileStorage::new(context.0.clone());
+        let review = repository_storage
+            .load_review(&RepositoryName::from("review_helper"), &ReviewName::from("fancy_ui"))?
+            .expect("Should load an existing review!");
+
+        let expected_diff_range = DiffRangeStore {
+            start: "ed7811b".to_string(),
+            end: "a261b7b".to_string(),
+        };
+        assert_eq!(review.diff_range, expected_diff_range);
+
+        assert_eq!(review.file_diff_list.len(), expected_file_diffs.len());
+
+        for file_diff_item in review.file_diff_list {
+            assert!(expected_file_diffs.contains(&file_diff_item));
+        }
+
+        assert_eq!(review.notes.len(), 1);
+        assert_eq!(
+            review.notes[0],
+            NoteStore {
+                context: "foo/bar.cpp".to_string(),
+                is_done: true,
+                text: "fix bug".to_string(),
+            }
+        );
+
+        repository_storage.load_review(&RepositoryName::from("review_helper"), &ReviewName::from("cool_feature"))?;
+
+        Ok(())
+    }
+    #[serial]
+    #[test]
+    fn test_storing_review() -> anyhow::Result<()> {
+        struct Context(PathBuf);
+        impl Drop for Context {
+            fn drop(&mut self) {
+                let _ = fs::remove_dir_all(&self.0);
+            }
+        }
+
+        let context = Context(create_test_dir());
+        let repository_storage = ReviewHelperFileStorage::new(context.0.clone());
+
+        let repository_name = RepositoryName::from("review_helper");
+
+        let repository_store = RepositoryStore {
+            path: PathBuf::from("/home/harry/workspace/review_helper"),
+            name: repository_name.clone(),
+            first_commit: "9f89049b7f99682c48474d421ac126316adaed15".to_string(),
+            base_branch: "main".to_string(),
+        };
+
+        repository_storage.save_repository(&repository_store)?;
+
+        let review_store = ReviewStore {
+            diff_range: DiffRangeStore {
+                start: "0xfoo".to_string(),
+                end: "".to_string(),
+            },
+            file_diff_list: vec![FileDiffStore {
+                file_path: PathBuf::from("/foo/bar.txt"),
+                is_reviewed: true,
+            }],
+            notes: vec![NoteStore {
+                context: "/foo/bar.txt".to_string(),
+                text: "Fix bug".to_string(),
+                is_done: true,
+            }],
+        };
+        let review_name = ReviewName::from("fancy_stuff");
+        repository_storage.save_review_notes(&repository_name, &review_name, &review_store.notes.iter().collect::<Vec<_>>())?;
+
+        repository_storage.save_review_file_diffs(
+            &repository_name,
+            &review_name,
+            &review_store.diff_range,
+            &review_store.file_diff_list.iter().collect::<Vec<_>>(),
+        )?;
+
+        let current_review = repository_storage
+            .load_review(&repository_name, &review_name)?
+            .expect("Should load an existing review!");
+
+        assert_eq!(current_review, review_store);
+
+        Ok(())
+    }
+    #[test]
+    #[serial]
+    fn test_removing_reviews() -> anyhow::Result<()> {
+        struct Context(PathBuf);
+        impl Drop for Context {
+            fn drop(&mut self) {
+                let _ = fs::remove_dir_all(&self.0);
+            }
+        }
+
+        let context = Context(create_test_dir());
+        create_test_repos(&context.0)?;
+
+        let repository_storage = ReviewHelperFileStorage::new(context.0.clone());
+
+        let repository_name = RepositoryName::from("review_helper");
+        let review_name = ReviewName::from("fancy_ui");
+
+        let review_path = context.0.join(repository_name.as_str()).join(review_name.as_str());
+
+        assert!(review_path.exists());
+
+        repository_storage.delete_review(&repository_name, &review_name)?;
+
+        assert!(!review_path.exists());
+
+        Ok(())
+    }
+    #[test]
+    #[serial]
+    fn test_renaming_review() -> anyhow::Result<()> {
+        struct Context(PathBuf);
+        impl Drop for Context {
+            fn drop(&mut self) {
+                let _ = fs::remove_dir_all(&self.0);
+            }
+        }
+
+        let context = Context(create_test_dir());
+        create_test_repos(&context.0)?;
+        let repository_storage = ReviewHelperFileStorage::new(context.0.clone());
+
+        let repository_name = RepositoryName::from("review_helper");
+        let old_review_name = ReviewName::from("fancy_ui");
+        let new_review_name = ReviewName::from("cool_fancy_ui");
+
+        repository_storage.rename_review(&repository_name, &old_review_name, &new_review_name)?;
+
+        let new_review_names = repository_storage.load_review_names(&repository_name)?;
+
+        assert!(new_review_names.contains(&new_review_name));
+        assert!(!new_review_names.contains(&old_review_name));
+
+        Ok(())
+    }
+}

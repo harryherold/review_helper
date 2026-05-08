@@ -1,49 +1,87 @@
-use slint::ComponentHandle;
-use std::process;
+#![deny(clippy::all)]
 
-use tokio::runtime::Runtime;
+use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
+use std::{cell::RefCell, process, rc::Rc};
 
-use crate::app_state::AppState;
+use crate::{
+    log_utils::init_logger,
+    model::{CommitProxyModels, RepositoriesProxyModels},
+    worker::Worker,
+};
 
-mod app_config;
-mod app_config_controller;
-mod app_state;
+mod controller;
+mod model;
+mod storage;
+
 mod command_utils;
-mod commit_picker_controller;
-mod commit_proxy_model;
-mod file_diff_proxy_models;
-mod files_proxy_model;
 mod git_utils;
-mod id_model;
-mod notes;
-mod notes_controller;
-mod notes_proxy_models;
-mod project;
-mod project_config;
-mod project_controller;
-mod repository;
-mod repository_controller;
-mod git_command_spawner;
-
-mod utils_controller;
+mod log_utils;
+mod repositories;
+mod worker;
 
 pub mod ui;
 
-pub fn main() -> Result<(), slint::PlatformError> {
-    let rt = Runtime::new().unwrap();
+struct AppProxyModels {
+    commit_proxy_models: Rc<CommitProxyModels>,
+    repositories_proxy_models: Rc<RefCell<RepositoriesProxyModels>>,
+}
 
-    let _guard = rt.enter();
+impl AppProxyModels {
+    fn new(app_window: &ui::AppWindow) -> Self {
+        let commit_model: ModelRc<ui::SlintCommit> = Rc::new(VecModel::default()).into();
+        app_window
+            .global::<ui::SlintCommitPickerAdapter>()
+            .set_commit_source_model(commit_model.clone());
 
-    let mut app_state = AppState::new();
+        let author_model: ModelRc<SharedString> = Rc::new(VecModel::default()).into();
+        app_window.global::<ui::SlintCommitPickerAdapter>().set_author_model(author_model);
 
-    app_state.app_window.on_close(move || process::exit(0));
+        let commit_proxy_models = Rc::new(CommitProxyModels::new(commit_model));
+        let repositories_proxy_models = Rc::new(RefCell::new(RepositoriesProxyModels::new()));
 
-    project_controller::setup_project(&mut app_state);
-    app_config_controller::setup_app_config(&app_state);
-    repository_controller::setup_repository(&app_state);
-    commit_picker_controller::setup_commit_picker(&app_state);
-    notes_controller::setup_notes(&app_state);
-    utils_controller::setup_utils(&app_state);
+        Self {
+            commit_proxy_models,
+            repositories_proxy_models,
+        }
+    }
+}
 
-    app_state.app_window.run()
+pub fn main() {
+    if let Err(e) = run_app() {
+        eprintln!("Critical error: {}", e);
+        process::exit(1);
+    }
+}
+
+fn run_app() -> Result<(), Box<dyn std::error::Error>> {
+    init_logger()?;
+
+    log::info!("Start review_helper!");
+
+    let app_window = ui::AppWindow::new().map_err(|e| format!("Error while creating app window! {}", e))?;
+
+    let app_proxy_models = AppProxyModels::new(&app_window);
+
+    let worker = Worker::new(&app_window);
+
+    controller::setup_review_helper_settings(&app_window, worker.channel.clone());
+
+    controller::setup_review_helper(&app_window, worker.channel.clone());
+
+    controller::setup_repository_callbacks(&app_window, worker.channel.clone());
+
+    controller::setup_review_callbacks(&app_window, worker.channel.clone(), app_proxy_models.repositories_proxy_models.clone());
+
+    controller::setup_utils(&app_window);
+
+    controller::setup_commit_picker(&app_window, app_proxy_models.commit_proxy_models.clone(), worker.channel.clone());
+
+    controller::setup_file_picker(&app_window, app_proxy_models.repositories_proxy_models.clone());
+
+    controller::setup_file_diffs(&app_window);
+
+    app_window.run().map_err(|e| format!("Runtime error occured: {}", e))?;
+    worker.join().map_err(|_| "Worker thread could not be terminated!".to_string())?;
+
+    Ok(())
 }

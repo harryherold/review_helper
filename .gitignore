@@ -8,3 +8,7 @@ src/target
 
 # Ignore editor stuff
 /.vscode/
+.zed/**
+
+# ignore log files
+*.log

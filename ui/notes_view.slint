@@ -1,16 +1,37 @@
-import { GroupBox, LineEdit, Button, ListView, CheckBox, ComboBox, HorizontalBox, VerticalBox, Palette, StyleMetrics } from "std-widgets.slint";
+import {
+    GroupBox,
+    LineEdit,
+    Button,
+    ListView,
+    CheckBox,
+    ComboBox,
+    HorizontalBox,
+    VerticalBox,
+    Palette,
+    StyleMetrics,
+} from "std-widgets.slint";
 
 import { Style } from "style.slint";
-import { Repository, Notes, FilePickerAdapter, SortOrder, NoteSortCriteria } from "globals.slint";
+import {
+    SlintReviewIdParameters,
+    SlintNoteSortCriteria,
+    SlintSortOrder,
+    SlintReviewCallbacks,
+    SlintNoteIdParamters,
+    SlintFilePickerAdapter,
+    SlintNote,
+} from "globals.slint";
 import { FilePicker } from "file_picker.slint";
-import { ToolButton } from "tool_button.slint";
+import { ToolButton } from "controls/tool_button.slint";
 import { SubSectionText } from "sub_section_text.slint";
 
 component HeaderColumn inherits Rectangle {
+    in property <SlintReviewIdParameters> review_id_parameters;
     in property <string> column_name;
-    in property <NoteSortCriteria> sort_criteria;
-    private property <bool> is_selected: Notes.sort_criteria == root.sort_criteria;
-
+    in property <SlintNoteSortCriteria> sort_criteria;
+    in-out property <SlintNoteSortCriteria> selected_sort_criteria;
+    private property <bool> is_selected: root.sort_criteria == root.selected_sort_criteria;
+    private property <SlintSortOrder> sort_order: SlintSortOrder.Ascending;
     background: ta.pressed ? Palette.alternate-background : Palette.control-background;
     border-radius: Style.size.border_radius;
     border-width: Style.size.border_width;
@@ -29,7 +50,7 @@ component HeaderColumn inherits Rectangle {
 
         Image {
             visible: root.is_selected;
-            source: Notes.sort_order == SortOrder.Ascending ? @image-url("../assets/icons/sort_ascending.svg") : @image-url("../assets/icons/sort_descending.svg");
+            source: root.sort_order == SlintSortOrder.Ascending ? @image-url("../assets/icons/sort_ascending.svg") : @image-url("../assets/icons/sort_descending.svg");
             colorize: Palette.foreground;
         }
     }
@@ -37,37 +58,49 @@ component HeaderColumn inherits Rectangle {
     ta := TouchArea {
         clicked => {
             if (root.is_selected) {
-                Notes.set-notes-sorting(root.sort_criteria, Notes.sort_order == SortOrder.Ascending ? SortOrder.Descending : SortOrder.Ascending);
+                root.sort_order = root.sort_order == SlintSortOrder.Ascending ? SlintSortOrder.Descending : SlintSortOrder.Ascending;
+            } else {
+                root.selected_sort_criteria = root.sort_criteria;
             }
-            if (!root.is_selected) {
-                Notes.set-notes-sorting(root.sort_criteria, Notes.sort_order);
-            }
+            SlintReviewCallbacks.set_notes_sort_parameter(root.review_id_parameters, root.sort_criteria, root.sort_order);
         }
     }
 }
 
 export component NotesView inherits Rectangle {
+    in property <SlintReviewIdParameters> review_id_parameters;
+    in property <[SlintNote]> notes_model;
     private property <bool> is_filter_active: false;
-    private property <[length]> columns_width: [Style.size.image_width + 2 * Style.size.big_spacing, 600px];
+    private property <[length]> columns_width: [
+        Style.size.image_width + 4px,
+        600px,
+        Style.size.image_width + 2 * Style.size.big_spacing
+    ];
     changed is_filter_active => {
         if (!is_filter_active) {
-            Notes.set-notes-text-filter("");
-            Notes.set-notes-context-filter("");
+            SlintReviewCallbacks.set_notes_context-filter(root.review_id_parameters, "");
+            SlintReviewCallbacks.set_notes_text_filter(root.review_id_parameters, "");
         }
     }
-    background: Palette.control-background;
-
     file-picker := FilePicker {
+        file_model: SlintFilePickerAdapter.file_model(root.review_id_parameters);
         property <int> current_note_id: -1;
+        property <SlintNoteIdParamters> current_note_id_parameters: {
+            review_id_parameters: root.review_id_parameters,
+            note_id: current_note_id,
+        };
         initial_x: 0;
         initial_y: 0;
         accepted(new_context) => {
             if (self.current_note_id > -1) {
-                Notes.change-context(self.current_note_id, new-context);
+                SlintReviewCallbacks.change_note_context(current_note_id_parameters, new_context);
             } else {
                 new-context-edit.text = new-context;
             }
             self.close();
+        }
+        set_filter(pattern) => {
+            SlintFilePickerAdapter.set_filter(root.review_id_parameters, pattern);
         }
         closed => {
             self.current_note_id = -1;
@@ -76,173 +109,259 @@ export component NotesView inherits Rectangle {
     }
 
     vertical-box := VerticalBox {
-        spacing: Style.size.spacing;
+        spacing: Style.size.big-spacing;
+        Rectangle {
+            border-width: Style.size.border-width;
+            border-color: Palette.border;
+            VerticalLayout {
+                spacing: 10px;
+                padding: 10px;
+                alignment: start;
+                Text {
+                    text: "New Note";
+                    font-weight: 800;
+                    horizontal-alignment: left;
+                    vertical-alignment: center;
+                }
 
-        sub-section-text := SubSectionText {
-            text: "New Note:";
-        }
-
-        HorizontalLayout {
-            property <string> new_note_text <=> new-note-edit.text;
-            property <string> new_context <=> new-context-edit.text;
-            spacing: Style.size.spacing;
-            new-note-edit := LineEdit {
-                placeholder-text: "Add comment here...";
-            }
-
-            new-context-edit := LineEdit {
-                horizontal-alignment: left;
-                placeholder-text: "Add context here...";
-            }
-
-            new-file-picker-button := ToolButton {
-                source: @image-url("../assets/icons/file_picker.svg");
-                clicked => {
-                    file-picker.current_note_id = -1;
-                    file-picker.initial_x = root.width - file-picker.width;
-                    file-picker.initial_y = vertical-box.y + self.height + sub-section-text.height + Style.size.spacing * 3;
-                    if (FilePickerAdapter.contains-model-context(new_context)) {
-                        file-picker.selected_file = new_context;
+                HorizontalLayout {
+                    property <bool> can_add_note: !new_note_text.is-empty;
+                    property <string> new_note_text <=> new-note-edit.text;
+                    property <string> new_context <=> new-context-edit.text;
+                    function add_note() {
+                        SlintReviewCallbacks.add_note(root.review_id_parameters, new_note_text, new_context);
+                        new_note_text = "";
+                        new_context = "";
                     }
-                    file-picker.open();
-                }
-            }
 
-            ToolButton {
-                source: @image-url("../assets/icons/add.svg");
-                enabled: new_note_text != "";
-                clicked => {
-                    Notes.add-note(new_note_text, new_context);
-                    new_note_text = "";
-                    new_context = "";
-                }
-            }
-        }
-
-        SubSectionText {
-            text: "All Notes:";
-        }
-
-        notes-vertical-layout := VerticalLayout {
-            HorizontalLayout {
-                spacing: Style.size.spacing;
-
-                Rectangle {
-                    width: columns_width[0];
-
-                    Image {
-                        source: @image-url("../assets/icons/checklist.svg");
-                        vertical-alignment: center;
-                        horizontal-alignment: center;
-                        width: Style.size.image_width;
-                        colorize: Palette.foreground;
-                    }
-                }
-
-                HeaderColumn {
-                    width: columns_width[1];
-                    column_name: "Text";
-                    sort_criteria: NoteSortCriteria.NoteText;
-                }
-
-                HeaderColumn {
-                    column_name: "Context";
-                    sort_criteria: NoteSortCriteria.Context;
-                }
-
-                Rectangle {
-                    width: columns_width[0];
-                }
-
-                filter-button := ToolButton {
-                    width: columns_width[0];
-                    source: root.is_filter_active ? @image-url("../assets/icons/filter_on.svg") : @image-url("../assets/icons/filter_off.svg");
-                    clicked => {
-                        root.is_filter_active = !root.is_filter_active;
-                    }
-                }
-            }
-
-            if root.is_filter_active: Rectangle {
-                height: Style.size.spacing;
-            }
-            if root.is_filter_active: HorizontalLayout {
-                spacing: Style.size.spacing;
-                Rectangle {
-                    width: columns_width[0];
-                }
-
-                LineEdit {
-                    width: columns_width[1];
-                    placeholder-text: "Filter Note Text";
-                    edited(text) => {
-                        Notes.set-notes-text-filter(text)
-                    }
-                }
-
-                LineEdit {
-                    placeholder-text: "Filter Context";
-                    edited(text) => {
-                        Notes.set-notes-context-filter(text)
-                    }
-                }
-
-                Rectangle {
-                    width: columns_width[0] * 2 + Style.size.spacing;
-                }
-            }
-            listview := ListView {
-                for note[idx] in Notes.notes_model: HorizontalLayout {
                     spacing: Style.size.spacing;
-                    padding-top: Style.size.spacing;
-
-                    ToolButton {
-                        width: root.columns_width[0];
-                        source: note.is_fixed ? @image-url("../assets/icons/checked.svg") : @image-url("../assets/icons/unchecked.svg");
-                        clicked => {
-                            Notes.toggle-fixed(note.id);
+                    new-note-edit := LineEdit {
+                        placeholder-text: @tr("Add comment here...");
+                        accepted => {
+                            if can_add_note {
+                                add_note()
+                            }
                         }
                     }
 
-                    text-input := LineEdit {
-                        property <string> note_text: note.text;
-                        changed note_text => {
-                            self.text = note_text;
-                        }
-                        width: root.columns_width[1];
-                        text: note.text;
-                        accepted(text) => {
-                            Notes.change-text(note.id, text);
-                        }
-                    }
-
-                    context-edit := LineEdit {
+                    new-context-edit := LineEdit {
                         horizontal-alignment: left;
-                        text: note.context;
-                        accepted(text) => {
-                            Notes.change-context(note.id, text);
+                        placeholder-text: @tr("Add context here...");
+                        accepted => {
+                            if can_add_note {
+                                add_note()
+                            }
                         }
                     }
 
-                    file-picker-button := ToolButton {
-                        width: root.columns_width[0];
+                    new-file-picker-button := ToolButton {
                         source: @image-url("../assets/icons/file_picker.svg");
                         clicked => {
-                            file-picker.current_note_id = note.id;
-                            if (FilePickerAdapter.contains-model-context(note.context)) {
-                                file-picker.selected_file = note.context;
-                            }
+                            file-picker.current_note_id = -1;
                             file-picker.initial_x = root.width - file-picker.width;
-                            file-picker.initial_y = notes-vertical-layout.y + listview.y + idx * text-input.height + (idx + 2) * Style.size.spacing + file-picker-button.height;
+                            file-picker.initial_y = vertical-box.y + self.height + Style.size.spacing * 3;
+                            if (SlintFilePickerAdapter.contains_model_context(root.review_id_parameters, new_context)) {
+                                file-picker.selected_file = new_context;
+                            }
                             file-picker.open();
                         }
                     }
 
                     ToolButton {
-                        width: root.columns_width[0];
-                        source: @image-url("../assets/icons/delete.svg");
+                        source: @image-url("../assets/icons/add.svg");
+                        enabled: can_add_note;
                         clicked => {
-                            Notes.delete-note(note.id)
+                            add_note()
+                        }
+                    }
+                }
+            }
+        }
+
+        Rectangle {
+            border-width: Style.size.border-width;
+            border-color: Palette.border;
+            notes-vertical-layout := VerticalLayout {
+                spacing: Style.size.big-spacing;
+                padding: 10px;
+                Text {
+                    text: "All Notes";
+                    font-weight: 800;
+                    horizontal-alignment: left;
+                    vertical-alignment: center;
+                }
+
+                HorizontalLayout {
+                    spacing: Style.size.spacing;
+                    Rectangle {
+                        width: columns_width[0];
+                        Image {
+                            source: @image-url("../assets/icons/filter_on.svg");
+                            vertical-alignment: center;
+                            horizontal-alignment: center;
+                            width: Style.size.image_width;
+                            colorize: Palette.foreground;
+                        }
+                    }
+
+                    LineEdit {
+                        width: columns_width[1];
+                        placeholder-text: @tr("Filter Note Text");
+                        edited(text) => {
+                            SlintReviewCallbacks.set_notes_text_filter(root.review_id_parameters, text);
+                        }
+                    }
+
+                    LineEdit {
+                        placeholder-text: @tr("Filter Context");
+                        edited(text) => {
+                            SlintReviewCallbacks.set_notes_context_filter(root.review_id_parameters, text);
+                        }
+                    }
+
+                    Rectangle {
+                        width: columns_width[2] * 2 + Style.size.spacing;
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: Style.size.spacing;
+                    Rectangle {
+                        width: columns_width[0];
+                        Image {
+                            source: @image-url("../assets/icons/checklist.svg");
+                            vertical-alignment: center;
+                            horizontal-alignment: center;
+                            width: Style.size.image_width;
+                            colorize: Palette.foreground;
+                        }
+                    }
+
+                    private property <SlintNoteSortCriteria> current_sort_criteria: SlintNoteSortCriteria.Text;
+                    HeaderColumn {
+                        review_id_parameters: root.review_id_parameters;
+                        column_name: @tr("Text");
+                        sort_criteria: SlintNoteSortCriteria.Text;
+                        selected_sort_criteria <=> current_sort_criteria;
+                        width: columns_width[1];
+                    }
+
+                    HeaderColumn {
+                        review_id_parameters: root.review_id_parameters;
+                        column_name: @tr("Context");
+                        sort_criteria: SlintNoteSortCriteria.Context;
+                        selected_sort_criteria <=> current_sort_criteria;
+                    }
+
+                    Rectangle {
+                        width: columns_width[2];
+                    }
+
+                    Rectangle {
+                        width: columns_width[2];
+                    }
+                }
+
+                listview := ListView {
+                    for note[idx] in SlintReviewCallbacks.note_ui_model(root.review_id_parameters): HorizontalLayout {
+                        private property <SlintNoteIdParamters> note_id_parameter: {
+                            review_id_parameters: root.review_id_parameters,
+                            note_id: note.id,
+                        };
+                        spacing: Style.size.spacing;
+                        padding-top: idx > 0 ? Style.size.spacing : 0px;
+                        VerticalLayout {
+                            alignment: center;
+                            Rectangle {
+                                background: Palette.control-background;
+                                border-radius: Style.size.border_radius;
+                                border-width: Style.size.border_width;
+                                border-color: Palette.border;
+                                width: columns_width[0];
+                                height: columns_width[0];
+                                states [
+                                    is_pressed when ta.pressed: {
+                                        background: Palette.alternate-background;
+                                    }
+                                ]
+                                Image {
+                                    vertical-alignment: center;
+                                    horizontal-alignment: center;
+                                    width: Style.size.image_width;
+                                    states [
+                                        is_reviewed when note.is_fixed: {
+                                            source: @image-url("../assets/icons/checked.svg");
+                                        }
+                                    ]
+                                    colorize: Palette.foreground;
+                                }
+
+                                ta := TouchArea {
+                                    clicked => {
+                                        SlintReviewCallbacks.change_note_is_done(note_id_parameter, !note.is_fixed);
+                                    }
+                                }
+                            }
+                        }
+
+                        text-input := LineEdit {
+                            property <string> note_text: note.text;
+                            changed note_text => {
+                                self.text = note_text;
+                            }
+                            width: root.columns_width[1];
+                            text: note.text;
+                            accepted(new_text) => {
+                                SlintReviewCallbacks.change_note_text(note_id_parameter, new_text);
+                            }
+                        }
+
+                        context-edit := LineEdit {
+                            horizontal-alignment: left;
+                            text: note.context;
+                            accepted(new_context) => {
+                                SlintReviewCallbacks.change_note_context(note_id_parameter, new_context);
+                            }
+                        }
+
+                        file-picker-button := ToolButton {
+                            width: root.columns_width[2];
+                            source: @image-url("../assets/icons/file_picker.svg");
+                            clicked => {
+                                file-picker.current_note_id = note.id;
+                                if (SlintFilePickerAdapter.contains_model_context(root.review_id_parameters, note.context)) {
+                                    file-picker.selected_file = note.context;
+                                }
+                                file-picker.initial_x = root.width - file-picker.width;
+                                file-picker.initial_y = notes-vertical-layout.y + listview.y + idx * text-input.height + (idx + 2) * Style.size.spacing + file-picker-button.height;
+                                file-picker.open();
+                            }
+                        }
+
+                        delete_timer := Timer {
+                            interval: 2s;
+                            running: false;
+                            triggered => {
+                                self.running = false;
+                            }
+                        }
+
+                        ToolButton {
+                            states [
+                                active_delete_timer when delete_timer.running: {
+                                    background: red;
+                                }
+                            ]
+                            width: root.columns_width[2];
+                            source: @image-url("../assets/icons/delete.svg");
+                            clicked => {
+                                if (delete_timer.running) {
+                                    SlintReviewCallbacks.delete_note(note_id_parameter);
+                                    delete_timer.stop();
+                                } else {
+                                    delete_timer.start();
+                                }
+                            }
                         }
                     }
                 }

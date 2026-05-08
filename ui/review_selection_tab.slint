@@ -1,0 +1,185 @@
+import { LineEdit, ListView, Switch, Palette } from "std-widgets.slint";
+
+import {
+    SlintReview,
+    SlintStringUtils,
+    SlintRepositoryCallbacks,
+    SlintReviewIdParameters,
+    SlintReviewCallbacks,
+} from "globals.slint";
+import { Style } from "style.slint";
+
+import {
+    TabButton,
+    TabViewItem,
+    TabCreateButton,
+} from "controls/tabview.slint";
+import { ToolButton } from "controls/tool_button.slint";
+
+
+export component ReviewSelectionTab inherits TabViewItem {
+    in property <int> repository_id;
+    in property <int> selected_review_id;
+    in property <[SlintReview]> review_model;
+    callback review-selected(int);
+
+    VerticalLayout {
+        spacing: Style.size.spacing;
+        padding-top: Style.size.spacing;
+        private property <bool> enable-new-review: false;
+        if (!enable-new-review): TabCreateButton {
+            preferred-height: Style.size.control-height;
+            clicked => {
+                enable-new-review = true;
+            }
+        }
+        if enable-new-review: HorizontalLayout {
+            spacing: Style.size.spacing;
+            private property <SlintReviewIdParameters> review_ids: {
+                repository_id: root.repository_id,
+                review_id: 0,
+            };
+            private property <bool> is_new_name_valid: SlintReviewCallbacks.is_valid_review_name(review_ids, name-edit.text);
+            Timer {
+                running: true;
+                interval: 50ms;
+                triggered => {
+                    name-edit.focus();
+                    self.running = false;
+                }
+            }
+
+            name-edit := LineEdit {
+                changed has-focus => {
+                    if (!self.has-focus) {
+                        enable-new-review = false;
+                    }
+                }
+                input-type: text;
+                accepted(text) => {
+                    if (is_new_name_valid) {
+                        SlintRepositoryCallbacks.new_review(root.repository_id, text);
+                        enable-new-review = false;
+                    }
+                }
+                key-pressed(event) => {
+                    if (event.text == Key.Escape) {
+                        enable-new-review = false;
+                        return EventResult.accept;
+                    }
+                    return EventResult.reject;
+                }
+            }
+
+            Rectangle {
+                border-radius: Style.size.border_radius;
+                border-width: Style.size.border_width;
+                border-color: Palette.border;
+                // width: Style.size.control-height;
+
+                Image {
+                    vertical-alignment: center;
+                    horizontal-alignment: center;
+                    source: is_new_name_valid ? @image-url("../assets/icons/success.svg") : @image-url("../assets/icons/failed.svg");
+                    width: Style.size.image_width;
+                }
+            }
+        }
+        ListView {
+            visible: root.review_model.length > 0; // NOTE workaround to get ListView visible with their elements
+            for review[idx] in root.review_model: HorizontalLayout {
+                private property <SlintReviewIdParameters> review_ids: {
+                    repository_id: root.repository_id,
+                    review_id: review.id,
+                };
+
+                states [
+                    active_edit when edit_switch.checked: {
+                        spacing: Style.size.spacing;
+                        padding-bottom: Style.size.spacing;
+                    }
+                ]
+                if edit_switch.checked && root.selected_review_id == review.id: Rectangle {
+                    width: Style.size.border-width;
+                    background: Palette.selection-background;
+                }
+                if edit_switch.checked: HorizontalLayout {
+                    spacing: Style.size.spacing;
+                    private property <bool> is_edit_name_valid: SlintReviewCallbacks.is_valid_review_name(review_ids, review-name-edit.text);
+                    review-name-edit := LineEdit {
+                        text: review.name;
+                        preferred-height: Style.size.control-height;
+                        accepted(new_review_name) => {
+                            if is_edit_name_valid {
+                                SlintReviewCallbacks.change_review_name(review_ids, new_review_name);
+                            }
+                        }
+                        key-pressed(event) => {
+                            if (event.text == Key.Escape) {
+                                self.text = review.name;
+                                return EventResult.accept;
+                            }
+                            return EventResult.reject;
+                        }
+                    }
+
+                    Rectangle {
+                        border-radius: Style.size.border_radius;
+                        border-width: Style.size.border_width;
+                        border-color: Palette.border;
+                        Image {
+                            source: is_edit_name_valid ? @image-url("../assets/icons/success.svg") : @image-url("../assets/icons/failed.svg");
+                            width: Style.size.image_width;
+                        }
+                    }
+                }
+                delete_timer := Timer {
+                    interval: 2s;
+                    running: false;
+                    triggered => {
+                        self.running = false;
+                    }
+                }
+
+                if edit_switch.checked: ToolButton {
+                    states [
+                        active_delete_timer when delete_timer.running: {
+                            background: red;
+                        }
+                    ]
+                    width: Style.size.control-height;
+                    source: @image-url("../assets/icons/delete.svg");
+                    clicked => {
+                        if (delete_timer.running) {
+                            SlintRepositoryCallbacks.delete_review(review_ids);
+                            delete_timer.stop();
+                        } else {
+                            delete_timer.start();
+                        }
+                    }
+                }
+                if !edit_switch.checked: TabButton {
+                    tab-text: review.name;
+                    preferred-height: Style.size.control-height;
+                    is-selected: root.selected_review_id == review.id;
+                    clicked => {
+                        // root.selected_review_id = review.id;
+                        root.review-selected(review.id);
+                        if (!review.is_loaded) {
+                            SlintReviewCallbacks.load_review(review_ids);
+                            SlintReviewCallbacks.initialize_ui_models(review_ids);
+                        }
+                    }
+                }
+            }
+        }
+
+        HorizontalLayout {
+            Text {
+                text: @tr("Edit");
+            }
+
+            edit_switch := Switch { }
+        }
+    }
+}

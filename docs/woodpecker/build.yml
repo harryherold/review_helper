@@ -1,0 +1,35 @@
+kind: pipeline
+name: build-ci-image
+
+when:
+  event: push
+  path: "Dockerfile.ci" # Nur bauen, wenn sich das Dockerfile ändert!
+
+steps:
+  publish:
+    image: woodpecker/plugin-docker-buildx
+    settings:
+      dockerfile: Dockerfile.ci
+      repo: dein-nutzer/rust-ci-image
+      tags: latest
+      # Hier deine Registry-Daten (Secrets in Woodpecker anlegen!)
+      username:
+        from_secret: docker_username
+      password:
+        from_secret: docker_password
+
+---
+
+kind: pipeline
+name: rust-build
+
+steps:
+  build-and-test:
+    # Jetzt nutzt du DEIN fertiges Image (extrem schnell!)
+    image: dein-nutzer/rust-ci-image:latest
+    environment:
+      - CARGO_TERM_COLOR=always
+    commands:
+      # Kein apt-get mehr nötig!
+      - cargo build --verbose
+      - cargo test --verbose
