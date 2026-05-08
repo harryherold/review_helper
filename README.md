@@ -1,6 +1,10 @@
 # review_helper
 
-https://github.com/harryherold/review_helper/assets/demo_v0.4.mp4
+
+
+https://github.com/user-attachments/assets/981f277a-9276-4fa8-928b-69bb7a5b0652
+
+
 
 review_helper is a standalone code review tool that runs locally on the system and provides an graphical user interface.
 The tool provides following functionality:
