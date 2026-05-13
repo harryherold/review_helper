@@ -76,6 +76,10 @@ export component NotesView inherits Rectangle {
         600px,
         Style.size.image_width + 2 * Style.size.big_spacing
     ];
+    private property <length> file_picker_x: 0px;
+    private property <length> file_picker_y: 0px;
+    private property <int> selected_note_id: -1;
+    private property <string> selected_file: "";
     changed is_filter_active => {
         if (!is_filter_active) {
             SlintReviewCallbacks.set_notes_context-filter(root.review_id_parameters, "");
@@ -83,16 +87,16 @@ export component NotesView inherits Rectangle {
         }
     }
     file-picker := FilePicker {
-        file_model: SlintFilePickerAdapter.file_model(root.review_id_parameters);
-        property <int> current_note_id: -1;
         property <SlintNoteIdParamters> current_note_id_parameters: {
             review_id_parameters: root.review_id_parameters,
-            note_id: current_note_id,
+            note_id: root.selected_note_id,
         };
-        initial_x: 0;
-        initial_y: 0;
+        selected_file: root.selected_file;
+        file_model: SlintFilePickerAdapter.file_model(root.review_id_parameters);
+        x: root.file_picker_x;
+        y: root.file_picker_y;
         accepted(new_context) => {
-            if (self.current_note_id > -1) {
+            if (root.selected_note_id > -1) {
                 SlintReviewCallbacks.change_note_context(current_note_id_parameters, new_context);
             } else {
                 new-context-edit.text = new-context;
@@ -102,10 +106,6 @@ export component NotesView inherits Rectangle {
         set_filter(pattern) => {
             SlintFilePickerAdapter.set_filter(root.review_id_parameters, pattern);
         }
-        closed => {
-            self.current_note_id = -1;
-            self.selected_file = "";
-        }
     }
 
     vertical-box := VerticalBox {
@@ -113,7 +113,7 @@ export component NotesView inherits Rectangle {
         Rectangle {
             border-width: Style.size.border-width;
             border-color: Palette.border;
-            VerticalLayout {
+            vbox := VerticalLayout {
                 spacing: 10px;
                 padding: 10px;
                 alignment: start;
@@ -157,13 +157,16 @@ export component NotesView inherits Rectangle {
                     new-file-picker-button := ToolButton {
                         source: @image-url("../assets/icons/file_picker.svg");
                         clicked => {
-                            file-picker.current_note_id = -1;
-                            file-picker.initial_x = root.width - file-picker.width;
-                            file-picker.initial_y = vertical-box.y + self.height + Style.size.spacing * 3;
+                            new-context-edit.clear-focus();
+                            root.selected_note_id = -1;
+                            root.file_picker_x = root.width - Style.size.file_picker_width - Style.size.padding * 2;
+                            root.file_picker_y = vbox.height;
                             if (SlintFilePickerAdapter.contains_model_context(root.review_id_parameters, new_context)) {
-                                file-picker.selected_file = new_context;
+                                root.selected_file = new_context;
+                            } else {
+                                root.selected_file = "";
                             }
-                            file-picker.open();
+                            file-picker.show();
                         }
                     }
 
@@ -178,7 +181,7 @@ export component NotesView inherits Rectangle {
             }
         }
 
-        Rectangle {
+        notes_rect := Rectangle {
             border-width: Style.size.border-width;
             border-color: Palette.border;
             notes-vertical-layout := VerticalLayout {
@@ -263,7 +266,8 @@ export component NotesView inherits Rectangle {
                 }
 
                 listview := ListView {
-                    for note[idx] in SlintReviewCallbacks.note_ui_model(root.review_id_parameters): HorizontalLayout {
+                    private property <[SlintNote]> model: SlintReviewCallbacks.note_ui_model(root.review_id_parameters);
+                    for note[idx] in model: HorizontalLayout {
                         private property <SlintNoteIdParamters> note_id_parameter: {
                             review_id_parameters: root.review_id_parameters,
                             note_id: note.id,
@@ -317,8 +321,25 @@ export component NotesView inherits Rectangle {
                         }
 
                         context-edit := LineEdit {
+                            private property <string> file_name: note.context;
+                            changed file_name => {
+                                self.text = file_name;
+                            }
+
                             horizontal-alignment: left;
-                            text: note.context;
+                            text: file_name;
+                            changed has-focus => {
+                                if (!self.has-focus) {
+                                    self.text = note.context;
+                                }
+                            }
+                            key-pressed(event) => {
+                                if (event.text == Key.Escape) {
+                                    self.text = note.context;
+                                    return EventResult.accept;
+                                }
+                                return EventResult.reject;
+                            }
                             accepted(new_context) => {
                                 SlintReviewCallbacks.change_note_context(note_id_parameter, new_context);
                             }
@@ -328,13 +349,16 @@ export component NotesView inherits Rectangle {
                             width: root.columns_width[2];
                             source: @image-url("../assets/icons/file_picker.svg");
                             clicked => {
-                                file-picker.current_note_id = note.id;
+                                context-edit.clear-focus();
+                                root.selected_note_id = note.id;
+                                root.file_picker_x = root.width - Style.size.file_picker_width - Style.size.padding * 2;
+                                root.file_picker_y = notes_rect.y + listview.y + (idx + 1) * text-input.height;
                                 if (SlintFilePickerAdapter.contains_model_context(root.review_id_parameters, note.context)) {
-                                    file-picker.selected_file = note.context;
+                                    root.selected_file = note.context;
+                                } else {
+                                    root.selected_file = "";
                                 }
-                                file-picker.initial_x = root.width - file-picker.width;
-                                file-picker.initial_y = notes-vertical-layout.y + listview.y + idx * text-input.height + (idx + 2) * Style.size.spacing + file-picker-button.height;
-                                file-picker.open();
+                                file-picker.show();
                             }
                         }
 
