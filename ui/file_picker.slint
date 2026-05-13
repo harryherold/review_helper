@@ -16,7 +16,6 @@ export component FilePicker inherits Popup {
         LineEdit {
             preferred-width: 300px;
             placeholder-text: "filter file";
-            enabled: root.file_model.length > 0;
             edited(text) => {
                 root.set_filter(text)
             }
