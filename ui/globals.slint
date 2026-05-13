@@ -273,9 +273,3 @@ export global SlintStringUtils {
 export global SlintModelUtils {
     pure callback index_of_string([string], string) -> int;
 }
-
-export global FilePickerAdapter {
-    in property <[string]> files_model;
-    callback set-filter(string);
-    pure callback contains-model-context(string) -> bool;
-}

@@ -1,4 +1,11 @@
-import { VerticalBox, LineEdit, ListView, HorizontalBox, Button, Palette } from "std-widgets.slint";
+import {
+    VerticalBox,
+    LineEdit,
+    ListView,
+    HorizontalBox,
+    Button,
+    Palette,
+} from "std-widgets.slint";
 
 import { Style } from "style.slint";
 import { Popup } from "popup.slint";
@@ -6,7 +13,6 @@ import { Popup } from "popup.slint";
 export component FilePicker inherits Popup {
     in property <[string]> file_model;
     in-out property <string> selected_file: "";
-    
     callback accepted(string);
     callback set_filter(string);
 
@@ -15,7 +21,7 @@ export component FilePicker inherits Popup {
     VerticalBox {
         LineEdit {
             preferred-width: 300px;
-            placeholder-text: "filter file";
+            placeholder-text: @tr("filter file");
             edited(text) => {
                 root.set_filter(text)
             }
@@ -69,7 +75,7 @@ export component FilePicker inherits Popup {
 
             Button {
                 width: Style.size.control_width;
-                text: "Take";
+                text: @tr("Take");
                 enabled: root.selected_file != "";
                 clicked => {
                     root.accepted(selected_file)
