@@ -146,6 +146,7 @@ impl UiUpdater {
                         review_model: Rc::new(IdModel::default()).into(),
                     },
                 );
+                app_window.invoke_select_repository(repository_id);
             }
         });
     }

@@ -62,6 +62,10 @@ export component AppWindow inherits Window {
     private property <int> selected_repository_index <=> tab-view.current-index;
     in property <string> config_color_scheme;
     callback request_show_error();
+    callback select_repository(int);
+    select_repository(id) => {
+        tab-view.set_current_index(SlintRepositoryCallbacks.index_of_id(id));
+    }
     request_show_error() => {
         error-popup.show();
     }
