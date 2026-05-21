@@ -1,79 +1,111 @@
-import { VerticalBox, LineEdit, ListView, HorizontalBox, Button, Palette } from "std-widgets.slint";
+import {
+    VerticalBox,
+    LineEdit,
+    ListView,
+    HorizontalBox,
+    Button,
+    Palette,
+} from "std-widgets.slint";
 
 import { Style } from "style.slint";
 import { Popup } from "popup.slint";
+import { SlintModelUtils } from "globals.slint";
 
-export component FilePicker inherits Popup {
+export component FilePicker inherits PopupWindow {
     in property <[string]> file_model;
     in-out property <string> selected_file: "";
-    
     callback accepted(string);
     callback set_filter(string);
 
-    title: "File Picker";
+    close-policy: close-on-click-outside;
 
-    VerticalBox {
-        LineEdit {
-            preferred-width: 300px;
-            placeholder-text: "filter file";
-            enabled: root.file_model.length > 0;
-            edited(text) => {
-                root.set_filter(text)
-            }
+    scroll_timer := Timer {
+        running: false;
+        interval: 50ms;
+        triggered => {
+            self.running = false;
+            list_view.scroll_to(SlintModelUtils.index_of_string(root.file_model, root.selected_file));
         }
+    }
 
-        ListView {
-            preferred-height: Math.min(root.file_model.length * Style.size.image-width, 300px);
-            for file in root.file_model: Rectangle {
-                states [
-                    is_selected_file when file == root.selected_file: {
-                        background: Style.palette.selected;
-                    }
-                ]
-                height: Style.size.control_height;
-                width: parent.width;
-                HorizontalLayout {
-                    alignment: start;
-                    Image {
-                        source: @image-url("../assets/icons/file_picker.svg");
-                        colorize: Palette.foreground;
-                    }
+    init => {
+        scroll_timer.start();
+    }
 
-                    Rectangle {
-                        width: Style.size.spacing * 2;
-                    }
+    Rectangle {
+        background: Palette.background;
+        border-color: Palette.border;
+        border-width: Style.size.border_width;
+        border-radius: Style.size.menu_border_radius;
 
-                    Text {
-                        vertical-alignment: center;
-                        text: file;
-                    }
+        VerticalLayout {
+            padding: Style.size.padding;
+
+            LineEdit {
+                preferred-width: Style.size.file_picker_width;
+                placeholder-text: @tr("filter file");
+                edited(text) => {
+                    root.set_filter(text)
+                }
+            }
+
+            list_view := ListView {
+                function scroll_to(item_index: int) {
+                    self.viewport-y = -(item_index * Style.size.control_height - (self.height / 2) + (Style.size.control_height / 2));
                 }
 
-                ta := TouchArea {
+                preferred-height: Math.min(root.file_model.length * Style.size.image-width, Style.size.file_picker_width);
+                for file in root.file_model: Rectangle {
+                    states [
+                        is_selected_file when file == root.selected_file: {
+                            background: Style.palette.selected;
+                        }
+                    ]
+                    height: Style.size.control_height;
+                    width: parent.width;
+                    HorizontalLayout {
+                        alignment: start;
+                        Image {
+                            source: @image-url("../assets/icons/file_picker.svg");
+                            colorize: Palette.foreground;
+                        }
+
+                        Rectangle {
+                            width: Style.size.spacing * 2;
+                        }
+
+                        Text {
+                            vertical-alignment: center;
+                            text: file;
+                        }
+                    }
+
+                    ta := TouchArea {
+                        clicked => {
+                            root.selected_file = file;
+                        }
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: Style.size.big_spacing;
+                alignment: end;
+                Button {
+                    text: @tr("Cancel");
+                    width: Style.size.control_width;
                     clicked => {
-                        root.selected_file = file;
+                        root.close();
                     }
                 }
-            }
-        }
 
-        HorizontalLayout {
-            spacing: Style.size.big_spacing;
-            alignment: end;
-            Button {
-                text: "Cancel";
-                width: Style.size.control_width;
-                clicked => {
-                    root.close();
-                }
-            }
-
-            Button {
-                width: Style.size.control_width;
-                text: "Take";
-                enabled: root.selected_file != "";
-                clicked => {
-                    root.accepted(selected_file)
+                Button {
+                    width: Style.size.control_width;
+                    text: @tr("Take");
+                    enabled: root.selected_file != "";
+                    clicked => {
+                        root.accepted(selected_file)
+                    }
                 }
             }
         }
