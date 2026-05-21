@@ -45,10 +45,9 @@ export component RepositoryTabViewItem inherits TabViewItem {
     in property <[SlintReview]> review_model;
     in property <string> base_branch;
     private property <bool> is_repository_loaded: false;
-    private property <int> selected_review_id: -1;
     private property <SlintReviewIdParameters> review_id_parameters: {
         repository_id: root.repository_id,
-        review_id: root.selected_review_id,
+        review_id: review-selection-tab.selected_review_id,
     };
     function load_repository() {
         if (root.is_active && !root.is_repository_loaded) {
@@ -56,8 +55,13 @@ export component RepositoryTabViewItem inherits TabViewItem {
             root.is_repository_loaded = true;
         }
     }
+    public function select_review(id: int) {
+        review-selection-tab.select_review(id, true, true);
+    }
     changed is_active => {
-        load_repository();
+        if root.is_active {
+            load_repository();
+        }
     }
     init => {
         load_repository();
@@ -73,15 +77,11 @@ export component RepositoryTabViewItem inherits TabViewItem {
                     create_button_enabled: false;
                     model: [@tr("Reviews"), @tr("Settings")];
                     alignment: center;
-                    ReviewSelectionTab {
+                    review-selection-tab := ReviewSelectionTab {
                         index: 0;
                         current-index <=> parent.current-index;
                         repository_id: root.repository_id;
-                        selected_review_id: root.selected_review_id;
                         review_model: root.review_model;
-                        review-selected(review_id) => {
-                            root.selected_review_id = review-id;
-                        }
                     }
 
                     RepositorySettingsTab {

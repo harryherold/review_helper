@@ -19,9 +19,21 @@ import { ToolButton } from "controls/tool_button.slint";
 
 export component ReviewSelectionTab inherits TabViewItem {
     in property <int> repository_id;
-    in property <int> selected_review_id;
+    out property <int> selected_review_id;
     in property <[SlintReview]> review_model;
-    callback review-selected(int);
+
+    public function select_review(id: int, should_scroll: bool, is_created: bool) {
+        root.selected_review_id = id;
+        if should_scroll {
+            review-listView.scroll_to(SlintReviewCallbacks.review_id_to_index(id, root.review_model));
+        }
+        if !is_created {
+            SlintReviewCallbacks.load_review({
+                repository_id: root.repository_id,
+                review_id: root.selected_review_id,
+            });
+        }
+    }
 
     VerticalLayout {
         spacing: Style.size.spacing;
@@ -85,7 +97,11 @@ export component ReviewSelectionTab inherits TabViewItem {
                 }
             }
         }
-        ListView {
+        review-listView := ListView {
+            function scroll_to(review_index: int) {
+                self.viewport-y = -(review_index * Style.size.control_height - (self.height / 2) + (Style.size.control_height / 2));
+            }
+
             visible: root.review_model.length > 0; // NOTE workaround to get ListView visible with their elements
             for review[idx] in root.review_model: HorizontalLayout {
                 private property <SlintReviewIdParameters> review_ids: {
@@ -162,14 +178,7 @@ export component ReviewSelectionTab inherits TabViewItem {
                     tab-text: review.name;
                     preferred-height: Style.size.control-height;
                     is-selected: root.selected_review_id == review.id;
-                    clicked => {
-                        // root.selected_review_id = review.id;
-                        root.review-selected(review.id);
-                        if (!review.is_loaded) {
-                            SlintReviewCallbacks.load_review(review_ids);
-                            SlintReviewCallbacks.initialize_ui_models(review_ids);
-                        }
-                    }
+                    clicked => root.select_review(review.id, false, false);
                 }
             }
         }

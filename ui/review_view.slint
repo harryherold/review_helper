@@ -30,7 +30,8 @@ export component ReviewView inherits Rectangle {
     in property <SlintReviewIdParameters> review_id_parameters;
     in property <[SlintReview]> review_model;
     private property <int> review_index: SlintReviewCallbacks.review_id_to_index(root.review_id_parameters.review_id, root.review_model);
-    if root.review_index != -1: CenterTabView {
+
+    if root.review_index != -1 && root.review_model[root.review_index].is_loaded: CenterTabView {
         image_model: [
             @image-url("../assets/icons/differences.svg"),
             @image-url("../assets/icons/notes.svg"),
