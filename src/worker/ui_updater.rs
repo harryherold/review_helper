@@ -289,6 +289,8 @@ impl UiUpdater {
                     repository_id: repository_id as i32,
                     review_id: review_id as i32,
                 });
+
+            app_window.invoke_select_review(review_id as i32);
         });
     }
     pub fn delete_review(&self, repository_id: usize, review_id: usize) {

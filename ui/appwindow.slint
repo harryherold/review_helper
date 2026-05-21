@@ -61,8 +61,13 @@ export {
 export component AppWindow inherits Window {
     private property <int> selected_repository_index <=> tab-view.current-index;
     in property <string> config_color_scheme;
+    private property <int> forced_selected_review: -1;
     callback request_show_error();
     callback select_repository(int);
+    callback select_review(int);
+    select_review(id) => {
+        self.forced_selected_review = id;
+    }
     select_repository(id) => {
         tab-view.set_current_index(SlintRepositoryCallbacks.index_of_id(id));
     }
@@ -97,6 +102,14 @@ export component AppWindow inherits Window {
             app-config-popup.show();
         }
         for repository[idx] in SlintReviewHelper.repositories: RepositoryTabViewItem {
+            private property <bool> select_review: root.forced_selected_review != -1 && self.is_active;
+            changed select_review => {
+                if (select_review) {
+                    self.scroll_to_review(root.forced_selected_review);
+                    root.forced_selected_review = -1;
+                }
+            }
+
             index: idx;
             current-index <=> parent.current-index;
             repository_id: repository.id;

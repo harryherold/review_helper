@@ -56,6 +56,10 @@ export component RepositoryTabViewItem inherits TabViewItem {
             root.is_repository_loaded = true;
         }
     }
+
+    public function scroll_to_review(id: int) {
+        review_view.scroll_to_review(id);
+    }
     changed is_active => {
         load_repository();
     }
@@ -94,7 +98,7 @@ export component RepositoryTabViewItem inherits TabViewItem {
             }
         }
 
-        ReviewView {
+        review_view := ReviewView {
             review_id_parameters: root.review_id_parameters;
             review_model: root.review_model;
         }
