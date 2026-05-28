@@ -267,11 +267,7 @@ impl WorkerImpl {
                     editor_args,
                     color_scheme,
                 } => self.save_settings(diff_tool, editor, editor_args, color_scheme),
-                WorkerMessage::NewRepository(path) => {
-                    if let Some(repository_id) = self.new_repository(path) {
-                        self.load_commits(&repository_id);
-                    }
-                }
+                WorkerMessage::NewRepository(path) => self.new_repository(path),
                 WorkerMessage::ChangeRepository { id, base_branch } => self.change_repository(id, base_branch),
                 WorkerMessage::LoadRepository { id } => {
                     self.load_commits(&id);
@@ -323,10 +319,10 @@ impl WorkerImpl {
             self.ui_updater.report_error(ui::SlintResult::StoreFailed, &e.to_string());
         }
     }
-    fn new_repository(&mut self, path: PathBuf) -> Option<RepositoryId> {
+    fn new_repository(&mut self, path: PathBuf) {
         if self.repositories.contains_repository_path(&path) {
             self.ui_updater.report_error(ui::SlintResult::RepositoryExists, path.to_string_lossy().as_ref());
-            return None;
+            return;
         }
         match create_repository_store(path) {
             Ok(store) => match self.storage.save_repository(&store) {
@@ -335,17 +331,13 @@ impl WorkerImpl {
                     let repository_id = self.repositories.add_repository(store);
 
                     self.ui_updater.new_repository(repository_id.as_i32(), ui_repository);
-
-                    Some(repository_id)
                 }
                 Err(e) => {
                     self.ui_updater.report_error(ui::SlintResult::StoreFailed, &e.to_string());
-                    None
                 }
             },
             Err(e) => {
                 self.report_review_helper_error(&e);
-                None
             }
         }
     }

@@ -229,6 +229,7 @@ export global SlintRepositoryCallbacks {
     callback new_review(int, string);
     callback load_repository(int);
     callback repository_changed(int, string);
+    pure callback index_of_id(int) -> int;
 }
 
 export enum SlintCommitSortCriterion {

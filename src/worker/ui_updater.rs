@@ -146,6 +146,7 @@ impl UiUpdater {
                         review_model: Rc::new(IdModel::default()).into(),
                     },
                 );
+                app_window.invoke_select_repository(repository_id);
             }
         });
     }
@@ -229,6 +230,13 @@ impl UiUpdater {
             });
 
             review_model.update(review_id, review);
+
+            app_window
+                .global::<ui::SlintReviewCallbacks>()
+                .invoke_initialize_ui_models(ui::SlintReviewIdParameters {
+                    repository_id: repository_id as i32,
+                    review_id: review_id as i32,
+                });
         });
     }
     pub fn initialize_reviews(&self, repository_id: usize, reviews: Vec<(i32, SharedString)>) {
@@ -288,6 +296,8 @@ impl UiUpdater {
                     repository_id: repository_id as i32,
                     review_id: review_id as i32,
                 });
+
+            app_window.set_active_review_id(review_id as i32);
         });
     }
     pub fn delete_review(&self, repository_id: usize, review_id: usize) {

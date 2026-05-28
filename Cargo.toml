@@ -1,6 +1,6 @@
 [package]
 name = "review-helper"
-version = "0.4.0"
+version = "0.4.1"
 authors = ["Christian von Wascinski <harryherold@googlemail.com>"]
 edition = "2024"
 build = "build.rs"

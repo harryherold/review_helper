@@ -98,8 +98,15 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
         }
     });
     app_window.global::<ui::SlintReviewCallbacks>().on_load_review({
+        let app_window_weak = app_window.as_weak();
         let channel = worker_channel.clone();
         move |ids| {
+            let app_window = unwrap_or_return!(app_window_weak.upgrade(), "Upgrade to AppWindow failed!");
+            let review = model_utils::get_slint_review(&app_window, ids.repository_id as usize, ids.review_id as usize).expect("[BUG] Review not found!");
+            if review.is_loaded {
+                return;
+            }
+
             let message = crate::worker::WorkerMessage::LoadReview {
                 repository_id: RepositoryId::from(ids.repository_id),
                 review_id: ReviewId::from(ids.review_id),
