@@ -14,6 +14,7 @@ import {
 import { ToolButton } from "controls/tool_button.slint";
 import { Style } from "style.slint";
 import {
+    SlintCommitPickerAdapter,
     SlintChangeTypeUtils,
     SlintDiffRange,
     SlintReviewHelper,
@@ -50,18 +51,19 @@ export component RepositoryTabViewItem inherits TabViewItem {
         review_id: review-selection-tab.selected_review_id,
     };
     function load_repository() {
-        if (root.is_active && !root.is_repository_loaded) {
-            SlintRepositoryCallbacks.load_repository(root.repository_id);
-            root.is_repository_loaded = true;
+        if root.is_active {
+            if !root.is_repository_loaded {
+                SlintRepositoryCallbacks.load_repository(root.repository_id);
+                root.is_repository_loaded = true;
+            }
+            SlintCommitPickerAdapter.refresh(root.repository_id);
         }
     }
     public function select_review(id: int) {
         review-selection-tab.select_review(id, true, true);
     }
     changed is_active => {
-        if root.is_active {
-            load_repository();
-        }
+        load_repository();
     }
     init => {
         load_repository();
