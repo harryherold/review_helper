@@ -3,7 +3,10 @@ use simplelog::*;
 use std::fs::File;
 
 pub fn init_logger() -> anyhow::Result<()> {
-    let config = ConfigBuilder::new().set_location_level(LevelFilter::Info).build();
+    let config = ConfigBuilder::new()
+        .set_location_level(LevelFilter::Info)
+        .add_filter_allow_str("review_helper")
+        .build();
 
     CombinedLogger::init(vec![
         TermLogger::new(LevelFilter::Info, config.clone(), TerminalMode::Mixed, ColorChoice::Auto),
