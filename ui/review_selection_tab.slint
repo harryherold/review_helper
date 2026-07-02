@@ -19,20 +19,13 @@ import { ToolButton } from "controls/tool_button.slint";
 
 export component ReviewSelectionTab inherits TabViewItem {
     in property <int> repository_id;
-    out property <int> selected_review_id;
+    in property <int> selected_review_id;
     in property <[SlintReview]> review_model;
 
-    public function select_review(id: int, should_scroll: bool, is_created: bool) {
-        root.selected_review_id = id;
-        if should_scroll {
-            review-listView.scroll_to(SlintReviewCallbacks.review_id_to_index(id, root.review_model));
-        }
-        if !is_created {
-            SlintReviewCallbacks.load_review({
-                repository_id: root.repository_id,
-                review_id: root.selected_review_id,
-            });
-        }
+    callback change_review_id(int);
+
+    public function scroll_to(id: int) {
+        scroll_timer.start();
     }
 
     VerticalLayout {
@@ -87,7 +80,6 @@ export component ReviewSelectionTab inherits TabViewItem {
                 border-radius: Style.size.border_radius;
                 border-width: Style.size.border_width;
                 border-color: Palette.border;
-                // width: Style.size.control-height;
 
                 Image {
                     vertical-alignment: center;
@@ -97,8 +89,18 @@ export component ReviewSelectionTab inherits TabViewItem {
                 }
             }
         }
+        scroll_timer := Timer {
+            running: false;
+            interval: 200ms;
+            triggered => {
+                self.running = false;
+                review-listView.scroll_to(SlintReviewCallbacks.review_id_to_index(root.selected_review_id, root.review_model));
+            }
+        }
+
         review-listView := ListView {
             function scroll_to(review_index: int) {
+                debug("scroll to \{review-index}");
                 self.viewport-y = -(review_index * Style.size.control_height - (self.height / 2) + (Style.size.control_height / 2));
             }
 
@@ -178,7 +180,7 @@ export component ReviewSelectionTab inherits TabViewItem {
                     tab-text: review.name;
                     preferred-height: Style.size.control-height;
                     is-selected: root.selected_review_id == review.id;
-                    clicked => root.select_review(review.id, false, false);
+                    clicked => root.change_review_id(review.id);
                 }
             }
         }

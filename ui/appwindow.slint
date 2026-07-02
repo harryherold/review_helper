@@ -57,7 +57,6 @@ export {
     SlintProgress,
     SlintFileDiffs,
 }
-
 export component AppWindow inherits Window {
     private property <int> selected_repository_index <=> tab-view.current-index;
     in property <string> config_color_scheme;
@@ -91,6 +90,7 @@ export component AppWindow inherits Window {
         layout_padding: 0px;
         model: SlintReviewHelper.repository_names;
         settings_button_enabled: true;
+        max_child_width: 260px;
         request-create => {
             SlintReviewHelper.new_repository();
         }

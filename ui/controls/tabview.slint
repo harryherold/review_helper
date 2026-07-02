@@ -128,51 +128,80 @@ export component TabViewItem inherits Rectangle {
 export component TabView inherits Rectangle {
     in property <[string]> model;
     in property <bool> create_button_enabled: true;
+    in property <bool> hide_button_enable: false;
     in property <length> layout_padding: 5px;
     in property <bool> settings_button_enabled: false;
     in property <LayoutAlignment> alignment: start;
+    in property <length> max_child_width;
     out property <int> current-index;
     callback request-create();
     callback request-open-settings();
+    callback request-hide();
+    callback request-show();
     public function set_current_index(index: int) {
         root.current-index = index;
     }
     border-width: Style.size.border-width;
     border-color: Palette.border;
-    VerticalLayout {
-        padding: root.layout_padding;
-        HorizontalLayout {
-            height: Style.size.control-height;
-            ScrollView {
-                horizontal-scrollbar-policy: always-off;
-                vertical-scrollbar-policy: always-off;
-                HorizontalLayout {
-                    alignment: root.alignment;
-                    for tab_text[idx] in root.model: TabButton {
-                        tab-text: tab_text;
-                        is-selected: current-index == idx;
-                        clicked => {
-                            root.current-index = idx;
+    preferred-width: Math.max(max_child_width, tab-button-layout.preferred-width) + 20px;
+
+    HorizontalLayout {
+        padding-right: root.hide_button_enable ? 5px : 0px;
+        tab-button-layout := VerticalLayout {
+            padding: root.layout_padding;
+            HorizontalLayout {
+                height: Style.size.control-height;
+                ScrollView {
+                    horizontal-scrollbar-policy: always-off;
+                    vertical-scrollbar-policy: always-off;
+                    HorizontalLayout {
+                        alignment: root.alignment;
+                        for tab_text[idx] in root.model: TabButton {
+                            tab-text: tab_text;
+                            is-selected: current-index == idx;
+                            clicked => {
+                                root.current-index = idx;
+                            }
+                        }
+                        if (root.create_button_enabled): TabCreateButton {
+                            width: Style.size.control-small-width;
+                            clicked => {
+                                root.request-create();
+                            }
                         }
                     }
-                    if (root.create_button_enabled): TabCreateButton {
-                        width: Style.size.control-small-width;
-                        clicked => {
-                            root.request-create();
-                        }
+                }
+
+                if (root.settings_button_enabled): TabSettingsButton {
+                    clicked => {
+                        root.request-open-settings();
                     }
                 }
             }
 
-            if (root.settings_button_enabled): TabSettingsButton {
-                clicked => {
-                    root.request-open-settings();
-                }
+            Rectangle {
+                @children
             }
         }
 
-        Rectangle {
-            @children
+        if root.hide_button_enable: Rectangle {
+            width: Style.size.image_width;
+            Image {
+                source: @image-url("../../assets/icons/to_left.svg");
+                colorize: Palette.foreground;
+                width: Style.size.image_width;
+            }
+
+            states [
+                has_active_hover when ta.has-hover: {
+                    background: Style.palette.background.darker(0.2);
+                }
+            ]
+            ta := TouchArea {
+                clicked => {
+                    root.request-hide();
+                }
+            }
         }
     }
 }

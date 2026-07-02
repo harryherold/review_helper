@@ -48,8 +48,9 @@ export component RepositoryTabViewItem inherits TabViewItem {
     private property <bool> is_repository_loaded: false;
     private property <SlintReviewIdParameters> review_id_parameters: {
         repository_id: root.repository_id,
-        review_id: review-selection-tab.selected_review_id,
+        review_id: -1,
     };
+    private property <bool> should_show_reviews: true;
     function load_repository() {
         if root.is_active {
             if !root.is_repository_loaded {
@@ -60,7 +61,7 @@ export component RepositoryTabViewItem inherits TabViewItem {
         }
     }
     public function select_review(id: int) {
-        review-selection-tab.select_review(id, true, true);
+        root.review_id_parameters.review-id = id;
     }
     changed is_active => {
         load_repository();
@@ -69,29 +70,77 @@ export component RepositoryTabViewItem inherits TabViewItem {
         load_repository();
     }
     HorizontalLayout {
-        Rectangle {
-            width: 260px;
+        if should_show_reviews: Rectangle {
             VerticalLayout {
                 padding-left: Style.size.spacing;
                 padding-right: Style.size.spacing;
                 spacing: Style.size.spacing;
                 TabView {
                     create_button_enabled: false;
+                    hide_button_enable: true;
                     model: [@tr("Reviews"), @tr("Settings")];
                     alignment: center;
-                    review-selection-tab := ReviewSelectionTab {
+                    max_child_width: Math.max(st.preferred-width, s.preferred-width);
+                    request-hide => {
+                        should_show_reviews = false;
+                    }
+                    request-show => {
+                        should_show_reviews = true;
+                    }
+                    st := ReviewSelectionTab {
+                        private property <int> incomming_selected_id: root.review_id_parameters.review-id;
+                        changed incomming_selected_id => {
+                            if incomming_selected_id != self.selected_review_id {
+                                self.selected_review_id = incomming_selected_id;
+                                self.scroll_to(incomming_selected_id);
+                            }
+                        }
                         index: 0;
                         current-index <=> parent.current-index;
                         repository_id: root.repository_id;
                         review_model: root.review_model;
+                        change_review_id(id) => {
+                            if id != self.selected_review_id {
+                                self.selected_review_id = id;
+                            }
+                            if id != root.review_id_parameters.review-id {
+                                SlintReviewCallbacks.load_review({
+                                    repository_id: root.repository_id,
+                                    review_id: id,
+                                });
+                                root.review_id_parameters.review-id = id;
+                            }
+                        }
                     }
 
-                    RepositorySettingsTab {
+                    s := RepositorySettingsTab {
                         index: 1;
                         current-index <=> parent.current-index;
                         repository_id: root.repository_id;
                         base_branch: root.base_branch;
                     }
+                }
+            }
+        }
+
+        if !should_show_reviews: Rectangle {
+            width: Style.size.image_width;
+            Image {
+                source: @image-url("../assets/icons/to_right.svg");
+                colorize: Palette.foreground;
+                width: Style.size.image_width;
+            }
+
+            background: root.background.darker(0.1);
+            states [
+                has_active_hover when ta.has-hover: {
+                    background: Style.palette.background.darker(0.2);
+                }
+            ]
+
+            ta := TouchArea {
+                clicked => {
+                    should_show_reviews = !should_show_reviews;
                 }
             }
         }
