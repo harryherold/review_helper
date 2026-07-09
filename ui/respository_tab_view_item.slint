@@ -95,6 +95,8 @@ export component RepositoryTabViewItem inherits TabViewItem {
                                 self.scroll_to(incomming_selected_id);
                             }
                         }
+
+                        selected_review_id: incomming_selected_id;
                         index: 0;
                         current-index <=> parent.current-index;
                         repository_id: root.repository_id;
