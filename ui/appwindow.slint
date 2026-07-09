@@ -32,6 +32,8 @@ import {
     SlintSortOrder,
     SlintProgress,
     SlintFileDiffs,
+    SlintLineStatus,
+    SlintDiffLine,
 } from "globals.slint";
 export {
     SlintReviewCallbacks,
@@ -56,6 +58,8 @@ export {
     SlintSortOrder,
     SlintProgress,
     SlintFileDiffs,
+    SlintLineStatus,
+    SlintDiffLine,
 }
 export component AppWindow inherits Window {
     private property <int> selected_repository_index <=> tab-view.current-index;

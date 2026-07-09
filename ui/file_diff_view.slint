@@ -27,6 +27,174 @@ import {
 import { FileNoteDelegate } from "file_note_delegate.slint";
 import { ToolButton } from "controls/tool_button.slint";
 
+component FileDiffList inherits ListView {
+    in property <int> selected_id;
+    in property <SlintReviewIdParameters> review_id_parameters;
+    in property <[SlintFileDiff]> file_diff_model;
+    in property <[SlintNote]> notes_model;
+
+    callback select_id(int);
+    private property <int> extended_file_id: -1;
+
+    // horizontal-scrollbar-policy: always-off;
+    vertical-scrollbar-policy: always-off;
+    for data[idx] in root.file_diff_model: Rectangle {
+        private property <bool> is_selected: root.selected_id == data.id;
+        private property <SlintFileDiffIdParamters> file_diff_id_parameter: {
+            review_id_parameters: root.review_id_parameters,
+            file_diff_id: data.id,
+        };
+        states [
+            selected when selected_id == data.id: {
+                background: Palette.control-background.brighter(0.4);
+                border-width: Style.size.border_width;
+                border-radius: Style.size.border_radius;
+            }
+        ]
+
+        TouchArea {
+            clicked => {
+                root.select_id(data.id)
+            }
+            double-clicked => {
+                SlintReviewCallbacks.show_file_differences(file_diff_id_parameter);
+            }
+
+            VerticalLayout {
+                padding-left: Style.size.spacing;
+                padding-right: Style.size.spacing / 2;
+                HorizontalLayout {
+                    height: Style.size.delegate_height;
+                    alignment: space-between;
+                    spacing: 2px;
+
+                    HorizontalLayout {
+                        spacing: Style.size.spacing;
+
+                        VerticalLayout {
+                            alignment: center;
+                            Rectangle {
+                                background: Palette.control-background;
+                                border-radius: Style.size.border_radius;
+                                border-width: Style.size.border_width;
+                                border-color: Palette.border;
+                                width: Style.size.image_width + 4px;
+                                height: Style.size.image_width + 4px;
+                                states [
+                                    is_pressed when is_selected && ta.pressed: {
+                                        background: Palette.alternate-background;
+                                    }
+                                ]
+                                Image {
+                                    vertical-alignment: center;
+                                    horizontal-alignment: center;
+                                    width: Style.size.image_width;
+                                    states [
+                                        is_reviewed when data.is_reviewed: {
+                                            source: @image-url("../assets/icons/checked.svg");
+                                        }
+                                    ]
+                                    colorize: is_selected ? Palette.foreground : Style.palette.disabled;
+                                }
+
+                                ta := TouchArea {
+                                    clicked => {
+                                        if !is_selected {
+                                            root.select_id(data.id);
+                                        } else {
+                                            SlintReviewCallbacks.change_file_diff_is_reviewed(file_diff_id_parameter, !data.is_reviewed);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Text {
+                            overflow: elide;
+                            font-size: 14px;
+                            text: data.file-path;
+                            vertical-alignment: center;
+                            horizontal-alignment: left;
+                        }
+                    }
+
+                    HorizontalLayout {
+                        padding-top: Style.size.spacing / 2;
+                        padding-bottom: Style.size.spacing / 2;
+                        spacing: Style.size.spacing;
+                        if data.added-lines != 0: Rectangle {
+                            Text {
+                                font-size: 14px;
+                                font-weight: 500;
+                                vertical-alignment: center;
+                                text: "+ \{data.added-lines != -1 ? data.added-lines : "??"}";
+                                color: #8bc34a;
+                            }
+                        }
+                        if data.removed-lines != 0: Rectangle {
+                            Text {
+                                font-size: 14px;
+                                font-weight: 500;
+                                vertical-alignment: center;
+                                text: "- \{data.removed-lines != -1 ? data.removed-lines : "??"}";
+                                color: #f44336;
+                            }
+                        }
+                        Rectangle {
+                            width: 28px;
+                            height: 30px;
+                            Image {
+                                states [
+                                    has_status when data.change_type != SlintChangeType.Invalid: {
+                                        source: SlintChangeTypeUtils.to_icon(data.change_type);
+                                    }
+                                ]
+                                colorize: Palette.foreground;
+                                width: parent.width;
+                                height: parent.height;
+                            }
+                        }
+
+                        ToolButton {
+                            source: @image-url("../assets/icons/open_editor.svg");
+                            enabled: is_selected;
+                            clicked => {
+                                SlintFileDiffs.open_file_by_editor(root.review_id_parameters.repository-id, data.file-path);
+                            }
+                        }
+
+                        ToolButton {
+                            source: data.referenced_notes.length > 0 ? @image-url("../assets/icons/notes.svg") : @image-url("../assets/icons/note-add.svg");
+                            enabled: is_selected;
+                            checked: root.extended_file_id == data.id;
+                            clicked => {
+                                root.extended_file_id = root.extended_file_id == data.id ? -1 : data.id;
+                            }
+                        }
+                    }
+                }
+
+                if root.extended_file_id == data.id: VerticalBox {
+                    LineEdit {
+                        height: Style.size.control_height;
+                        placeholder-text: @tr("Add comment here...");
+                        accepted(new_text) => {
+                            SlintReviewCallbacks.add_note(root.review_id_parameters, new_text, data.file_path);
+                            self.text = "";
+                        }
+                    }
+
+                    for note_index in data.referenced_notes: FileNoteDelegate {
+                        review_id_parameters: root.review_id_parameters;
+                        note: root.notes_model[note_index];
+                    }
+                }
+            }
+        }
+    }
+}
+
+
 export component FileDiffView inherits VerticalLayout {
     in property <SlintReviewIdParameters> review_id_parameters;
     in property <[SlintNote]> notes_model;
@@ -117,160 +285,44 @@ export component FileDiffView inherits VerticalLayout {
         }
     }
 
-    ListView {
-        horizontal-scrollbar-policy: always-off;
-        vertical-scrollbar-policy: always-off;
-        for data[idx] in root.file_diff_model: Rectangle {
-            private property <bool> is_selected: root.selected_id == data.id;
-            private property <SlintFileDiffIdParamters> file_diff_id_parameter: {
-                review_id_parameters: root.review_id_parameters,
-                file_diff_id: data.id,
-            };
-            states [
-                selected when selected_id == data.id: {
-                    background: Palette.control-background.brighter(0.4);
-                    border-width: Style.size.border_width;
-                    border-radius: Style.size.border_radius;
-                }
-            ]
+    private property <float> split-ratio: 0.3;
+    private property <float> split-min-ratio: 0.19;
+    private property <float> split-max-ratio: 0.6;
+    private property <length> handle-width: 10px;
 
-            TouchArea {
-                clicked => {
-                    root.select_id(data.id)
-                }
-                double-clicked => {
-                    SlintReviewCallbacks.show_file_differences(file_diff_id_parameter);
-                }
+    HorizontalLayout {
+        vertical-stretch: 1;
+        FileDiffList {
+            width: root.split-ratio * (parent.width - root.handle-width);
+            selected_id: root.selected_id;
+            review_id_parameters: root.review_id_parameters;
+            file_diff_model: root.file_diff_model;
+            notes_model: root.notes_model;
+            select_id(id) => { root.select_id(id) }
+        }
 
-                VerticalLayout {
-                    padding-left: Style.size.spacing;
-                    padding-right: Style.size.spacing / 2;
-                    HorizontalLayout {
-                        height: Style.size.delegate_height;
-                        alignment: space-between;
-                        spacing: 2px;
+        Rectangle {
+            width: root.handle-width;
 
-                        HorizontalLayout {
-                            spacing: Style.size.spacing;
+            Rectangle {
+                background: ta.has-hover ? Palette.selection-background : Palette.border;
+                width: Style.size.border-width;
+            }
 
-                            VerticalLayout {
-                                alignment: center;
-                                Rectangle {
-                                    background: Palette.control-background;
-                                    border-radius: Style.size.border_radius;
-                                    border-width: Style.size.border_width;
-                                    border-color: Palette.border;
-                                    width: Style.size.image_width + 4px;
-                                    height: Style.size.image_width + 4px;
-                                    states [
-                                        is_pressed when is_selected && ta.pressed: {
-                                            background: Palette.alternate-background;
-                                        }
-                                    ]
-                                    Image {
-                                        vertical-alignment: center;
-                                        horizontal-alignment: center;
-                                        width: Style.size.image_width;
-                                        states [
-                                            is_reviewed when data.is_reviewed: {
-                                                source: @image-url("../assets/icons/checked.svg");
-                                            }
-                                        ]
-                                        colorize: is_selected ? Palette.foreground : Style.palette.disabled;
-                                    }
-
-                                    ta := TouchArea {
-                                        clicked => {
-                                            if !is_selected {
-                                                root.select_id(data.id);
-                                            } else {
-                                                SlintReviewCallbacks.change_file_diff_is_reviewed(file_diff_id_parameter, !data.is_reviewed);
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            Text {
-                                overflow: elide;
-                                font-size: 14px;
-                                text: data.file-path;
-                                vertical-alignment: center;
-                                horizontal-alignment: left;
-                            }
-                        }
-
-                        HorizontalLayout {
-                            padding-top: Style.size.spacing / 2;
-                            padding-bottom: Style.size.spacing / 2;
-                            spacing: Style.size.spacing;
-                            if data.added-lines != 0: Rectangle {
-                                Text {
-                                    font-size: 14px;
-                                    font-weight: 500;
-                                    vertical-alignment: center;
-                                    text: "+ \{data.added-lines != -1 ? data.added-lines : "??"}";
-                                    color: #8bc34a;
-                                }
-                            }
-                            if data.removed-lines != 0: Rectangle {
-                                Text {
-                                    font-size: 14px;
-                                    font-weight: 500;
-                                    vertical-alignment: center;
-                                    text: "- \{data.removed-lines != -1 ? data.removed-lines : "??"}";
-                                    color: #f44336;
-                                }
-                            }
-                            Rectangle {
-                                width: 28px;
-                                height: 30px;
-                                Image {
-                                    states [
-                                        has_status when data.change_type != SlintChangeType.Invalid: {
-                                            source: SlintChangeTypeUtils.to_icon(data.change_type);
-                                        }
-                                    ]
-                                    colorize: Palette.foreground;
-                                    width: parent.width;
-                                    height: parent.height;
-                                }
-                            }
-
-                            ToolButton {
-                                source: @image-url("../assets/icons/open_editor.svg");
-                                enabled: is_selected;
-                                clicked => {
-                                    SlintFileDiffs.open_file_by_editor(root.review_id_parameters.repository-id, data.file-path);
-                                }
-                            }
-
-                            ToolButton {
-                                source: data.referenced_notes.length > 0 ? @image-url("../assets/icons/notes.svg") : @image-url("../assets/icons/note-add.svg");
-                                enabled: is_selected;
-                                checked: root.extended_file_id == data.id;
-                                clicked => {
-                                    root.extended_file_id = root.extended_file_id == data.id ? -1 : data.id;
-                                }
-                            }
-                        }
+            ta := TouchArea {
+                mouse-cursor: self.has-hover ? ew-resize : default;
+                moved => {
+                    if self.pressed {
+                        root.split-ratio = Math.clamp((self.mouse-x + parent.absolute-position.x - root.absolute-position.x) / root.width, root.split-min-ratio, root.split-max-ratio);
                     }
+                }
+            }
+        }
 
-                    if root.extended_file_id == data.id: VerticalBox {
-                        LineEdit {
-                            height: Style.size.control_height;
-                            placeholder-text: @tr("Add comment here...");
-                            accepted(new_text) => {
-                                SlintReviewCallbacks.add_note(root.review_id_parameters, new_text, data.file_path);
-                                self.text = "";
-                            }
-                        }
-
-                        for note_index in data.referenced_notes: FileNoteDelegate {
-                            review_id_parameters: root.review_id_parameters;
-                            note: root.notes_model[note_index];
-                        }
-                    }
+        Rectangle {
+            HorizontalLayout {
+                Text {
+                    text: "\{root.split-ratio}";
                 }
             }
         }

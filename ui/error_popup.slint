@@ -83,6 +83,9 @@ export component ErrorPopup inherits NewPopup {
                     if (root.result == SlintResult.GitBranchDoesNotExists) {
                         return @tr("Branch does not exists!");
                     }
+                    if (root.result == SlintResult.GitFileLineDiffFailed) {
+                        return @tr("Could not determine git file differences!");
+                    }
                     return @tr("Unknown Result");
                 }
             }

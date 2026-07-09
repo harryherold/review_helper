@@ -30,6 +30,7 @@ export enum SlintResult {
     OpenEditorFailed,
     GitBranchFailed,
     GitBranchDoesNotExists,
+    GitFileLineDiffFailed,
 }
 
 export enum SlintChangeType {
@@ -42,235 +43,237 @@ export enum SlintChangeType {
     TypChanged,
     Unmerged,
     Unknown,
-    Broken
-}
+    Broken }
 
 export global SlintChangeTypeUtils {
-    public pure function to_icon(change_type: SlintChangeType) -> image {
-        if (change_type == SlintChangeType.Added) {
-            return @image-url("../assets/icons/git_file_added.svg");
-        } else if (change_type == SlintChangeType.Broken) {
-            return @image-url("../assets/icons/git_file_broken.svg");
-        } else if (change_type == SlintChangeType.Copied) {
-            return @image-url("../assets/icons/git_file_copied.svg");
-        } else if (change_type == SlintChangeType.Deleted) {
-            return @image-url("../assets/icons/git_file_deleted.svg");
-        } else if (change_type == SlintChangeType.Modified) {
-            return @image-url("../assets/icons/git_file_edited.svg");
-        } else if (change_type == SlintChangeType.Renamed) {
-            return @image-url("../assets/icons/git_file_renamed.svg");
-        } else if (change_type == SlintChangeType.TypChanged) {
-            return @image-url("../assets/icons/git_file_type_changed.svg");
-        } else if (change_type == SlintChangeType.Unknown) {
-            return @image-url("../assets/icons/git_file_unknown.svg");
-        } else if (change_type == SlintChangeType.Unmerged) {
-            return @image-url("../assets/icons/git_file_unmerged.svg");
+        public pure function to_icon(change_type: SlintChangeType) -> image {
+            if (change_type == SlintChangeType.Added) {
+                return @image-url("../assets/icons/git_file_added.svg");
+            } else if (change_type == SlintChangeType.Broken) {
+                return @image-url("../assets/icons/git_file_broken.svg");
+            } else if (change_type == SlintChangeType.Copied) {
+                return @image-url("../assets/icons/git_file_copied.svg");
+            } else if (change_type == SlintChangeType.Deleted) {
+                return @image-url("../assets/icons/git_file_deleted.svg");
+            } else if (change_type == SlintChangeType.Modified) {
+                return @image-url("../assets/icons/git_file_edited.svg");
+            } else if (change_type == SlintChangeType.Renamed) {
+                return @image-url("../assets/icons/git_file_renamed.svg");
+            } else if (change_type == SlintChangeType.TypChanged) {
+                return @image-url("../assets/icons/git_file_type_changed.svg");
+            } else if (change_type == SlintChangeType.Unknown) {
+                return @image-url("../assets/icons/git_file_unknown.svg");
+            } else if (change_type == SlintChangeType.Unmerged) {
+                return @image-url("../assets/icons/git_file_unmerged.svg");
+            }
+            return @image-url("../assets/icons/invalid.svg");
         }
-        return @image-url("../assets/icons/invalid.svg");
     }
-}
+
+export enum SlintLineStatus {
+        Added,
+        Removed,
+        Unchanged,
+    }
+
+export struct SlintDiffLine {
+        source_line: string,
+        styled_line: styled-text,
+        status: SlintLineStatus,
+        note: string,
+        is_done: bool,
+        old_line_no: int,
+        new_line_no: int,
+    }
 
 export struct SlintFileDiff {
-    id: int,
-    added_lines: int,
-    removed_lines: int,
-    file_path: string,
-    is_reviewed: bool,
-    change_type: SlintChangeType,
-    referenced_notes: [int],
-}
+        id: int,
+        added_lines: int,
+        removed_lines: int,
+        file_path: string,
+        is_reviewed: bool,
+        change_type: SlintChangeType,
+        referenced_notes: [int],
+    }
 
 export enum SlintContextType {
-    Text,
-    File,
-}
+        Text,
+        File,
+    }
 
 export struct SlintNote {
-    id: int,
-    text: string,
-    is_fixed: bool,
-    context: string,
-    context_type: SlintContextType,
-}
+        id: int,
+        text: string,
+        is_fixed: bool,
+        context: string,
+        context_type: SlintContextType,
+    }
 
 export struct SlintChangeTypeOccurrence {
-    change_type: SlintChangeType,
-    count: int,
-}
+        change_type: SlintChangeType,
+        count: int,
+    }
 
 export struct SlintDifferenceStatistics {
-    added_lines: int,
-    removed_lines: int,
-    change_type_model: [SlintChangeTypeOccurrence],
-}
+        added_lines: int,
+        removed_lines: int,
+        change_type_model: [SlintChangeTypeOccurrence],
+    }
 
 export struct SlintProgress {
-    completed_count: int,
-    total_count: int,
-}
+        completed_count: int,
+        total_count: int,
+    }
 
 export struct SlintReview {
-    id: int,
-    name: string,
-    start_diff: string,
-    end_diff: string,
-    note_model: [SlintNote],
-    file_diff_model: [SlintFileDiff],
-    difference_statistics: SlintDifferenceStatistics,
-    review_progress: SlintProgress,
-    note_progress: SlintProgress,
-    is_loaded: bool,
-}
+        id: int,
+        name: string,
+        start_diff: string,
+        end_diff: string,
+        note_model: [SlintNote],
+        file_diff_model: [SlintFileDiff],
+        loaded_file_diffs: [[SlintDiffLine]],
+        difference_statistics: SlintDifferenceStatistics,
+        review_progress: SlintProgress,
+        note_progress: SlintProgress,
+        is_loaded: bool,
+    }
 
 export struct SlintCommit {
-    commit_id: string,
-    message: string,
-    author: string,
-    date: string,
-}
+        commit_id: string,
+        message: string,
+        author: string,
+        date: string,
+    }
 
 export struct SlintRepository {
-    id: int,
-    name: string,
-    path: string,
-    first_commit: string,
-    base_branch: string,
-    review_model: [SlintReview],
-}
+        id: int,
+        name: string,
+        path: string,
+        first_commit: string,
+        base_branch: string,
+        review_model: [SlintReview],
+    }
 
 export struct SlintErrorEntry {
-    error_type: SlintResult,
-    text: string,
-}
+        error_type: SlintResult,
+        text: string,
+    }
 
 export global SlintErrors {
-    in property <[SlintErrorEntry]> model;
-}
+        in property <[SlintErrorEntry]> model;
+    }
 
 export struct SlintDiffRange {
-    start: string,
-    end: string,
-}
+        start: string,
+        end: string,
+    }
 
 export struct SlintReviewIdParameters {
-    repository_id: int,
-    review_id: int,
-}
+        repository_id: int,
+        review_id: int,
+    }
 
 export struct SlintNoteIdParamters {
-    review_id_parameters: SlintReviewIdParameters,
-    note_id: int,
-}
+        review_id_parameters: SlintReviewIdParameters,
+        note_id: int,
+    }
 
 export struct SlintFileDiffIdParamters {
-    review_id_parameters: SlintReviewIdParameters,
-    file_diff_id: int,
-}
+        review_id_parameters: SlintReviewIdParameters,
+        file_diff_id: int,
+    }
 
-export enum SlintFilterReviewState {
-    Unfiltered,
-    Done,
-    Open
-}
+export enum SlintFilterReviewState { Unfiltered, Done, Open }
 
-export enum SlintSortCriteria {
-    Name,
-    Extension,
-    IsDone
-}
+export enum SlintSortCriteria { Name, Extension, IsDone }
 
-export enum SlintNoteSortCriteria {
-    Text,
-    Context
-}
+export enum SlintNoteSortCriteria { Text, Context }
 
-export enum SlintSortOrder {
-    Ascending,
-    Descending
-}
+export enum SlintSortOrder { Ascending, Descending }
 
 export global SlintFileDiffs {
-    callback open_file_by_editor(int, string);
-}
+        callback open_file_by_editor(int, string);
+    }
 
 export global SlintReviewCallbacks {
-    pure callback note_ui_model(SlintReviewIdParameters) -> [SlintNote];
-    callback set_notes_text_filter(SlintReviewIdParameters, string);
-    callback set_notes_context-filter(SlintReviewIdParameters, string);
-    callback set_notes_sort_parameter(SlintReviewIdParameters, SlintNoteSortCriteria, SlintSortOrder);
-    pure callback file_diff_ui_model(SlintReviewIdParameters) -> [SlintFileDiff];
-    callback exists_file_diff(SlintFileDiffIdParamters) -> bool;
-    callback set_file_diff_sort-criteria(SlintReviewIdParameters, SlintSortCriteria);
-    callback set_file_diff_file_pattern(SlintReviewIdParameters, string);
-    callback set_file_diff_review_state(SlintReviewIdParameters, SlintFilterReviewState);
-    callback initialize_ui_models(SlintReviewIdParameters);
-    callback load_review(SlintReviewIdParameters);
-    pure callback review_id_to_index(int, [SlintReview]) -> int;
-    callback find_file_changes(SlintReviewIdParameters, SlintDiffRange);
-    callback change_note_text(SlintNoteIdParamters, string);
-    callback change_note_context(SlintNoteIdParamters, string);
-    callback change_note_is_done(SlintNoteIdParamters, bool);
-    callback delete_note(SlintNoteIdParamters);
-    callback add_note(SlintReviewIdParameters, string, string);
-    callback change_file_diff_is_reviewed(SlintFileDiffIdParamters, bool);
-    callback show_file_differences(SlintFileDiffIdParamters);
-    callback change_review_name(SlintReviewIdParameters, string);
-    pure callback is_valid_review_name(SlintReviewIdParameters, string) -> bool;
-}
+        pure callback note_ui_model(SlintReviewIdParameters) -> [SlintNote];
+        callback set_notes_text_filter(SlintReviewIdParameters, string);
+        callback set_notes_context-filter(SlintReviewIdParameters, string);
+        callback set_notes_sort_parameter(SlintReviewIdParameters, SlintNoteSortCriteria, SlintSortOrder);
+        pure callback file_diff_ui_model(SlintReviewIdParameters) -> [SlintFileDiff];
+        callback exists_file_diff(SlintFileDiffIdParamters) -> bool;
+        callback set_file_diff_sort-criteria(SlintReviewIdParameters, SlintSortCriteria);
+        callback set_file_diff_file_pattern(SlintReviewIdParameters, string);
+        callback set_file_diff_review_state(SlintReviewIdParameters, SlintFilterReviewState);
+        callback initialize_ui_models(SlintReviewIdParameters);
+        callback load_review(SlintReviewIdParameters);
+        pure callback review_id_to_index(int, [SlintReview]) -> int;
+        callback find_file_changes(SlintReviewIdParameters, SlintDiffRange);
+        callback change_note_text(SlintNoteIdParamters, string);
+        callback change_note_context(SlintNoteIdParamters, string);
+        callback change_note_is_done(SlintNoteIdParamters, bool);
+        callback delete_note(SlintNoteIdParamters);
+        callback add_note(SlintReviewIdParameters, string, string);
+        callback change_file_diff_is_reviewed(SlintFileDiffIdParamters, bool);
+        callback show_file_differences(SlintFileDiffIdParamters);
+        callback change_review_name(SlintReviewIdParameters, string);
+        pure callback is_valid_review_name(SlintReviewIdParameters, string) -> bool;
+    }
 
 export global SlintFilePickerAdapter {
-    pure callback file_model(SlintReviewIdParameters) -> [string];
-    pure callback contains_model_context(SlintReviewIdParameters, string) -> bool;
-    callback set_filter(SlintReviewIdParameters, string);
-}
+        pure callback file_model(SlintReviewIdParameters) -> [string];
+        pure callback contains_model_context(SlintReviewIdParameters, string) -> bool;
+        callback set_filter(SlintReviewIdParameters, string);
+    }
 
 export global SlintRepositoryCallbacks {
-    callback delete_review(SlintReviewIdParameters);
-    callback new_review(int, string);
-    callback load_repository(int);
-    callback repository_changed(int, string);
-    pure callback index_of_id(int) -> int;
-}
+        callback delete_review(SlintReviewIdParameters);
+        callback new_review(int, string);
+        callback load_repository(int);
+        callback repository_changed(int, string);
+        pure callback index_of_id(int) -> int;
+    }
 
 export enum SlintCommitSortCriterion {
-    Text,
-    Author,
-    Date,
-}
+        Text,
+        Author,
+        Date,
+    }
 
 export enum SlintCommitFilterType {
-    Message,
-    Author,
-}
+        Message,
+        Author,
+    }
 
 export global SlintCommitPickerAdapter {
-    in property <[SlintCommit]> commit_source_model;
-    in property <[string]> author_model;
-    in-out property <string> current_author_filter;
-    in-out property <string> current_text_filter;
-    pure callback ui_commit_model() -> [SlintCommit];
-    callback filter_commits(string, SlintCommitFilterType);
-    callback sort_commits(SlintCommitSortCriterion, bool);
-    callback refresh(int);
-    callback index_of_merge_base(int) -> int;
-    pure callback index_of_commit(string) -> int;
-    callback merge_base(int) -> string;
-    callback commit_message_of(string) -> string;
-}
+        in property <[SlintCommit]> commit_source_model;
+        in property <[string]> author_model;
+        in-out property <string> current_author_filter;
+        in-out property <string> current_text_filter;
+        pure callback ui_commit_model() -> [SlintCommit];
+        callback filter_commits(string, SlintCommitFilterType);
+        callback sort_commits(SlintCommitSortCriterion, bool);
+        callback refresh(int);
+        callback index_of_merge_base(int) -> int;
+        pure callback index_of_commit(string) -> int;
+        callback merge_base(int) -> string;
+        callback commit_message_of(string) -> string;
+    }
 
 export global SlintReviewHelper {
-    in property <[SlintRepository]> repositories;
-    in property <[string]> repository_names;
-    callback new_repository();
-    callback delete_repository(int);
-}
+        in property <[SlintRepository]> repositories;
+        in property <[string]> repository_names;
+        callback new_repository();
+        callback delete_repository(int);
+    }
 
 export global SlintStringUtils {
-    pure callback filename(string) -> string;
-    pure callback is_valid_name(string) -> bool;
-    pure callback format_datetime(string) -> string;
-}
+        pure callback filename(string) -> string;
+        pure callback is_valid_name(string) -> bool;
+        pure callback format_datetime(string) -> string;
+    }
 
 export global SlintModelUtils {
-    pure callback index_of_string([string], string) -> int;
-}
+        pure callback index_of_string([string], string) -> int;
+    }

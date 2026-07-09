@@ -6,10 +6,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::storage::{
+use crate::{git_repo::GitRepo, storage::{
     RepositoryName, RepositoryStore,
     repository_storage::{DiffRangeStore, FileDiffStore, NoteStore, ReviewName, ReviewStore},
-};
+}};
 
 macro_rules! create_id {
     ($name:ident) => {
@@ -298,10 +298,10 @@ impl Reviews {
     }
 }
 
-#[derive(Default, Clone)]
 pub struct Repository {
     pub reviews: Reviews,
     pub name: RepositoryName,
+    pub git_repo: Option<GitRepo>,
     store: RepositoryStore,
 }
 
@@ -311,6 +311,7 @@ impl Repository {
             name: name.clone(),
             store,
             reviews: Reviews::new(),
+            git_repo: None,
         }
     }
 

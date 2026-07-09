@@ -18,6 +18,7 @@ mod git_utils;
 mod log_utils;
 mod repositories;
 mod worker;
+mod git_repo;
 
 pub mod ui;
 

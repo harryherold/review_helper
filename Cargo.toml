@@ -8,6 +8,9 @@ build = "build.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+git2 = { version = "0.21.0", features = ["https", "ssh"] }
+html-escape = "0.2.13"
+syntect = "5.3.0"
 simplelog = "0.12.2"
 log = "0.4.29"
 thiserror = "2.0.18"

@@ -1,0 +1,253 @@
+import {
+    ListView,
+    LineEdit,
+    Button,
+    CheckBox,
+    Palette,
+} from "std-widgets.slint";
+import { Style } from "style.slint";
+
+import { SlintLineStatus, SlintDiffLine } from "globals.slint";
+
+component LineNumber inherits HorizontalLayout {
+    in property <int> line_number;
+    in property <int> model_length;
+
+    horizontal-stretch: 0;
+    spacing: 5px;
+    padding-left: 5px;
+    padding-right: 5px;
+    Rectangle {
+        width: dummy.preferred-width;
+        height: dummy.preferred-height;
+
+        dummy := Text {
+            text: "\{root.model_length}";
+            color: Colors.transparent;
+            font-size: Style.font.code_font_size;
+            font-family: Style.font.code_font-family;
+        }
+
+        Text {
+            x: 0;
+            y: 0;
+            width: 100%;
+            height: 100%;
+            vertical-alignment: top;
+            horizontal-alignment: right;
+            text: root.line_number != -1 ? root.line_number : "";
+            font-size: Style.font.code_font_size;
+            font-family: Style.font.code_font-family;
+        }
+    }
+
+    Rectangle {
+        width: 1px;
+        background: grey;
+    }
+}
+
+component NoteAddButton inherits Rectangle {
+    in property <length> image_height;
+    in property <bool> is_enabled;
+    callback clicked();
+
+    width: 32px;
+
+    Image {
+        source: ta.has-hover ? @image-url("../assets/icons/note-add.svg") : @image-url("");
+        height: root.image_height;
+        y: 0;
+    }
+
+    ta := TouchArea {
+        enabled: is_enabled;
+        clicked => clicked();
+    }
+}
+
+component CodeLine inherits Rectangle {
+    in property <styled-text> styled_line;
+    in property <SlintLineStatus> line_status;
+
+    states [
+        active-removed when line_status == SlintLineStatus.Removed: {
+            background: Style.palette.diff_line_added_color;
+        }
+        active-added when line_status == SlintLineStatus.Added: {
+            background: Style.palette.diff_line_removed_color;
+        }
+    ]
+    HorizontalLayout {
+        StyledText {
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            default-font-size: Style.font.code_font_size;
+            default-font-family: Style.font.code_font_family;
+            text: root.styled_line;
+        }
+
+        Rectangle { }
+    }
+}
+
+component NoteView inherits Rectangle {
+    in property <string> note;
+    in property <bool> is_done;
+
+    callback set_note(string);
+    callback set_is_done(bool);
+    callback select();
+    callback deselect();
+
+    border-color: Palette.border;
+    border-width: 1px;
+    background: Palette.control-background;
+
+    HorizontalLayout {
+        init => {
+            if root.note.is-empty {
+                is_edit = true;
+            }
+        }
+
+        padding: 8px;
+        spacing: 5px;
+
+        private property <bool> is_edit: false;
+        CheckBox {
+            checked: root.is_done;
+            toggled => root.set_is_done(self.checked);
+        }
+
+        if is_edit: Rectangle {
+            Timer {
+                interval: 5ms;
+                running: true;
+                triggered => {
+                    self.running = false;
+                    le.select-all();
+                    le.focus();
+                }
+            }
+
+            le := LineEdit {
+                function reset_index_selection() {
+                    is_edit = false;
+                    root.deselect();
+                }
+
+                width: parent.width;
+                height: parent.height;
+                text: root.note;
+                changed has-focus => {
+                    if !self.has-focus {
+                        reset_index_selection();
+                    }
+                }
+                accepted(text) => {
+                    root.set_note(text);
+                    reset_index_selection();
+                    self.clear-focus();
+                }
+                key-pressed(event) => {
+                    if (event.text == Key.Escape) {
+                        self.text = root.note;
+                        reset_index_selection();
+                        self.clear-focus();
+                        return EventResult.accept;
+                    }
+                    return EventResult.reject;
+                }
+            }
+        }
+        if !is_edit: HorizontalLayout {
+            Rectangle {
+                width: 18px;
+            }
+
+            Text {
+                text: root.note;
+                wrap: word-wrap;
+                vertical-alignment: center;
+                horizontal-alignment: left;
+            }
+        }
+        if !is_edit: Button {
+            width: 40px;
+            icon: @image-url("../assets/icons/edit.svg");
+            icon-size: 16px;
+            colorize-icon: true;
+            checkable: true;
+            checked: is_edit;
+            clicked => {
+                is_edit = true;
+                root.select();
+            }
+        }
+    }
+}
+
+component DiffLineView inherits VerticalLayout {
+    in property <int> model_index;
+    in-out property <[SlintDiffLine]> model;
+    in-out property <int> selected_index;
+    private property <bool> is_expanded: model_index == selected_index || !model[root.model_index].note.is-empty;
+
+    padding-left: 2px;
+    padding-right: 2px;
+
+    CodeLine {
+        styled_line: model[root.model_index].styled_line;
+        line_status: model[root.model_index].status;
+    }
+
+    if is_expanded: NoteView {
+        note: model[root.model_index].note;
+        is_done: model[root.model_index].is_done;
+
+        set_note(new_note) => {
+            model[root.model_index].note = new_note
+        }
+        set_is_done(new_is_done) => {
+            model[root.model_index].is_done = new_is_done
+        }
+        select => {
+            root.selected_index = model_index
+        }
+        deselect => {
+            root.selected_index = -1
+        }
+    }
+}
+
+export component FileDiffView inherits ListView {
+    in property <[SlintDiffLine]> diff_model;
+    private property <int> selected_index: -1;
+
+    for line_data[idx] in root.diff_model: HorizontalLayout {
+        LineNumber {
+            line_number: line_data.old_line_no;
+            model_length: root.diff_model.length;
+        }
+
+        ln := LineNumber {
+            line_number: line_data.new_line_no;
+            model_length: root.diff_model.length;
+        }
+
+        NoteAddButton {
+            is_enabled: idx != selected_index && line_data.note.is-empty;
+            image_height: ln.preferred-height;
+            clicked => {
+                selected_index = idx;
+            }
+        }
+
+        DiffLineView {
+            model_index: idx;
+            model: root.diff_model;
+            selected_index: selected_index;
+        }
+    }
+}

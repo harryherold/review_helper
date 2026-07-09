@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use slint::{ComponentHandle, SharedString};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
+use crate::git_repo::GitRepo;
 use crate::storage::repository_storage::{DiffRangeStore, ReviewName};
 use crate::storage::{RepositoryName, RepositoryStore, ReviewHelperStorage, create_storage};
 use crate::ui::{SlintContextType, SlintNote};
@@ -76,6 +77,11 @@ pub enum WorkerMessage {
         repository_id: RepositoryId,
         review_id: ReviewId,
         diff_range: DiffRangeStore,
+    },
+    LoadFileLineDifferences {
+        repository_id: RepositoryId,
+        review_id: ReviewId,
+        file_diff_id: FileDiffId,
     },
     ShowFileDifferences {
         repository_id: RepositoryId,
@@ -270,6 +276,7 @@ impl WorkerImpl {
                 WorkerMessage::NewRepository(path) => self.new_repository(path),
                 WorkerMessage::ChangeRepository { id, base_branch } => self.change_repository(id, base_branch),
                 WorkerMessage::LoadRepository { id } => {
+                    self.load_repository(&id);
                     self.load_commits(&id);
                     self.initialize_reviews(id);
                 }
@@ -290,6 +297,11 @@ impl WorkerImpl {
                     review_id,
                     diff_range,
                 } => self.find_file_difference(repository_id, review_id, diff_range),
+                WorkerMessage::LoadFileLineDifferences {
+                    repository_id,
+                    review_id,
+                    file_diff_id,
+                } => self.load_file_line_differences(repository_id, review_id, file_diff_id),
                 WorkerMessage::ShowFileDifferences {
                     repository_id,
                     review_id,
@@ -377,6 +389,21 @@ impl WorkerImpl {
             return;
         }
         self.ui_updater.change_repository(repository_id.as_usize(), ui_base_branch);
+    }
+    fn load_repository(&mut self, repository_id: &RepositoryId) {
+        let repository = self
+            .repositories
+            .get_mut(repository_id)
+            .unwrap_or_else(|| panic!("[BUG] Could not find {}", repository_id));
+
+        let git_repo_result = GitRepo::create(&repository.store().path);
+        if let Err(e) = git_repo_result {
+            self.ui_updater.report_error(ui::SlintResult::NoGitDirectory, &e.to_string());
+            return;
+        }
+        if let Ok(git_repo) = git_repo_result {
+            repository.git_repo = Some(git_repo);
+        }
     }
     fn initialize_reviews(&mut self, repository_id: RepositoryId) {
         let repository = self
@@ -698,5 +725,38 @@ impl WorkerImpl {
 
         self.ui_updater
             .add_note(repository_id.as_usize(), review_id.as_usize(), ui_note, opt_file_diff_id);
+    }
+    fn load_file_line_differences(&self, repository_id: RepositoryId, review_id: ReviewId, file_diff_id: FileDiffId) {
+        let repository = self
+            .repositories
+            .get(&repository_id)
+            .unwrap_or_else(|| panic!("[BUG] Could not find {}", repository_id));
+
+        let git_repo = repository
+            .git_repo
+            .as_ref()
+            .unwrap_or_else(|| panic!("[BUG] GitRepo is not initialized for {}", repository_id));
+
+        let review = repository
+            .reviews
+            .get(&review_id)
+            .unwrap_or_else(|| panic!("[BUG] Could not find {} ({})", review_id, repository_id));
+
+        let DiffRangeStore { start, end } = review.diff_range();
+
+        let file = review
+            .file_diffs
+            .get(&file_diff_id)
+            .unwrap_or_else(|| panic!("[BUG] Could not find file {}", file_diff_id));
+
+        let result = git_repo.diff(start, end, &file.file_path.to_string_lossy());
+
+        if let Err(e) = result {
+            self.ui_updater.report_error(ui::SlintResult::GitFileLineDiffFailed, &e.to_string());
+            return;
+        }
+        if let Ok(lines) = result {
+            todo!("Implement update ui!");
+        }
     }
 }
