@@ -14,11 +14,12 @@ mod model;
 mod storage;
 
 mod command_utils;
+mod git_diff_formatter;
+mod git_repo;
 mod git_utils;
 mod log_utils;
 mod repositories;
 mod worker;
-mod git_repo;
 
 pub mod ui;
 

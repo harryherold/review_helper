@@ -26,6 +26,7 @@ import {
 } from "globals.slint";
 import { FileNoteDelegate } from "file_note_delegate.slint";
 import { ToolButton } from "controls/tool_button.slint";
+import { FileDiffWidget } from "file_diff_widget.slint";
 
 component FileDiffList inherits ListView {
     in property <int> selected_id;
@@ -226,6 +227,7 @@ export component FileDiffView inherits VerticalLayout {
     }
     function select_id(id: int) {
         if (id != root.selected_id) {
+            selected_id = -1;
             selected_id = id;
         }
     }
@@ -320,10 +322,9 @@ export component FileDiffView inherits VerticalLayout {
         }
 
         Rectangle {
-            HorizontalLayout {
-                Text {
-                    text: "\{root.split-ratio}";
-                }
+            if root.selected_id != -1: FileDiffWidget {
+                private property <SlintFileDiffIdParamters> file_diff_id_parameter: { review_id_parameters: root.review_id_parameters, file_diff_id: root.selected_id };
+                diff_model: SlintReviewCallbacks.file_line_diff_model(self.file_diff_id_parameter);
             }
         }
     }

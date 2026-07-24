@@ -10,10 +10,26 @@ pub enum LineType {
 }
 
 pub struct GitDiffLine {
+    pub old_line_no: i32,
+    pub new_line_no: i32,
     pub status: LineType,
     pub line: String,
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum GitRepoError {
+    #[error("git error: {0}")]
+    Git(#[from] git2::Error),
+
+    #[error("io error: {0}")]
+    Io(#[from] std::io::Error),
+
+    #[error("untracked file has no path")]
+    UntrackedFileHasNoPath,
+
+    #[error("repository has no working directory")]
+    NoWorkdir,
+}
 
 pub struct GitRepo {
     repository: Repository,
@@ -25,22 +41,53 @@ impl GitRepo {
             repository: Repository::open(repository_path)?,
         })
     }
-    pub fn diff(&self, from: &str, to: &str, file: &str) -> Result<Vec<GitDiffLine>, Error> {
-        let from_tree = self.tree_to_treeish(Some(&from.to_string()))?;
-        let to_tree = self.tree_to_treeish(Some(&to.to_string()))?;
-
+    pub fn diff(&self, from: &str, to: Option<&str>, file: &str) -> Result<Vec<GitDiffLine>, GitRepoError> {
         let mut diff_options = DiffOptions::new();
         diff_options.context_lines(u32::MAX);
-
+        diff_options.include_untracked(true);
+        diff_options.recurse_untracked_dirs(true);
         diff_options.pathspec(file);
 
-        let diff = self.repository.diff_tree_to_tree(
-            from_tree.as_ref(),
-            to_tree.as_ref(),
-            Some(&mut diff_options),
-        )?;
+        let from_tree = self.tree_to_treeish(from)?;
+
+        let diff = if let Some(to) = to {
+            let to_tree = self.tree_to_treeish(to)?;
+
+            self.repository
+                .diff_tree_to_tree(from_tree.as_ref(), to_tree.as_ref(), Some(&mut diff_options))?
+        } else {
+            self.repository.diff_tree_to_workdir(from_tree.as_ref(), Some(&mut diff_options))?
+        };
 
         let mut changed_lines = Vec::new();
+        let mut old_line_counter = 0;
+        let mut new_line_counter = 0;
+
+        // An untracked file does not provide DiffLines through DiffFormat::Patch.
+        // Therefore, read the file directly from the working copy.
+        if to.is_none()
+            && let Some(delta) = diff.deltas().next()
+            && delta.status() == git2::Delta::Untracked
+        {
+            let path = delta.new_file().path().ok_or(GitRepoError::UntrackedFileHasNoPath)?;
+
+            let workdir = self.repository.workdir().ok_or(GitRepoError::NoWorkdir)?;
+
+            let file = std::fs::File::open(workdir.join(path))?;
+            let reader = std::io::BufReader::new(file);
+
+            for (new_line_no, line) in std::io::BufRead::lines(reader).enumerate() {
+                changed_lines.push(GitDiffLine {
+                    old_line_no: -1,
+                    new_line_no: new_line_no as i32 + 1,
+                    status: LineType::Added,
+                    line: line?,
+                });
+            }
+
+            return Ok(changed_lines);
+        }
+
         diff.print(git2::DiffFormat::Patch, |_delta, _hunk, line| {
             let status = match line.origin_value() {
                 DiffLineType::Addition => LineType::Added,
@@ -49,25 +96,36 @@ impl GitRepo {
                 _ => return true,
             };
 
-            let content = std::str::from_utf8(line.content())
-                .unwrap_or("")
-                .trim_end_matches(['\r', '\n']) // Zeilenumbrüche entfernen
-                .to_string();
+            let old_no = if status == LineType::Added {
+                -1
+            } else {
+                old_line_counter += 1;
+                old_line_counter
+            };
+
+            let new_no = if status == LineType::Removed {
+                -1
+            } else {
+                new_line_counter += 1;
+                new_line_counter
+            };
+
+            let content = std::str::from_utf8(line.content()).unwrap_or("").trim_end_matches(['\r', '\n']).to_string();
 
             changed_lines.push(GitDiffLine {
+                old_line_no: old_no,
+                new_line_no: new_no,
                 status,
                 line: content,
             });
+
             true
         })?;
+
         Ok(changed_lines)
     }
 
-    fn tree_to_treeish(&self, arg: Option<&String>) -> Result<Option<Tree<'_>>, Error> {
-        let arg = match arg {
-            Some(s) => s,
-            None => return Ok(None),
-        };
+    fn tree_to_treeish(&self, arg: &str) -> Result<Option<Tree<'_>>, Error> {
         let obj = self.repository.revparse_single(arg)?;
         let tree = obj.peel_to_tree()?;
         Ok(Some(tree))

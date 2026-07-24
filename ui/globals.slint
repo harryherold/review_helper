@@ -219,6 +219,7 @@ export global SlintReviewCallbacks {
         callback show_file_differences(SlintFileDiffIdParamters);
         callback change_review_name(SlintReviewIdParameters, string);
         pure callback is_valid_review_name(SlintReviewIdParameters, string) -> bool;
+        pure callback file_line_diff_model(SlintFileDiffIdParamters) -> [SlintDiffLine];
     }
 
 export global SlintFilePickerAdapter {

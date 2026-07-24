@@ -10,7 +10,7 @@ use crate::{
     worker::{NoteChangeType, ReviewContent, WorkerChannel, WorkerMessage},
 };
 
-use slint::{ComponentHandle, Model, ModelRc};
+use slint::{ComponentHandle, Model, ModelRc, VecModel};
 
 pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: WorkerChannel, proxy_models: Rc<RefCell<RepositoriesProxyModels>>) {
     fn get_file_diff_proxy_model(ids: ui::SlintReviewIdParameters, proxy_models: &Rc<RefCell<RepositoriesProxyModels>>) -> Rc<FileDiffProxyModels> {
@@ -322,6 +322,34 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
                     review.name == name && review.id != ids.review_id
                 }
             })
+        }
+    });
+    app_window.global::<ui::SlintReviewCallbacks>().on_file_line_diff_model({
+        let app_window_weak = app_window.as_weak();
+        let channel = worker_channel.clone();
+        move |ids| -> ModelRc<ui::SlintDiffLine> {
+            let app_window = unwrap_or_return!(app_window_weak.upgrade(), "Upgrade to AppWindow failed!", ModelRc::default());
+            let review_model = model_utils::get_review_model(&app_window, ids.review_id_parameters.repository_id as usize)
+                .unwrap_or_else(|| panic!("[BUG] RepositoryId {} not found", ids.review_id_parameters.repository_id));
+            let review_model = cast_model!(review_model, IdModel<ui::SlintReview>);
+            let review = review_model
+                .get(ids.review_id_parameters.review_id as usize)
+                .unwrap_or_else(|| panic!("[BUG] ReviewId {} not found", ids.review_id_parameters.review_id));
+
+            let loaded_file_diffs = cast_model!(review.loaded_file_diffs, IdModel<ModelRc<ui::SlintDiffLine>>);
+            if let Some(loaded_file_diff) = loaded_file_diffs.get(ids.file_diff_id as usize) {
+                loaded_file_diff
+            } else {
+                let model: ModelRc<ui::SlintDiffLine> = Rc::new(VecModel::default()).into();
+                loaded_file_diffs.add(ids.file_diff_id as usize, model.clone());
+                let message = WorkerMessage::LoadFileLineDifferences {
+                    repository_id: RepositoryId::from(ids.review_id_parameters.repository_id),
+                    review_id: ReviewId::from(ids.review_id_parameters.review_id),
+                    file_diff_id: FileDiffId::from(ids.file_diff_id),
+                };
+                channel.send(message).expect("Worker channel broken!");
+                model
+            }
         }
     });
 }
