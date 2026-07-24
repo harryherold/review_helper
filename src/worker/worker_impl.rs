@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use slint::{ComponentHandle, SharedString};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
+use crate::git_diff_formatter::GitDiffFormatter;
 use crate::git_repo::GitRepo;
 use crate::storage::repository_storage::{DiffRangeStore, ReviewName};
 use crate::storage::{RepositoryName, RepositoryStore, ReviewHelperStorage, create_storage};
@@ -164,6 +165,7 @@ struct WorkerImpl {
     settings: ReviewHelperSettings,
     storage: Box<dyn ReviewHelperStorage>,
     repositories: Repositories,
+    diff_formatter: GitDiffFormatter,
 }
 
 impl WorkerImpl {
@@ -194,11 +196,14 @@ impl WorkerImpl {
 
         ui_updater.initialize_review_helper_settings(&review_helper_settings);
 
+        let diff_formatter = GitDiffFormatter::new("base16-eighties.dark");
+
         let worker_impl = Self {
             ui_updater,
             settings: review_helper_settings,
             storage,
             repositories,
+            diff_formatter,
         };
         worker_impl.query_diff_tools();
 
@@ -749,14 +754,19 @@ impl WorkerImpl {
             .get(&file_diff_id)
             .unwrap_or_else(|| panic!("[BUG] Could not find file {}", file_diff_id));
 
-        let result = git_repo.diff(start, end, &file.file_path.to_string_lossy());
+        let file_path = &file.file_path.to_string_lossy();
+
+        let result = git_repo.diff(start, (!end.is_empty()).then_some(end.as_str()), file_path);
 
         if let Err(e) = result {
+            println!("error {}", &e.to_string());
             self.ui_updater.report_error(ui::SlintResult::GitFileLineDiffFailed, &e.to_string());
             return;
         }
         if let Ok(lines) = result {
-            todo!("Implement update ui!");
+            let formatted_lines = self.diff_formatter.format_lines(lines, file_path);
+            self.ui_updater
+                .add_git_diff_lines(repository_id.as_usize(), review_id.as_usize(), file_diff_id.as_usize(), formatted_lines);
         }
     }
 }

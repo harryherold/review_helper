@@ -72,10 +72,10 @@ component CodeLine inherits Rectangle {
 
     states [
         active-removed when line_status == SlintLineStatus.Removed: {
-            background: Style.palette.diff_line_added_color;
+            background: Style.palette.diff_line_removed_color;
         }
         active-added when line_status == SlintLineStatus.Added: {
-            background: Style.palette.diff_line_removed_color;
+            background: Style.palette.diff_line_added_color;
         }
     ]
     HorizontalLayout {
@@ -84,6 +84,7 @@ component CodeLine inherits Rectangle {
             vertical-alignment: center;
             default-font-size: Style.font.code_font_size;
             default-font-family: Style.font.code_font_family;
+            default-color: red;
             text: root.styled_line;
         }
 
@@ -221,7 +222,7 @@ component DiffLineView inherits VerticalLayout {
     }
 }
 
-export component FileDiffView inherits ListView {
+export component FileDiffWidget inherits ListView {
     in property <[SlintDiffLine]> diff_model;
     private property <int> selected_index: -1;
 

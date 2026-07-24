@@ -259,6 +259,7 @@ impl UiUpdater {
                             removed_lines: 0,
                             change_type_model: Rc::new(VecModel::default()).into(),
                         },
+                        loaded_file_diffs: Rc::new(IdModel::default()).into(),
                         ..Default::default()
                     },
                 );
@@ -286,6 +287,7 @@ impl UiUpdater {
                         removed_lines: 0,
                         change_type_model: Rc::new(VecModel::default()).into(),
                     },
+                    loaded_file_diffs: Rc::new(IdModel::default()).into(),
                     ..Default::default()
                 },
             );
@@ -463,6 +465,26 @@ impl UiUpdater {
         });
     }
 
+    pub fn add_git_diff_lines(&self, repository_id: usize, review_id: usize, file_diff_id: usize, lines: Vec<ui::SlintDiffLine>) {
+        self.execute_in_event_loop(move |app_window| {
+            let review_model =
+                model_utils::get_review_model(&app_window, repository_id).unwrap_or_else(|| panic!("[BUG] RepositoryId {} not found", repository_id));
+            let review_model = cast_model!(review_model, IdModel<ui::SlintReview>);
+            let review = review_model.get(review_id).unwrap_or_else(|| panic!("[BUG] ReviewId {} not found", review_id));
+
+            let loaded_file_diffs = cast_model!(review.loaded_file_diffs, IdModel<ModelRc<ui::SlintDiffLine>>);
+
+            let loaded_file_diff = loaded_file_diffs
+                .get(file_diff_id)
+                .unwrap_or_else(|| panic!("[BUG] FileDiffId {} not found", file_diff_id));
+
+            let loaded_file_diff = cast_model!(loaded_file_diff, VecModel<ui::SlintDiffLine>);
+
+            loaded_file_diff.set_vec(lines);
+
+            review_model.update(review_id, review);
+        });
+    }
     pub fn set_file_diffs(&self, repository_id: usize, review_id: usize, ui_file_diffs: Vec<(i32, FileDiffStore, DiffStatus)>) {
         self.execute_in_event_loop(move |app_window| {
             let review_model =
