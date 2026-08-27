@@ -7,7 +7,12 @@ import {
 } from "std-widgets.slint";
 import { Style } from "style.slint";
 
-import { SlintLineStatus, SlintDiffLine } from "globals.slint";
+import {
+    SlintLineStatus,
+    SlintDiffLine,
+    SlintChangeIndicator,
+    SlintLineStatus,
+} from "globals.slint";
 
 component LineNumber inherits HorizontalLayout {
     in property <int> line_number;
@@ -221,33 +226,82 @@ component DiffLineView inherits VerticalLayout {
     }
 }
 
-export component FileDiffWidget inherits ListView {
+export component FileDiffWidget inherits HorizontalLayout {
     in property <[SlintDiffLine]> diff_model;
     private property <int> selected_index: -1;
 
-    for line_data[idx] in root.diff_model: HorizontalLayout {
-        LineNumber {
-            line_number: line_data.old_line_no;
-            model_length: root.diff_model.length;
-        }
+    function scroll_to(fraction: float) {
+        list_view.viewport-y = -list_view.viewport-height * fraction;
+    }
 
-        ln := LineNumber {
-            line_number: line_data.new_line_no;
-            model_length: root.diff_model.length;
+    list_view := ListView {
+        changed viewport-y => {
+            debug(list_view.viewport-y)
         }
+        for line_data[idx] in root.diff_model: HorizontalLayout {
+            LineNumber {
+                line_number: line_data.old_line_no;
+                model_length: root.diff_model.length;
+            }
 
-        NoteAddButton {
-            is_enabled: idx != selected_index && line_data.note.is-empty;
-            image_height: ln.preferred-height;
-            clicked => {
-                selected_index = idx;
+            ln := LineNumber {
+                line_number: line_data.new_line_no;
+                model_length: root.diff_model.length;
+            }
+
+            NoteAddButton {
+                is_enabled: idx != selected_index && line_data.note.is-empty;
+                image_height: ln.preferred-height;
+                clicked => {
+                    selected_index = idx;
+                }
+            }
+
+            DiffLineView {
+                model_index: idx;
+                model: root.diff_model;
+                selected_index: selected_index;
+            }
+        }
+    }
+
+    Rectangle {
+        width: 14px;
+
+        private property <[SlintChangeIndicator]> indicators_model: [
+            {
+                line_count: 20,
+                change_type: SlintLineStatus.Added,
+            },
+            {
+                line_count: 20,
+                change_type: SlintLineStatus.Unchanged,
+            },
+            {
+                line_count: 20,
+                change_type: SlintLineStatus.Removed,
+            },
+            {
+                line_count: 20,
+                change_type: SlintLineStatus.Unchanged,
+            },
+        ];
+
+        VerticalLayout {
+            spacing: 0px;
+            padding: 0px;
+
+            for indicator[idx] in indicators_model: Rectangle {
+                vertical-stretch: indicator.line_count;
+                min-height: indicator.change_type == SlintLineStatus.Unchanged ? 0px : 2px;
+                background: indicator.change_type == SlintLineStatus.Added ? #2ea043 :
+                    indicator.change_type == SlintLineStatus.Removed ? #f85149 :
+                    transparent;
             }
         }
 
-        DiffLineView {
-            model_index: idx;
-            model: root.diff_model;
-            selected_index: selected_index;
+        ta := TouchArea {
+            clicked => { root.scroll_to(Math.max(0.0, Math.min(1.0, ta.pressed-y / parent.height))) }
         }
     }
 }

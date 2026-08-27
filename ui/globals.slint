@@ -184,6 +184,11 @@ export struct SlintFileDiffIdParamters {
         file_diff_id: int,
     }
 
+export struct SlintChangeIndicator {
+        line_count: int,
+        change_type: SlintLineStatus,
+    }
+
 export enum SlintFilterReviewState { Unfiltered, Done, Open }
 
 export enum SlintSortCriteria { Name, Extension, IsDone }
