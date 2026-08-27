@@ -86,6 +86,7 @@ export struct SlintDiffLine {
         new_line_no: int,
     }
 
+// TODO rename to SlintFileChanges
 export struct SlintFileDiff {
         id: int,
         added_lines: int,
@@ -125,6 +126,17 @@ export struct SlintProgress {
         total_count: int,
     }
 
+export struct SlintMiniMapSegment {
+        line_count: int,
+        change_type: SlintLineStatus,
+    }
+
+// TODO rename to SlintFileDiff
+export struct SlintDiffLines {
+        lines: [SlintDiffLine],
+        mini_map_segments: [SlintMiniMapSegment],
+    }
+
 export struct SlintReview {
         id: int,
         name: string,
@@ -132,7 +144,7 @@ export struct SlintReview {
         end_diff: string,
         note_model: [SlintNote],
         file_diff_model: [SlintFileDiff],
-        loaded_file_diffs: [[SlintDiffLine]],
+        loaded_file_diffs: [SlintDiffLines],
         difference_statistics: SlintDifferenceStatistics,
         review_progress: SlintProgress,
         note_progress: SlintProgress,
@@ -184,11 +196,6 @@ export struct SlintFileDiffIdParamters {
         file_diff_id: int,
     }
 
-export struct SlintChangeIndicator {
-        line_count: int,
-        change_type: SlintLineStatus,
-    }
-
 export enum SlintFilterReviewState { Unfiltered, Done, Open }
 
 export enum SlintSortCriteria { Name, Extension, IsDone }
@@ -224,7 +231,7 @@ export global SlintReviewCallbacks {
         callback show_file_differences(SlintFileDiffIdParamters);
         callback change_review_name(SlintReviewIdParameters, string);
         pure callback is_valid_review_name(SlintReviewIdParameters, string) -> bool;
-        pure callback file_line_diff_model(SlintFileDiffIdParamters) -> [SlintDiffLine];
+        pure callback diff_lines_model(SlintFileDiffIdParamters) -> SlintDiffLines;
     }
 
 export global SlintFilePickerAdapter {

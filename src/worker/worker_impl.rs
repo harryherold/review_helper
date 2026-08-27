@@ -15,7 +15,7 @@ use crate::{git_utils, ui};
 use crate::repositories::{FileDiffId, NoteId, Repositories, RepositoryId, Review, ReviewId};
 use crate::worker::ReviewHelperSettings;
 
-use crate::worker::ui_updater::{UiBasicRepository, UiUpdater};
+use crate::worker::ui_updater::{UiBasicRepository, UiUpdater, generate_minimap_segments};
 
 pub type WorkerChannel = UnboundedSender<WorkerMessage>;
 
@@ -731,6 +731,7 @@ impl WorkerImpl {
         self.ui_updater
             .add_note(repository_id.as_usize(), review_id.as_usize(), ui_note, opt_file_diff_id);
     }
+
     fn load_file_line_differences(&self, repository_id: RepositoryId, review_id: ReviewId, file_diff_id: FileDiffId) {
         let repository = self
             .repositories
@@ -759,14 +760,19 @@ impl WorkerImpl {
         let result = git_repo.diff(start, (!end.is_empty()).then_some(end.as_str()), file_path);
 
         if let Err(e) = result {
-            println!("error {}", &e.to_string());
             self.ui_updater.report_error(ui::SlintResult::GitFileLineDiffFailed, &e.to_string());
             return;
         }
         if let Ok(lines) = result {
+            let minimap_segments = generate_minimap_segments(&lines);
             let formatted_lines = self.diff_formatter.format_lines(lines, file_path);
-            self.ui_updater
-                .add_git_diff_lines(repository_id.as_usize(), review_id.as_usize(), file_diff_id.as_usize(), formatted_lines);
+            self.ui_updater.add_git_diff_lines(
+                repository_id.as_usize(),
+                review_id.as_usize(),
+                file_diff_id.as_usize(),
+                formatted_lines,
+                minimap_segments,
+            );
         }
     }
 }

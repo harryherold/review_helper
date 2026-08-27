@@ -10,8 +10,9 @@ import { Style } from "style.slint";
 import {
     SlintLineStatus,
     SlintDiffLine,
-    SlintChangeIndicator,
+    SlintMiniMapSegment,
     SlintLineStatus,
+    SlintDiffLines,
 } from "globals.slint";
 
 component LineNumber inherits HorizontalLayout {
@@ -227,7 +228,7 @@ component DiffLineView inherits VerticalLayout {
 }
 
 export component FileDiffWidget inherits HorizontalLayout {
-    in property <[SlintDiffLine]> diff_model;
+    in property <SlintDiffLines> diff_lines;
     private property <int> selected_index: -1;
 
     function scroll_to(fraction: float) {
@@ -235,18 +236,15 @@ export component FileDiffWidget inherits HorizontalLayout {
     }
 
     list_view := ListView {
-        changed viewport-y => {
-            debug(list_view.viewport-y)
-        }
-        for line_data[idx] in root.diff_model: HorizontalLayout {
+        for line_data[idx] in root.diff_lines.lines: HorizontalLayout {
             LineNumber {
                 line_number: line_data.old_line_no;
-                model_length: root.diff_model.length;
+                model_length: root.diff_lines.lines.length;
             }
 
             ln := LineNumber {
                 line_number: line_data.new_line_no;
-                model_length: root.diff_model.length;
+                model_length: root.diff_lines.lines.length;
             }
 
             NoteAddButton {
@@ -259,7 +257,7 @@ export component FileDiffWidget inherits HorizontalLayout {
 
             DiffLineView {
                 model_index: idx;
-                model: root.diff_model;
+                model: root.diff_lines.lines;
                 selected_index: selected_index;
             }
         }
@@ -268,7 +266,7 @@ export component FileDiffWidget inherits HorizontalLayout {
     Rectangle {
         width: 14px;
 
-        private property <[SlintChangeIndicator]> indicators_model: [
+        private property <[SlintMiniMapSegment]> minimap_model: [
             {
                 line_count: 20,
                 change_type: SlintLineStatus.Added,
@@ -291,7 +289,7 @@ export component FileDiffWidget inherits HorizontalLayout {
             spacing: 0px;
             padding: 0px;
 
-            for indicator[idx] in indicators_model: Rectangle {
+            for indicator[idx] in root.diff_lines.mini-map-segments: Rectangle {
                 vertical-stretch: indicator.line_count;
                 min-height: indicator.change_type == SlintLineStatus.Unchanged ? 0px : 2px;
                 background: indicator.change_type == SlintLineStatus.Added ? #2ea043 :

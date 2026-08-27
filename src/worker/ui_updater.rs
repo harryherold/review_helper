@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::default;
 use std::rc::Rc;
 
 use itertools::Itertools;
@@ -9,6 +10,8 @@ use slint::{ComponentHandle, Model, ModelExt, SharedString, VecModel};
 
 use crate::cast_model;
 use crate::check_result;
+use crate::git_repo::GitDiffLine;
+use crate::git_repo::LineType;
 use crate::git_utils;
 use crate::git_utils::DiffStatus;
 use crate::model::IdModel;
@@ -48,6 +51,44 @@ impl From<(&FileDiffId, &FileDiffStore)> for ui::SlintFileDiff {
             ..Default::default()
         }
     }
+}
+
+pub fn generate_minimap_segments(lines: &Vec<GitDiffLine>) -> Vec<ui::SlintMiniMapSegment> {
+    if lines.is_empty() {
+        return Vec::new();
+    }
+    let mut segments = Vec::new();
+    let mut current_type: Option<LineType> = None;
+    let mut current_count = 0i32;
+
+    for line in lines {
+        match &current_type {
+            Some(change_type) if change_type == &line.status => {
+                current_count += 1;
+            }
+            Some(change_type) => {
+                segments.push(ui::SlintMiniMapSegment {
+                    change_type: ui::SlintLineStatus::from(change_type),
+                    line_count: current_count,
+                });
+                current_type = Some(line.status.clone());
+                current_count = 1
+            }
+            None => {
+                current_type = Some(line.status.clone());
+                current_count = 1
+            }
+        }
+    }
+    if let Some(change_type) = current_type
+        && current_count > 0
+    {
+        segments.push(ui::SlintMiniMapSegment {
+            line_count: current_count,
+            change_type: ui::SlintLineStatus::from(&change_type),
+        });
+    }
+    segments
 }
 
 pub struct UiUpdater {
@@ -465,22 +506,31 @@ impl UiUpdater {
         });
     }
 
-    pub fn add_git_diff_lines(&self, repository_id: usize, review_id: usize, file_diff_id: usize, lines: Vec<ui::SlintDiffLine>) {
+    pub fn add_git_diff_lines(
+        &self,
+        repository_id: usize,
+        review_id: usize,
+        file_diff_id: usize,
+        lines: Vec<ui::SlintDiffLine>,
+        minimap_segments: Vec<ui::SlintMiniMapSegment>,
+    ) {
         self.execute_in_event_loop(move |app_window| {
             let review_model =
                 model_utils::get_review_model(&app_window, repository_id).unwrap_or_else(|| panic!("[BUG] RepositoryId {} not found", repository_id));
             let review_model = cast_model!(review_model, IdModel<ui::SlintReview>);
             let review = review_model.get(review_id).unwrap_or_else(|| panic!("[BUG] ReviewId {} not found", review_id));
 
-            let loaded_file_diffs = cast_model!(review.loaded_file_diffs, IdModel<ModelRc<ui::SlintDiffLine>>);
+            let loaded_file_diffs = cast_model!(review.loaded_file_diffs, IdModel<ui::SlintDiffLines>);
 
-            let loaded_file_diff = loaded_file_diffs
+            let diff_lines = loaded_file_diffs
                 .get(file_diff_id)
                 .unwrap_or_else(|| panic!("[BUG] FileDiffId {} not found", file_diff_id));
 
-            let loaded_file_diff = cast_model!(loaded_file_diff, VecModel<ui::SlintDiffLine>);
+            let lines_model = cast_model!(diff_lines.lines, VecModel<ui::SlintDiffLine>);
+            lines_model.set_vec(lines);
 
-            loaded_file_diff.set_vec(lines);
+            let minimap_model = cast_model!(diff_lines.mini_map_segments, VecModel<ui::SlintMiniMapSegment>);
+            minimap_model.set_vec(minimap_segments);
 
             review_model.update(review_id, review);
         });

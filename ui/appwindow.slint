@@ -34,7 +34,8 @@ import {
     SlintFileDiffs,
     SlintLineStatus,
     SlintDiffLine,
-    SlintChangeIndicator,
+    SlintMiniMapSegment,
+    SlintDiffLines,
 } from "globals.slint";
 export {
     SlintReviewCallbacks,
@@ -61,7 +62,8 @@ export {
     SlintFileDiffs,
     SlintLineStatus,
     SlintDiffLine,
-    SlintChangeIndicator,
+    SlintMiniMapSegment,
+    SlintDiffLines,
 }
 export component AppWindow inherits Window {
     private property <int> selected_repository_index <=> tab-view.current-index;

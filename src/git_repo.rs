@@ -2,7 +2,7 @@ use std::path::Path;
 
 use git2::{DiffLineType, DiffOptions, Error, Repository, Tree};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum LineType {
     Added,
     Removed,
