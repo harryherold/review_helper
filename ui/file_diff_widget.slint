@@ -76,6 +76,8 @@ component CodeLine inherits Rectangle {
     in property <styled-text> styled_line;
     in property <SlintLineStatus> line_status;
 
+    width: st.preferred-width;
+
     states [
         active-removed when line_status == SlintLineStatus.Removed: {
             background: Style.palette.diff_line_removed_color;
@@ -84,16 +86,12 @@ component CodeLine inherits Rectangle {
             background: Style.palette.diff_line_added_color;
         }
     ]
-    HorizontalLayout {
-        StyledText {
-            horizontal-alignment: center;
-            vertical-alignment: center;
-            default-font-size: Style.font.code_font_size;
-            default-font-family: Style.font.code_font_family;
-            text: root.styled_line;
-        }
-
-        Rectangle { }
+    st := StyledText {
+        horizontal-alignment: left;
+        vertical-alignment: center;
+        default-font-size: Style.font.code_font_size;
+        default-font-family: Style.font.code_font_family;
+        text: root.styled_line;
     }
 }
 
