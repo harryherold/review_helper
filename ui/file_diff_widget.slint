@@ -228,12 +228,31 @@ component DiffLineView inherits VerticalLayout {
 export component FileDiffWidget inherits HorizontalLayout {
     in property <SlintDiffLines> diff_lines;
     private property <int> selected_index: -1;
+    private property <length> content_y: 0.0px;
 
-    function scroll_to(fraction: float) {
-        list_view.viewport-y = -list_view.viewport-height * fraction;
+    function update_scroll_pad(position: length) {
+        scroll-pad.y = Math.clamp(position, 0, scrollbar.height - scroll-pad.height);
+    }
+    function update(position: length) {
+        root.content_y = position;
+    }
+    function scroll_to(position: length) {
+        list_view.viewport-y = position;
     }
 
     list_view := ListView {
+        vertical-scrollbar-policy: always-off;
+
+        private property <float> fraction: 0.0;
+
+        scrolled => {
+            if self.viewport-y != root.content_y {
+                fraction = (root.content_y - self.viewport-y) / self.viewport-height;
+                root.update_scroll_pad(scroll-pad.y + (fraction * scrollbar.height));
+                root.update(self.viewport-y);
+            }
+        }
+
         for line_data[idx] in root.diff_lines.lines: HorizontalLayout {
             LineNumber {
                 line_number: line_data.old_line_no;
@@ -261,8 +280,8 @@ export component FileDiffWidget inherits HorizontalLayout {
         }
     }
 
-    Rectangle {
-        width: 14px;
+    scrollbar := Rectangle {
+        width: 16px;
 
         private property <[SlintMiniMapSegment]> minimap_model: [
             {
@@ -296,8 +315,48 @@ export component FileDiffWidget inherits HorizontalLayout {
             }
         }
 
+        scroll-pad := Rectangle {
+            private property <bool> is_pressed: false;
+            private property <length> min-rect-height: 20px;
+            private property <length> vy: 0px;
+
+            z: 1000;
+            y: 0;
+            height: Math.max(min-rect-height, list_view.visible-height * (list_view.visible-height / list_view.viewport-height));
+            width: parent.width;
+            background: Palette.background;
+            opacity: tar.has-hover ? 0.7 : 0.5;
+            tar := TouchArea {
+                pointer-event(event) => {
+                    if event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
+                        is_pressed = true;
+                    }
+                    else if event.button == PointerEventButton.left && (event.kind == PointerEventKind.up || event.kind == PointerEventKind.cancel) {
+                        is_pressed = false;
+                    }
+                }
+                private property <float> fraction: 0.0;
+                moved => {
+                    if is_pressed {
+                        root.update_scroll_pad(scroll-pad.y + (self.mouse-y - self.pressed-y));
+                        fraction = Math.max(0.0, Math.min(1.0, scroll-pad.y / scrollbar.height));
+                        root.update(-list_view.viewport-height * fraction);
+                        root.scroll_to(-list_view.viewport-height * fraction);
+                    }
+                }
+            }
+        }
+
         ta := TouchArea {
-            clicked => { root.scroll_to(Math.max(0.0, Math.min(1.0, ta.pressed-y / parent.height))) }
+            private property <float> fraction: 0.0;
+
+            clicked => {
+                root.update_scroll_pad(self.pressed-y - (scroll-pad.height / 2));
+
+                fraction = Math.max(0.0, Math.min(1.0, ta.pressed-y / parent.height));
+                root.update((-list_view.viewport-height * fraction) + (list_view.visible-height / 2));
+                root.scroll_to((-list_view.viewport-height * fraction) + (list_view.visible-height / 2));
+            }
         }
     }
 }
