@@ -228,30 +228,28 @@ component DiffLineView inherits VerticalLayout {
 export component FileDiffWidget inherits HorizontalLayout {
     in property <SlintDiffLines> diff_lines;
     private property <int> selected_index: -1;
-    private property <length> content_y: 0.0px;
 
-    function update_scroll_pad(position: length) {
-        scroll-pad.y = Math.clamp(position, 0, scrollbar.height - scroll-pad.height);
+    // 0.0 up, 1.0 down
+    pure function scroll-fraction() -> float {
+        if list_view.viewport-height <= list_view.visible-height {
+            return 0.0;
+        }
+        return Math.clamp(
+            -list_view.viewport-y / (list_view.viewport-height - list_view.visible-height),
+            0.0, 1.0);
     }
-    function update(position: length) {
-        root.content_y = position;
-    }
-    function scroll_to(position: length) {
-        list_view.viewport-y = position;
+
+    function set_scroll_fraction(fraction: float) {
+        let f = Math.clamp(fraction, 0.0, 1.0);
+        if list_view.viewport-height <= list_view.visible-height {
+            list_view.viewport-y = 0;
+        } else {
+            list_view.viewport-y = -f * (list_view.viewport-height - list_view.visible-height);
+        }
     }
 
     list_view := ListView {
         vertical-scrollbar-policy: always-off;
-
-        private property <float> fraction: 0.0;
-
-        scrolled => {
-            if self.viewport-y != root.content_y {
-                fraction = (root.content_y - self.viewport-y) / self.viewport-height;
-                root.update_scroll_pad(scroll-pad.y + (fraction * scrollbar.height));
-                root.update(self.viewport-y);
-            }
-        }
 
         for line_data[idx] in root.diff_lines.lines: HorizontalLayout {
             LineNumber {
@@ -321,7 +319,8 @@ export component FileDiffWidget inherits HorizontalLayout {
             private property <length> vy: 0px;
 
             z: 1000;
-            y: 0;
+            y: root.scroll-fraction() * (scrollbar.height - self.height);
+
             height: Math.max(min-rect-height, list_view.visible-height * (list_view.visible-height / list_view.viewport-height));
             width: parent.width;
             background: Palette.background;
@@ -335,13 +334,14 @@ export component FileDiffWidget inherits HorizontalLayout {
                         is_pressed = false;
                     }
                 }
-                private property <float> fraction: 0.0;
                 moved => {
                     if is_pressed {
-                        root.update_scroll_pad(scroll-pad.y + (self.mouse-y - self.pressed-y));
-                        fraction = Math.max(0.0, Math.min(1.0, scroll-pad.y / scrollbar.height));
-                        root.update(-list_view.viewport-height * fraction);
-                        root.scroll_to(-list_view.viewport-height * fraction);
+                        let new_y = Math.clamp(
+                            scroll-pad.y + (self.mouse-y - self.pressed-y),
+                            0px,
+                            scrollbar.height - scroll-pad.height);
+                        let fraction = new_y / (scrollbar.height - scroll-pad.height);
+                        root.set_scroll_fraction(fraction);
                     }
                 }
             }
@@ -351,11 +351,10 @@ export component FileDiffWidget inherits HorizontalLayout {
             private property <float> fraction: 0.0;
 
             clicked => {
-                root.update_scroll_pad(self.pressed-y - (scroll-pad.height / 2));
-
-                fraction = Math.max(0.0, Math.min(1.0, ta.pressed-y / parent.height));
-                root.update((-list_view.viewport-height * fraction) + (list_view.visible-height / 2));
-                root.scroll_to((-list_view.viewport-height * fraction) + (list_view.visible-height / 2));
+                // center pad under cursor
+                let target_y = self.pressed-y - scroll-pad.height / 2;
+                let fraction = target_y / (scrollbar.height - scroll-pad.height);
+                root.set_scroll_fraction(fraction);
             }
         }
     }
