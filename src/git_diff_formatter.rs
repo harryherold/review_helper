@@ -2,6 +2,7 @@ use std::{ffi::OsStr, path::Path};
 
 use slint::SharedString;
 
+use syntect::highlighting::FontStyle;
 use syntect::{easy::HighlightLines, highlighting::ThemeSet, parsing::SyntaxSet};
 
 use crate::git_repo::{GitDiffLine, LineType};
@@ -33,6 +34,20 @@ impl From<&LineType> for ui::SlintLineStatus {
     }
 }
 
+fn escape_for_styled_text(text: &str) -> String {
+    // 1. escape hmtl special symbols
+    let html_escaped = html_escape::encode_text(text);
+
+    // 2. escape markdown special symbols
+    html_escaped
+        .replace('\\', "\\\\")
+        .replace('*', "\\*")
+        .replace('_', "\\_")
+        .replace('`', "\\`")
+        .replace('[', "\\[")
+        .replace(']', "\\]")
+}
+
 fn extension_from_filename(filename: &str) -> Option<&str> {
     Path::new(filename).extension().and_then(OsStr::to_str)
 }
@@ -55,34 +70,69 @@ impl GitDiffFormatter {
         let extension = extension_from_filename(file).unwrap_or_default();
         let syntax_opt = self.config.syntax_set.find_syntax_by_extension(extension);
         let mut hightlight_lines_opt = syntax_opt.map(|syntax| HighlightLines::new(syntax, &self.config.theme_set.themes[&self.config.theme]));
-
         unformatted_lines
             .iter()
             .map(|diff| {
-                // let html_line = if let Some(hightlight_lines) = hightlight_lines_opt.as_mut() {
-                //     match hightlight_lines.highlight_line(&diff.line, &self.config.syntax_set) {
-                //         Ok(regions) => regions
-                //             .into_iter()
-                //             .map(|(style, text)| {
-                //                 let escaped_text = html_escape::encode_text(text);
-                //                 format!(r#"<font color="{}">{}</font>"#, color_to_hex(style.foreground), escaped_text,)
-                //             })
-                //             .collect::<Vec<_>>()
-                //             .join(""),
-                //         Err(_) => diff.line.clone(),
-                //     }
-                // } else {
-                //     diff.line.clone()
-                // };
+                let html_line = if let Some(hightlight_lines) = hightlight_lines_opt.as_mut() {
+                    match hightlight_lines.highlight_line(&diff.line, &self.config.syntax_set) {
+                        Ok(regions) => {
+                            let mut result = String::with_capacity(diff.line.len() * 2);
 
-                // let styled_line =
-                //     slint::StyledText::from_markdown(&html_line).unwrap_or_else(|_| slint::StyledText::from_markdown(&diff.line).unwrap_or_default());
+                            for (style, text) in regions {
+                                if text.is_empty() {
+                                    continue;
+                                }
+
+                                let color = color_to_hex(style.foreground);
+                                let escaped = escape_for_styled_text(text);
+
+                                result.push_str(&format!("<font color=\"{}\">", color));
+
+                                // Optional: Bold / Italic / Underline mitnehmen
+                                let bold = style.font_style.contains(FontStyle::BOLD);
+                                let italic = style.font_style.contains(FontStyle::ITALIC);
+                                let underline = style.font_style.contains(FontStyle::UNDERLINE);
+
+                                if bold {
+                                    result.push_str("**");
+                                }
+                                if italic {
+                                    result.push('*');
+                                }
+                                if underline {
+                                    result.push_str("<u>");
+                                }
+
+                                result.push_str(&escaped);
+
+                                if underline {
+                                    result.push_str("</u>");
+                                }
+                                if italic {
+                                    result.push('*');
+                                }
+                                if bold {
+                                    result.push_str("**");
+                                }
+
+                                result.push_str("</font>");
+                            }
+                            result
+                        }
+                        Err(_) => escape_for_styled_text(&diff.line),
+                    }
+                } else {
+                    escape_for_styled_text(&diff.line)
+                };
+
+                let styled_line = slint::StyledText::from_markdown(&html_line).unwrap_or_else(|_| slint::StyledText::from_plain_text(&diff.line));
+
                 ui::SlintDiffLine {
                     new_line_no: diff.new_line_no,
                     old_line_no: diff.old_line_no,
                     source_line: SharedString::from(&diff.line),
                     status: SlintLineStatus::from(&diff.status),
-                    styled_line: slint::StyledText::from_plain_text(&diff.line),
+                    styled_line,
                     ..Default::default()
                 }
             })
