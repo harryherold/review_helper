@@ -521,9 +521,14 @@ impl UiUpdater {
 
             let loaded_file_diffs = cast_model!(review.loaded_file_diffs, IdModel<ui::SlintDiffLines>);
 
-            let diff_lines = loaded_file_diffs
+            let mut diff_lines = loaded_file_diffs
                 .get(file_diff_id)
                 .unwrap_or_else(|| panic!("[BUG] FileDiffId {} not found", file_diff_id));
+
+            diff_lines.max_chars_count = match lines.first() {
+                Some(line) => line.max_chars_count,
+                None => 0,
+            };
 
             let lines_model = cast_model!(diff_lines.lines, VecModel<ui::SlintDiffLine>);
             lines_model.set_vec(lines);
@@ -531,6 +536,7 @@ impl UiUpdater {
             let minimap_model = cast_model!(diff_lines.mini_map_segments, VecModel<ui::SlintMiniMapSegment>);
             minimap_model.set_vec(minimap_segments);
 
+            loaded_file_diffs.update(file_diff_id, diff_lines);
             review_model.update(review_id, review);
         });
     }

@@ -43,7 +43,8 @@ impl GitRepo {
     }
     pub fn diff(&self, from: &str, to: Option<&str>, file: &str) -> Result<Vec<GitDiffLine>, GitRepoError> {
         let mut diff_options = DiffOptions::new();
-        diff_options.context_lines(u32::MAX);
+        diff_options.context_lines(10_000);
+        diff_options.interhunk_lines(10_000);
         diff_options.include_untracked(true);
         diff_options.recurse_untracked_dirs(true);
         diff_options.pathspec(file);

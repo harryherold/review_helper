@@ -6,6 +6,8 @@ edition = "2024"
 build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[profile.dev]
+opt-level = 1 # allows debugging
 
 [dependencies]
 git2 = { version = "0.21.0", features = ["https", "ssh"] }

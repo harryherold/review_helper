@@ -82,6 +82,8 @@ fn run_app() -> Result<(), Box<dyn std::error::Error>> {
 
     controller::setup_file_diffs(&app_window);
 
+    controller::setup_file_diff_callbacks(&app_window, worker.channel.clone());
+
     app_window.run().map_err(|e| format!("Runtime error occured: {}", e))?;
     worker.join().map_err(|_| "Worker thread could not be terminated!".to_string())?;
 

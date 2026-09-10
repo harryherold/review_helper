@@ -1,0 +1,31 @@
+import { ToolButton } from "tool_button.slint";
+import { Style } from "../style.slint";
+
+export component DeleteButton inherits ToolButton {
+    callback request-delete();
+
+    width: Style.size.control-height;
+    source: @image-url("../../assets/icons/delete.svg");
+    clicked => {
+        if (delete_timer.running) {
+            delete_timer.stop();
+            root.request-delete();
+        } else {
+            delete_timer.start();
+        }
+    }
+
+    states [
+        active_delete_timer when delete_timer.running: {
+            background: red;
+        }
+    ]
+
+    delete_timer := Timer {
+        interval: 2s;
+        running: false;
+        triggered => {
+            self.running = false;
+        }
+    }
+}
