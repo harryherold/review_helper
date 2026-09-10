@@ -70,6 +70,7 @@ impl GitDiffFormatter {
         let extension = extension_from_filename(file).unwrap_or_default();
         let syntax_opt = self.config.syntax_set.find_syntax_by_extension(extension);
         let mut hightlight_lines_opt = syntax_opt.map(|syntax| HighlightLines::new(syntax, &self.config.theme_set.themes[&self.config.theme]));
+        let max_chars_per_line = unformatted_lines.iter().map(|line| line.line.len()).max().unwrap_or_default();
         unformatted_lines
             .iter()
             .map(|diff| {
@@ -125,7 +126,11 @@ impl GitDiffFormatter {
                     escape_for_styled_text(&diff.line)
                 };
 
-                let styled_line = slint::StyledText::from_markdown(&html_line).unwrap_or_else(|_| slint::StyledText::from_plain_text(&diff.line));
+                let styled_line = if html_line.is_empty() {
+                    slint::StyledText::from_plain_text(" ")
+                } else {
+                    slint::StyledText::from_markdown(&html_line).unwrap_or_else(|_| slint::StyledText::from_plain_text(&diff.line))
+                };
 
                 ui::SlintDiffLine {
                     new_line_no: diff.new_line_no,
@@ -133,6 +138,7 @@ impl GitDiffFormatter {
                     source_line: SharedString::from(&diff.line),
                     status: SlintLineStatus::from(&diff.status),
                     styled_line,
+                    max_chars_count: max_chars_per_line as i32,
                     ..Default::default()
                 }
             })
