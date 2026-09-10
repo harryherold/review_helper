@@ -332,9 +332,12 @@ export component FileDiffWidget inherits HorizontalLayout {
     in property <SlintDiffLines> diff_lines;
     private property <int> selected_index: -1;
 
-    list_view := ListView {
+    gutter_listView := ListView {
+        horizontal-stretch: 1;
         vertical-scrollbar-policy: always-off;
-        horizontal-scrollbar-policy: always-on;
+        horizontal-scrollbar-policy: always-off;
+        width: 80px;
+        viewport-y <=> list_view.viewport-y;
 
         for line_data[idx] in root.diff_lines.lines: HorizontalLayout {
             ln_new := LineNumber {
@@ -346,14 +349,21 @@ export component FileDiffWidget inherits HorizontalLayout {
                 line_number: line_data.new_line_no;
                 model_length: root.diff_lines.lines.length;
             }
+        }
+    }
 
-            note_button := NoteAddButton {
-                is_enabled: idx != selected_index && line_data.note.is-empty;
-                image_height: ln_old.preferred-height;
-                clicked => {
-                    selected_index = idx;
-                }
-            }
+    list_view := ListView {
+        vertical-scrollbar-policy: always-off;
+        horizontal-scrollbar-policy: always-on;
+
+        for line_data[idx] in root.diff_lines.lines: HorizontalLayout {
+            // note_button := NoteAddButton {
+            //     is_enabled: idx != selected_index && line_data.note.is-empty;
+            //     image_height: 16px;
+            //     clicked => {
+            //         selected_index = idx;
+            //     }
+            // }
 
             DiffLineView {
                 model_index: idx;
