@@ -221,8 +221,17 @@ component DiffLineView inherits VerticalLayout {
     }
 
     if is_expanded: NoteView {
+        preferred-height: 66px;
         note: model[root.model_index].note;
         is_done: model[root.model_index].is_done;
+
+        init => {
+            model[root.model_index].note_height = self.height;
+        }
+        changed height => {
+            model[root.model_index].note_height = self.height;
+            debug(self.height);
+        }
 
         set_note(new_note) => {
             model[root.model_index].note = new_note
@@ -349,6 +358,10 @@ export component FileDiffWidget inherits HorizontalLayout {
                 line_number: line_data.new_line_no;
                 model_length: root.diff_lines.lines.length;
             }
+
+            if line-data.note_height > 0px: Rectangle {
+                height: 66px;
+            }
         }
     }
 
@@ -357,13 +370,13 @@ export component FileDiffWidget inherits HorizontalLayout {
         horizontal-scrollbar-policy: always-on;
 
         for line_data[idx] in root.diff_lines.lines: HorizontalLayout {
-            // note_button := NoteAddButton {
-            //     is_enabled: idx != selected_index && line_data.note.is-empty;
-            //     image_height: 16px;
-            //     clicked => {
-            //         selected_index = idx;
-            //     }
-            // }
+            note_button := NoteAddButton {
+                is_enabled: idx != selected_index && line_data.note.is-empty;
+                image_height: 16px;
+                clicked => {
+                    selected_index = idx;
+                }
+            }
 
             DiffLineView {
                 model_index: idx;
