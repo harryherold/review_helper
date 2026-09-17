@@ -10,6 +10,7 @@ export component ToolButton inherits Rectangle {
     in-out property <bool> checked: false;
     out property <bool> pressed: ta.pressed;
     callback clicked();
+    callback toggled();
     background: Palette.control-background;
     border-radius: Style.size.border_radius;
     border-width: Style.size.border_width;
@@ -51,9 +52,12 @@ export component ToolButton inherits Rectangle {
 
     ta := TouchArea {
         clicked => {
-            root.clicked();
             if root.checkable {
                 root.checked = !root.checked;
+                root.toggled();
+            }
+            else {
+                root.clicked();
             }
         }
     }

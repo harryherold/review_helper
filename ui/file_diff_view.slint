@@ -195,45 +195,76 @@ component FileDiffList inherits ListView {
     }
 }
 
+export component IdReloadGate {
+    in property <int> id: -1;
+    out property <int> active-id: -1;
+
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+    width: 0px;
+    height: 0px;
+
+    changed id => {
+        root.active-id = id;
+    }
+
+    public function prepare-reload() {
+        root.active-id = -1;
+    }
+}
 
 export component FileDiffView inherits VerticalLayout {
     in property <SlintReviewIdParameters> review_id_parameters;
     in property <[SlintNote]> notes_model;
-    private property <[SlintFileDiff]> file_diff_model: SlintReviewCallbacks.file_diff_ui_model(root.review_id_parameters);
+
+    private property <[SlintFileDiff]> file_diff_model:
+        SlintReviewCallbacks.file_diff_ui_model(root.review_id_parameters);
+
     private property <int> selected_id: -1;
     private property <int> extended_file_id: -1;
-    private property <int> model_count: root.file_diff_model.length;
-    private property <bool> is_selected_id_in_model: true;
+
+    private property <bool> selection-valid:
+        root.selected_id == -1
+        || SlintReviewCallbacks.exists_file_diff({
+        review_id_parameters: root.review_id_parameters,
+        file_diff_id: root.selected_id,
+    });
+
+    changed selection-valid => {
+        if !selection-valid {
+            if selected_id != -1 {
+                selected_id = -1;
+            }
+        }
+    }
+
     changed selected_id => {
-        if (selected_id != -1 && selected_id != extended_file_id) {
+        if selected_id == -1 {
+            if extended_file_id != -1 {
+                extended_file_id = -1;
+            }
+        } else if selected_id != extended_file_id {
             extended_file_id = -1;
         }
     }
-    changed model_count => {
-        if (model_count > 0 && selected_id != -1) {
-            is_selected_id_in_model = SlintReviewCallbacks.exists_file_diff({
-                review_id_parameters: root.review_id_parameters,
-                file_diff_id: root.selected_id,
-            });
-        }
-    }
-    changed is_selected_id_in_model => {
-        if (!is_selected_id_in_model && selected_id != -1) {
-            selected_id = -1;
-        }
-        if (!is_selected_id_in_model && extended_file_id != -1) {
-            extended_file_id = -1;
-        }
-    }
+
     function select_id(id: int) {
-        if (id != root.selected_id) {
-            selected_id = -1;
-            selected_id = id;
+        if id == root.selected_id {
+            return;
         }
+        id_reload_gate.prepare-reload();
+        root.selected_id = id;
     }
+
     spacing: Style.size.spacing;
+
+    id_reload_gate := IdReloadGate {
+        id: root.selected_id;
+    }
+
     HorizontalLayout {
         spacing: Style.size.spacing;
+
         Image {
             source: @image-url("../assets/icons/filter_on.svg");
             colorize: Palette.foreground;
@@ -244,7 +275,10 @@ export component FileDiffView inherits VerticalLayout {
             horizontal-alignment: left;
             placeholder-text: @tr("Filter paths using wildcards");
             changed text => {
-                SlintReviewCallbacks.set_file_diff_file_pattern(root.review_id_parameters, self.text);
+                SlintReviewCallbacks.set_file_diff_file_pattern(
+                    root.review_id_parameters,
+                    self.text,
+                );
             }
         }
 
@@ -253,13 +287,20 @@ export component FileDiffView inherits VerticalLayout {
             model: [@tr("Unfiltered"), @tr("Done"), @tr("Open")];
             selected(current-filter-review-state) => {
                 if current-filter-review-state == @tr("Unfiltered") {
-                    SlintReviewCallbacks.set_file_diff_review_state(root.review_id_parameters, SlintFilterReviewState.Unfiltered);
-                }
-                if current-filter-review-state == @tr("Done") {
-                    SlintReviewCallbacks.set_file_diff_review_state(root.review_id_parameters, SlintFilterReviewState.Done);
-                }
-                if current-filter-review-state == @tr("Open") {
-                    SlintReviewCallbacks.set_file_diff_review_state(root.review_id_parameters, SlintFilterReviewState.Open);
+                    SlintReviewCallbacks.set_file_diff_review_state(
+                        root.review_id_parameters,
+                        SlintFilterReviewState.Unfiltered,
+                    );
+                } else if current-filter-review-state == @tr("Done") {
+                    SlintReviewCallbacks.set_file_diff_review_state(
+                        root.review_id_parameters,
+                        SlintFilterReviewState.Done,
+                    );
+                } else if current-filter-review-state == @tr("Open") {
+                    SlintReviewCallbacks.set_file_diff_review_state(
+                        root.review_id_parameters,
+                        SlintFilterReviewState.Open,
+                    );
                 }
             }
         }
@@ -275,13 +316,20 @@ export component FileDiffView inherits VerticalLayout {
             model: [@tr("Name"), @tr("Extension"), @tr("IsDone")];
             selected(current-criteria) => {
                 if current-criteria == @tr("Name") {
-                    SlintReviewCallbacks.set_file_diff_sort-criteria(root.review_id_parameters, SlintSortCriteria.Name);
-                }
-                if current-criteria == @tr("IsDone") {
-                    SlintReviewCallbacks.set_file_diff_sort-criteria(root.review_id_parameters, SlintSortCriteria.IsDone);
-                }
-                if current-criteria == @tr("Extension") {
-                    SlintReviewCallbacks.set_file_diff_sort-criteria(root.review_id_parameters, SlintSortCriteria.Extension);
+                    SlintReviewCallbacks.set_file_diff_sort-criteria(
+                        root.review_id_parameters,
+                        SlintSortCriteria.Name,
+                    );
+                } else if current-criteria == @tr("IsDone") {
+                    SlintReviewCallbacks.set_file_diff_sort-criteria(
+                        root.review_id_parameters,
+                        SlintSortCriteria.IsDone,
+                    );
+                } else if current-criteria == @tr("Extension") {
+                    SlintReviewCallbacks.set_file_diff_sort-criteria(
+                        root.review_id_parameters,
+                        SlintSortCriteria.Extension,
+                    );
                 }
             }
         }
@@ -294,13 +342,16 @@ export component FileDiffView inherits VerticalLayout {
 
     HorizontalLayout {
         vertical-stretch: 1;
+
         FileDiffList {
             width: root.split-ratio * (parent.width - root.handle-width);
             selected_id: root.selected_id;
             review_id_parameters: root.review_id_parameters;
             file_diff_model: root.file_diff_model;
             notes_model: root.notes_model;
-            select_id(id) => { root.select_id(id) }
+            select_id(id) => {
+                root.select_id(id);
+            }
         }
 
         Rectangle {
@@ -315,15 +366,23 @@ export component FileDiffView inherits VerticalLayout {
                 mouse-cursor: self.has-hover ? ew-resize : default;
                 moved => {
                     if self.pressed {
-                        root.split-ratio = Math.clamp((self.mouse-x + parent.absolute-position.x - root.absolute-position.x) / root.width, root.split-min-ratio, root.split-max-ratio);
+                        root.split-ratio = Math.clamp(
+                            (self.mouse-x + parent.absolute-position.x - root.absolute-position.x)
+                            / root.width,
+                            root.split-min-ratio,
+                            root.split-max-ratio,
+                        );
                     }
                 }
             }
         }
 
         Rectangle {
-            if root.selected_id != -1: FileDiffWidget {
-                private property <SlintFileDiffIdParamters> file_diff_id_parameter: { review_id_parameters: root.review_id_parameters, file_diff_id: root.selected_id };
+            if id_reload_gate.active-id != -1: FileDiffWidget {
+                private property <SlintFileDiffIdParamters> file_diff_id_parameter: {
+                    review_id_parameters: root.review_id_parameters,
+                    file_diff_id: id_reload_gate.active-id,
+                };
                 diff_lines: SlintReviewCallbacks.diff_lines_model(self.file_diff_id_parameter);
             }
         }
