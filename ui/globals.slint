@@ -135,7 +135,10 @@ export struct SlintMiniMapSegment {
 
 // TODO rename to SlintFileDiff
 export struct SlintDiffLines {
+        visible_start_y: length,
+        max_chars_count: int,
         lines: [SlintDiffLine],
+        buffered_lines: [SlintDiffLine],
         mini_map_segments: [SlintMiniMapSegment],
     }
 
@@ -208,6 +211,10 @@ export enum SlintSortOrder { Ascending, Descending }
 
 export global SlintFileDiffs {
         callback open_file_by_editor(int, string);
+    }
+
+export global SlintFileDiffCallbacks {
+        callback request_update_diff_model(SlintFileDiffIdParamters, viewport_y: length, available_height: length);
     }
 
 export global SlintReviewCallbacks {

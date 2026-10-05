@@ -1,5 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
+use crate::model::SliceProxyModel;
 use crate::{cast_model, unwrap_or_return};
 use crate::{
     controller::utils_controller::is_valid_name,
@@ -341,8 +342,15 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
             if let Some(loaded_file_diff) = loaded_file_diffs.get(ids.file_diff_id as usize) {
                 loaded_file_diff
             } else {
+                let lines = Rc::new(VecModel::default());
+                let lines_proxy = Rc::new(SliceProxyModel::new(lines.clone()));
+                // let visible_start_y = update_viewport(&app_window, lines_proxy.clone(), 0.0, 500.0);
+
                 let diff_lines = ui::SlintDiffLines {
-                    lines: Rc::new(VecModel::default()).into(),
+                    visible_start_y: 0.0,
+                    max_chars_count: 0,
+                    lines: lines.into(),
+                    buffered_lines: lines_proxy.into(),
                     mini_map_segments: Rc::new(VecModel::default()).into(),
                 };
 

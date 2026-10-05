@@ -379,11 +379,10 @@ export component FileDiffView inherits VerticalLayout {
 
         Rectangle {
             if id_reload_gate.active-id != -1: FileDiffWidget {
-                private property <SlintFileDiffIdParamters> file_diff_id_parameter: {
+                file_diff_id_parameter: {
                     review_id_parameters: root.review_id_parameters,
                     file_diff_id: id_reload_gate.active-id,
                 };
-                diff_lines: SlintReviewCallbacks.diff_lines_model(self.file_diff_id_parameter);
             }
         }
     }

@@ -13,6 +13,9 @@ import {
     SlintMiniMapSegment,
     SlintLineStatus,
     SlintDiffLines,
+    SlintFileDiffCallbacks,
+    SlintFileDiffIdParamters,
+    SlintReviewCallbacks,
 } from "globals.slint";
 import { ToolButton } from "controls/tool_button.slint";
 import { DeleteButton } from "controls/delete_button.slint";
@@ -351,8 +354,14 @@ component MiniMap inherits Rectangle {
 }
 
 export component FileDiffWidget inherits HorizontalLayout {
-    in property <SlintDiffLines> diff_lines;
+    in property <SlintFileDiffIdParamters> file_diff_id_parameter;
+    private property <SlintDiffLines> diff_lines: SlintReviewCallbacks.diff_lines_model(self.file_diff_id_parameter);
+    private property <int> line_count: diff_lines.lines.length;
     private property <int> selected_index: -1;
+
+    changed line_count => {
+        SlintFileDiffCallbacks.request_update_diff_model(root.file_diff_id_parameter, -flickable.viewport-y, flickable.height);
+    }
 
     // ListView {
     //     horizontal-stretch: 1;
@@ -380,6 +389,43 @@ export component FileDiffWidget inherits HorizontalLayout {
     //     }
     // }
 
+    flickable := Flickable {
+        width: 100%;
+        height: 100%;
+        viewport-height: root.diff_lines.lines.length * Style.size.file-diff-line-height;
+        viewport-width: 800px;
+
+        changed viewport-y => {
+            SlintFileDiffCallbacks.request_update_diff_model(root.file_diff_id_parameter, -self.viewport-y, self.height);
+        }
+        changed height => {
+            SlintFileDiffCallbacks.request_update_diff_model(root.file_diff_id_parameter, -self.viewport-y, self.height);
+        }
+
+        content := Rectangle {
+            x: 0;
+            y: root.diff_lines.visible-start-y;
+            width: 100%;
+
+            VerticalLayout {
+                x: line-rect.width;
+                spacing: 0px;
+
+                for line[row] in root.diff_lines.buffered-lines: Rectangle {
+                    DiffLineView {
+                        spacing: 0;
+                        model_index: row;
+                        model: root.diff_lines.buffered-lines;
+                        selected_index <=> selected_index;
+                        visible-width: flickable.width;
+                    }
+                }
+            }
+
+            line-rect := Rectangle { }
+        }
+    }
+
     list_view := ListView {
         vertical-scrollbar-policy: always-off;
         horizontal-scrollbar-policy: always-on;
@@ -397,30 +443,30 @@ export component FileDiffWidget inherits HorizontalLayout {
                 model_index: idx;
                 model: root.diff_lines.lines;
                 selected_index <=> selected_index;
-                visible-width: list_view.visible-width;
+                visible-width: flickable.width;
             }
         }
     }
 
     MiniMap {
         mini-map-segments: root.diff_lines.mini-map-segments;
-        viewport-y: list_view.viewport-y;
-        viewport-height: list_view.viewport-height;
-        visible-height: list_view.visible-height;
+        viewport-y: flickable.viewport-y;
+        viewport-height: flickable.viewport-height;
+        visible-height: flickable.height;
         set-scroll-fraction(fraction) => {
             let f = Math.clamp(fraction, 0.0, 1.0);
-            if list_view.viewport-height <= list_view.visible-height {
-                list_view.viewport-y = 0;
+            if flickable.viewport-height <= flickable.height {
+                flickable.viewport-y = 0;
             } else {
-                list_view.viewport-y = -f * (list_view.viewport-height - list_view.visible-height);
+                flickable.viewport-y = -f * (flickable.viewport-height - flickable.height);
             }
         }
         scroll-by(delta) => {
-            if list_view.viewport-height <= list_view.visible-height {
+            if flickable.viewport-height <= flickable.height {
                 return;
             }
-            let max_scroll = list_view.viewport-height - list_view.visible-height;
-            list_view.viewport-y = Math.clamp(list_view.viewport-y + delta, -max_scroll, 0px);
+            let max_scroll = flickable.viewport-height - flickable.height;
+            flickable.viewport-y = Math.clamp(flickable.viewport-y + delta, -max_scroll, 0px);
         }
     }
 }
