@@ -358,6 +358,7 @@ export component FileDiffWidget inherits HorizontalLayout {
     private property <SlintDiffLines> diff_lines: SlintReviewCallbacks.diff_lines_model(self.file_diff_id_parameter);
     private property <int> line_count: diff_lines.lines.length;
     private property <int> selected_index: -1;
+    private property <length> text_width: Math.max(1, root.diff_lines.max_chars_count) * Style.font.code-font-size * 0.62 + 10px;
 
     changed line_count => {
         SlintFileDiffCallbacks.request_update_diff_model(root.file_diff_id_parameter, -flickable.viewport-y, flickable.height);
@@ -393,7 +394,7 @@ export component FileDiffWidget inherits HorizontalLayout {
         width: 100%;
         height: 100%;
         viewport-height: root.diff_lines.lines.length * Style.size.file-diff-line-height;
-        viewport-width: 800px;
+        viewport-width: root.text_width;
 
         changed viewport-y => {
             SlintFileDiffCallbacks.request_update_diff_model(root.file_diff_id_parameter, -self.viewport-y, self.height);
@@ -422,28 +423,39 @@ export component FileDiffWidget inherits HorizontalLayout {
                 }
             }
 
-            line-rect := Rectangle { }
-        }
-    }
+            line-rect := Rectangle {
+                private property <length> line_number_width: 80px;
+                private property <length> indicator_width: 30px;
+                private property <length> line_number_spacing: 5px;
 
-    list_view := ListView {
-        vertical-scrollbar-policy: always-off;
-        horizontal-scrollbar-policy: always-on;
+                x: -flickable.content-x; // NOTE fixed position
+                width: line_number_width + indicator_width + line_number_spacing;
+                background: Palette.background;
 
-        for line_data[idx] in root.diff_lines.lines: HorizontalLayout {
-            note_button := NoteAddButton {
-                is_enabled: idx != selected_index && line_data.note.is-empty;
-                image_height: 16px;
-                clicked => {
-                    selected_index = idx;
+                VerticalLayout {
+                    x: 0px;
+                    spacing: 0px;
+
+                    for line[row] in root.diff_lines.buffered-lines: VerticalLayout {
+                        spacing: 0;
+
+                        HorizontalLayout {
+                            ln_new := LineNumber {
+                                line_number: line.old_line_no;
+                                model_length: root.diff_lines.lines.length;
+                            }
+
+                            ln_old := LineNumber {
+                                line_number: line.new_line_no;
+                                model_length: root.diff_lines.lines.length;
+                            }
+                        }
+
+                        if !line.note.is-empty || row == selected_index: Rectangle {
+                            height: Style.size.file-diff-line-height;
+                        }
+                    }
                 }
-            }
-
-            DiffLineView {
-                model_index: idx;
-                model: root.diff_lines.lines;
-                selected_index <=> selected_index;
-                visible-width: flickable.width;
             }
         }
     }
