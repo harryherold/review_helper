@@ -58,7 +58,7 @@ pub fn report_error(app_window: &ui::AppWindow, error: ui::SlintResult, detail_t
     app_window.invoke_request_show_error();
 }
 
-pub fn update_diff_model(app_window: &ui::AppWindow, model: Rc<CodeSliceProxyModel>, viewport_y: f32, available_height: f32) -> f32 {
+pub fn update_diff_model(app_window: &ui::AppWindow, model: &SliceProxyModel<Rc<VecModel<ui::SlintDiffLine>>>, viewport_y: f32, available_height: f32) -> f32 {
     let style = app_window.global::<ui::Style>();
 
     let line_height = style.get_size().file_diff_line_height;

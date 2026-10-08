@@ -1,4 +1,5 @@
 mod commit_picker_controller;
+mod file_diff_controller;
 mod file_diffs_controller;
 mod file_picker_controller;
 mod repository_controller;
@@ -8,6 +9,7 @@ mod review_helper_settings_controller;
 mod utils_controller;
 
 pub use commit_picker_controller::setup_commit_picker;
+pub use file_diff_controller::setup_file_diff_callbacks;
 pub use file_diffs_controller::setup_file_diffs;
 pub use file_picker_controller::setup_file_picker;
 pub use repository_controller::setup_repository_callbacks;

@@ -30,7 +30,7 @@ component LineNumber inherits HorizontalLayout {
     padding-right: 5px;
     Rectangle {
         width: dummy.preferred-width;
-        height: dummy.preferred-height;
+        height: Style.size.file-diff-line-height;
 
         dummy := Text {
             text: "\{root.model_length}";
@@ -44,7 +44,7 @@ component LineNumber inherits HorizontalLayout {
             y: 0;
             width: 100%;
             height: 100%;
-            vertical-alignment: top;
+            vertical-alignment: center;
             horizontal-alignment: right;
             text: root.line_number != -1 ? root.line_number : "";
             font-size: Style.font.code_font_size;
@@ -98,6 +98,7 @@ component CodeLine inherits Rectangle {
             property <length> text_width: Math.max(1, root.max_chars_count) * Style.font.code-font-size * 0.62 + 10px;
 
             width: Math.max(text_width, root.visible-width);
+            height: Style.size.file-diff-line-height;
             horizontal-alignment: left;
             vertical-alignment: center;
             default-font-size: Style.font.code_font_size;
@@ -224,7 +225,6 @@ component DiffLineView inherits VerticalLayout {
     in-out property <[SlintDiffLine]> model;
     in-out property <int> selected_index;
     private property <bool> is_expanded: model_index == selected_index || !model[root.model_index].note.is-empty;
-    out property <length> line_height: self.height;
 
     padding-left: 2px;
     padding-right: 2px;
@@ -236,32 +236,32 @@ component DiffLineView inherits VerticalLayout {
         visible-width: root.visible-width;
     }
 
-    if is_expanded: NoteView {
-        preferred-height: 50px;
-        note: model[root.model_index].note;
-        is_done: model[root.model_index].is_done;
-        start-in-edit: model_index == selected_index && model[root.model_index].note.is-empty;
+    // if is_expanded: NoteView {
+    //     preferred-height: 50px;
+    //     note: model[root.model_index].note;
+    //     is_done: model[root.model_index].is_done;
+    //     start-in-edit: model_index == selected_index && model[root.model_index].note.is-empty;
 
-        set_note(new_note) => {
-            model[root.model_index].note = new_note
-        }
-        set_is_done(new_is_done) => {
-            model[root.model_index].is_done = new_is_done
-        }
-        delete_note => {
-            model[root.model_index].is_done = false;
-            model[root.model_index].note = "";
-            if model_index == selected_index {
-                root.selected_index = -1;
-            }
-        }
-        select => {
-            root.selected_index = model_index
-        }
-        deselect => {
-            root.selected_index = -1
-        }
-    }
+    //     set_note(new_note) => {
+    //         model[root.model_index].note = new_note
+    //     }
+    //     set_is_done(new_is_done) => {
+    //         model[root.model_index].is_done = new_is_done
+    //     }
+    //     delete_note => {
+    //         model[root.model_index].is_done = false;
+    //         model[root.model_index].note = "";
+    //         if model_index == selected_index {
+    //             root.selected_index = -1;
+    //         }
+    //     }
+    //     select => {
+    //         root.selected_index = model_index
+    //     }
+    //     deselect => {
+    //         root.selected_index = -1
+    //     }
+    // }
 }
 
 component MiniMap inherits Rectangle {
@@ -354,63 +354,69 @@ component MiniMap inherits Rectangle {
 }
 
 export component FileDiffWidget inherits HorizontalLayout {
-    in property <SlintFileDiffIdParamters> file_diff_id_parameter;
-    private property <SlintDiffLines> diff_lines: SlintReviewCallbacks.diff_lines_model(self.file_diff_id_parameter);
+    in property <int> diff_model_index;
+    in property <SlintFileDiffIdParamters> file_diff_id_parameter; // TODO refactor
+    private property <[SlintDiffLines]> loaded_file_diffs: SlintFileDiffCallbacks.loaded_file_diffs_model(file_diff_id_parameter.review-id-parameters); // TODO refactor
+    private property <SlintDiffLines> diff_lines: loaded_file_diffs[diff_model_index]; // TODO refactor
     private property <int> line_count: diff_lines.lines.length;
     private property <int> selected_index: -1;
     private property <length> text_width: Math.max(1, root.diff_lines.max_chars_count) * Style.font.code-font-size * 0.62 + 10px;
+    private property <length> visible-start-y: 0;
 
     changed line_count => {
-        SlintFileDiffCallbacks.request_update_diff_model(root.file_diff_id_parameter, -flickable.viewport-y, flickable.height);
+        if line_count > 0 {
+            root.visible-start-y = SlintFileDiffCallbacks.request_update_diff_model(root.diff_lines.buffered-lines, -flickable.viewport-y, flickable.height);
+        }
+        else {
+            root.visible-start-y = 0px;
+        }
     }
 
-    // ListView {
-    //     horizontal-stretch: 1;
-    //     vertical-scrollbar-policy: always-off;
-    //     horizontal-scrollbar-policy: always-off;
-    //     width: 80px;
-    //     viewport-y <=> list_view.viewport-y;
+    private property <length> last_requested_y: -1px;
+    private property <bool> pending_update: false;
 
-    //     for line_data[idx] in root.diff_lines.lines: VerticalLayout {
-    //         HorizontalLayout {
-    //             ln_new := LineNumber {
-    //                 line_number: line_data.old_line_no;
-    //                 model_length: root.diff_lines.lines.length;
-    //             }
+    scroll_throttle_timer := Timer {
+        interval: 16ms;
+        running: root.pending_update;
+        triggered => {
+            root.pending_update = false;
+            root.last_requested_y = flickable.viewport-y;
 
-    //             ln_old := LineNumber {
-    //                 line_number: line_data.new_line_no;
-    //                 model_length: root.diff_lines.lines.length;
-    //             }
-    //         }
-
-    //         if !line_data.note.is-empty || idx == selected_index: Rectangle {
-    //             height: 50px;
-    //         }
-    //     }
-    // }
+            root.visible-start-y = SlintFileDiffCallbacks.request_update_diff_model(
+                root.diff_lines.buffered-lines,
+                -flickable.viewport-y,
+                flickable.height);
+        }
+    }
 
     flickable := Flickable {
-        width: 100%;
-        height: 100%;
+        private property <length> line_number_width: 80px;
+        private property <length> indicator_width: 16px;
+        private property <length> line_number_spacing: 5px;
+        private property <length> line_number_rect_width: line_number_width + indicator_width + line_number_spacing;
+        private property <int> counter: 0;
+
         viewport-height: root.diff_lines.lines.length * Style.size.file-diff-line-height;
-        viewport-width: root.text_width;
+        viewport-width: root.text_width + line_number_rect_width;
 
         changed viewport-y => {
-            SlintFileDiffCallbacks.request_update_diff_model(root.file_diff_id_parameter, -self.viewport-y, self.height);
+            if Math.abs(self.viewport-y - root.last_requested_y) > 2px {
+                root.pending_update = true;
+            }
         }
         changed height => {
-            SlintFileDiffCallbacks.request_update_diff_model(root.file_diff_id_parameter, -self.viewport-y, self.height);
+            root.pending_update = true;
         }
 
         content := Rectangle {
             x: 0;
-            y: root.diff_lines.visible-start-y;
+            y: root.visible-start-y;
             width: 100%;
 
             VerticalLayout {
-                x: line-rect.width;
+                x: line_number_rect_width;
                 spacing: 0px;
+                width: root.text_width;
 
                 for line[row] in root.diff_lines.buffered-lines: Rectangle {
                     DiffLineView {
@@ -423,13 +429,9 @@ export component FileDiffWidget inherits HorizontalLayout {
                 }
             }
 
-            line-rect := Rectangle {
-                private property <length> line_number_width: 80px;
-                private property <length> indicator_width: 30px;
-                private property <length> line_number_spacing: 5px;
-
-                x: -flickable.content-x; // NOTE fixed position
-                width: line_number_width + indicator_width + line_number_spacing;
+            Rectangle {
+                x: -flickable.viewport-x; // NOTE fixed position
+                width: line_number_rect_width;
                 background: Palette.background;
 
                 VerticalLayout {

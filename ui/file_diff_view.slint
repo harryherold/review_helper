@@ -23,6 +23,7 @@ import {
     SlintChangeTypeUtils,
     SlintFileDiffs,
     SlintChangeType,
+    SlintFileDiffCallbacks,
 } from "globals.slint";
 import { FileNoteDelegate } from "file_note_delegate.slint";
 import { ToolButton } from "controls/tool_button.slint";
@@ -378,7 +379,19 @@ export component FileDiffView inherits VerticalLayout {
         }
 
         Rectangle {
-            if id_reload_gate.active-id != -1: FileDiffWidget {
+            private property <int> diff_model_index: {
+                if id_reload_gate.active-id == -1 {
+                    return -1;
+                }
+                let file_diff_id_parameter = {
+                    review_id_parameters: root.review_id_parameters,
+                    file_diff_id: id_reload_gate.active-id,
+                };
+                return SlintFileDiffCallbacks.create_or_get_diff_model_entry(file_diff_id_parameter);
+            }
+
+            if id_reload_gate.active-id != -1 && diff_model_index != -1: FileDiffWidget {
+                diff_model_index: parent.diff_model_index;
                 file_diff_id_parameter: {
                     review_id_parameters: root.review_id_parameters,
                     file_diff_id: id_reload_gate.active-id,

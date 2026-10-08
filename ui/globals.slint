@@ -135,7 +135,6 @@ export struct SlintMiniMapSegment {
 
 // TODO rename to SlintFileDiff
 export struct SlintDiffLines {
-        visible_start_y: length,
         max_chars_count: int,
         lines: [SlintDiffLine],
         buffered_lines: [SlintDiffLine],
@@ -214,7 +213,9 @@ export global SlintFileDiffs {
     }
 
 export global SlintFileDiffCallbacks {
-        callback request_update_diff_model(SlintFileDiffIdParamters, viewport_y: length, available_height: length);
+        pure callback request_update_diff_model(buffered_lines: [SlintDiffLine], viewport_y: length, available_height: length) -> length;
+        pure callback create_or_get_diff_model_entry(SlintFileDiffIdParamters) -> int;
+        pure callback loaded_file_diffs_model(SlintReviewIdParameters) -> [SlintDiffLines];
     }
 
 export global SlintReviewCallbacks {
@@ -240,7 +241,6 @@ export global SlintReviewCallbacks {
         callback show_file_differences(SlintFileDiffIdParamters);
         callback change_review_name(SlintReviewIdParameters, string);
         pure callback is_valid_review_name(SlintReviewIdParameters, string) -> bool;
-        pure callback diff_lines_model(SlintFileDiffIdParamters) -> SlintDiffLines;
     }
 
 export global SlintFilePickerAdapter {

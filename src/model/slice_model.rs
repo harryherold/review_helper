@@ -38,7 +38,7 @@ impl<M: Model> SliceProxyModel<M> {
     }
 }
 
-impl<M: Model> Model for SliceProxyModel<M> {
+impl<M: Model + 'static> Model for SliceProxyModel<M> {
     type Data = M::Data;
 
     fn row_count(&self) -> usize {
@@ -63,5 +63,9 @@ impl<M: Model> Model for SliceProxyModel<M> {
 
     fn model_tracker(&self) -> &dyn ModelTracker {
         &self.notify
+    }
+
+    fn as_any(&self) -> &dyn core::any::Any {
+        self
     }
 }
