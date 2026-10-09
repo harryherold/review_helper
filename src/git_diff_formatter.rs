@@ -71,6 +71,7 @@ impl GitDiffFormatter {
         let syntax_opt = self.config.syntax_set.find_syntax_by_extension(extension);
         let mut hightlight_lines_opt = syntax_opt.map(|syntax| HighlightLines::new(syntax, &self.config.theme_set.themes[&self.config.theme]));
         let max_chars_per_line = unformatted_lines.iter().map(|line| line.line.len()).max().unwrap_or_default();
+        let mut line_id_counter = 0;
         unformatted_lines
             .iter()
             .map(|diff| {
@@ -132,6 +133,8 @@ impl GitDiffFormatter {
                     slint::StyledText::from_markdown(&html_line).unwrap_or_else(|_| slint::StyledText::from_plain_text(&diff.line))
                 };
 
+                line_id_counter += 1;
+
                 ui::SlintDiffLine {
                     new_line_no: diff.new_line_no,
                     old_line_no: diff.old_line_no,
@@ -139,6 +142,7 @@ impl GitDiffFormatter {
                     status: SlintLineStatus::from(&diff.status),
                     styled_line,
                     max_chars_count: max_chars_per_line as i32,
+                    line_id: line_id_counter,
                     ..Default::default()
                 }
             })
