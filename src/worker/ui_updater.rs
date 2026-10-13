@@ -559,6 +559,7 @@ impl UiUpdater {
             review.review_progress.completed_count = 0;
 
             let mut file_notes_index_map: HashMap<String, Rc<VecModel<i32>>> = HashMap::new();
+            // TODO may be a performance penality
             review.note_model.iter().enumerate().for_each(|(index, note)| {
                 if note.context_type == SlintContextType::File {
                     file_notes_index_map
