@@ -7,6 +7,7 @@ use toml::{Table, Value};
 
 use crate::storage::repository_storage::{DiffRangeStore, FileDiffStore, NoteStore, ReviewName, ReviewStore, StorageError};
 use crate::storage::{RepositoryName, RepositoryStore, ReviewHelperStorage, StorageResult};
+use crate::worker::NoteChangeType::Text;
 
 const NOTE_FILE_NAME: &str = "notes.md";
 
@@ -317,19 +318,42 @@ fn load_notes(note_file: PathBuf) -> StorageResult<Vec<NoteStore>> {
 
 fn save_notes(notes: &[&NoteStore], note_file: PathBuf) -> StorageResult<()> {
     let mut general_notes = Vec::<String>::new();
-    let mut file_notes = BTreeMap::<String, Vec<String>>::new();
+    let mut file_notes = Vec::<String>::new();
 
-    let note_item_to_string = |item: &NoteStore| -> String { format!("* [{}] {}", if item.is_done { "x" } else { "" }, item.text) };
+    let note_item_to_string = |item: &NoteStore| -> String {
+        use crate::storage::NoteContext::*;
+
+        let context_text = match item.context {
+            General => None,
+            Text(text) => Some(format!("    - Context: `{}`", text)),
+            File(file) => Some(format!("    - File: `{}`", file.as_os_str().to_string_lossy())),
+            FileAnchor {
+                file,
+                diff_range,
+                codeline,
+                codeline_number,
+            } => {
+                let mut text = String::new();
+                text.push_str(&format!("    - File: `{}`\n", file.as_os_str().to_string_lossy()));
+                text.push_str(&format!("    - Code-Line: {}\n", codeline_number));
+                text.push_str(&format!("    - Code:\n        ```\n{}\n```\n", codeline));
+                text.push_str(&format!("    - Start-Commit: {}\n", diff_range.start));
+                text.push_str(&format!("    - End-Commit: {}", diff_range.end));
+                Some(text)
+            }
+        };
+        let main_text = format!("* [{}] {}", if item.is_done { "x" } else { "" }, item.text);
+        text
+    };
 
     for item in notes {
-        let notes: &mut Vec<String> = if item.context.is_empty() {
-            &mut general_notes
-        } else {
-            file_notes.entry(item.context.to_string()).or_default()
-        };
+        let notes: &mut Vec<String> = if item.context.is_empty() { &mut general_notes } else { &mut file_notes };
         notes.push(note_item_to_string(item));
     }
+
     let mut file = OpenOptions::new().create(true).truncate(true).write(true).open(note_file)?;
+
+    writeln!(file, "# Review Notes\n\n")?;
 
     for note in general_notes {
         writeln!(file, "{}", note)?;
@@ -353,7 +377,7 @@ mod tests {
     use anyhow::Ok;
     use serial_test::serial;
 
-    use crate::storage::repository_storage::{DiffRangeStore, FileDiffStore, RepositoryStore, ReviewName};
+    use crate::storage::repository_storage::{DiffRangeStore, FileDiffStore, NoteContext, RepositoryStore, ReviewName};
 
     use super::*;
     use std::{
@@ -437,7 +461,7 @@ file_name = "foo.md"
         create_review(path.to_path_buf(), "review_helper", "cool_feature", cool_feature_contents, Vec::new())?;
 
         let notes = vec![NoteStore {
-            context: "foo/bar.cpp".to_string(),
+            context: NoteContext::File("foo/bar.cpp".to_string()),
             is_done: true,
             text: "fix bug".to_string(),
         }];
@@ -614,7 +638,7 @@ file_name = "foo.md"
         assert_eq!(
             review.notes[0],
             NoteStore {
-                context: "foo/bar.cpp".to_string(),
+                context: NoteContext::File("foo/bar.cpp".to_string()),
                 is_done: true,
                 text: "fix bug".to_string(),
             }
@@ -658,7 +682,7 @@ file_name = "foo.md"
                 is_reviewed: true,
             }],
             notes: vec![NoteStore {
-                context: "/foo/bar.txt".to_string(),
+                context: NoteContext::File("/foo/bar.txt".to_string()),
                 text: "Fix bug".to_string(),
                 is_done: true,
             }],

@@ -64,9 +64,22 @@ pub struct FileDiffStore {
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]
+pub enum NoteContext {
+    General,
+    Text(String),
+    File(PathBuf),
+    FileAnchor {
+        file: PathBuf,
+        diff_range: DiffRangeStore,
+        codeline: String,
+        codeline_number: u32,
+    },
+}
+
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct NoteStore {
     pub text: String,
-    pub context: String,
+    pub context: NoteContext,
     pub is_done: bool,
 }
 
