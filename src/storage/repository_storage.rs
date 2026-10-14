@@ -63,10 +63,29 @@ pub struct FileDiffStore {
     pub is_reviewed: bool,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum NoteContext {
+    General,
+    Text(String),
+    File(PathBuf),
+    FileAnchor {
+        file: PathBuf,
+        diff_range: DiffRangeStore,
+        codeline: String,
+        codeline_number: u32,
+    },
+}
+
+impl Default for NoteContext {
+    fn default() -> Self {
+        NoteContext::General
+    }
+}
+
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct NoteStore {
     pub text: String,
-    pub context: String,
+    pub context: NoteContext,
     pub is_done: bool,
 }
 
@@ -89,6 +108,8 @@ pub enum StorageError {
     Serialize(String),
     #[error("Deserialize error occured: {0}")]
     Deserialize(String),
+    #[error("Parse int error occured: {0}")]
+    ParseInt(#[from] std::num::ParseIntError),
 }
 
 pub type StorageResult<T> = Result<T, StorageError>;

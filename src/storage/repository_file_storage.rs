@@ -1,12 +1,13 @@
-use std::collections::BTreeMap;
 use std::fs::{self, File, OpenOptions};
 use std::io::Write;
+use std::iter::Peekable;
 use std::path::{Path, PathBuf};
+use std::str::Lines;
 
 use toml::{Table, Value};
 
 use crate::storage::repository_storage::{DiffRangeStore, FileDiffStore, NoteStore, ReviewName, ReviewStore, StorageError};
-use crate::storage::{RepositoryName, RepositoryStore, ReviewHelperStorage, StorageResult};
+use crate::storage::{self, NoteContext, RepositoryName, RepositoryStore, ReviewHelperStorage, StorageResult};
 
 const NOTE_FILE_NAME: &str = "notes.md";
 
@@ -277,6 +278,83 @@ impl ReviewHelperStorage for ReviewHelperFileStorage {
     }
 }
 
+fn extract_backtick_value(text: &str) -> StorageResult<&str> {
+    text.split_once("`")
+        .and_then(|(_, rest)| rest.split_once("`"))
+        .map(|(value, _)| value)
+        .ok_or(StorageError::Deserialize("Could not parse context!".to_string()))
+}
+
+fn parse_context_for_pattern(text: Option<&str>, pattern: &str) -> StorageResult<()> {
+    let text = text.ok_or(StorageError::Deserialize(format!("Could not parse {}!", pattern)))?;
+    if !text.contains(pattern) {
+        Err(StorageError::Deserialize(format!("Could not parse {}!", pattern)))
+    } else {
+        Ok(())
+    }
+}
+
+fn extract_context_value<'a>(text: Option<&'a str>, pattern: &str) -> StorageResult<&'a str> {
+    let text = text.ok_or(StorageError::Deserialize(format!("Could not parse {}!", pattern)))?;
+    if !text.contains(pattern) {
+        Err(StorageError::Deserialize(format!("Could not parse {}!", pattern)))
+    } else {
+        Ok(text)
+    }
+}
+
+fn parse_context(iter: &mut Peekable<Lines<'_>>) -> StorageResult<Option<NoteContext>> {
+    while let Some(context_data) = iter.next() {
+        if context_data.contains("- Context:") {
+            let text = extract_backtick_value(context_data)?;
+            return Ok(Some(storage::NoteContext::Text(text.to_string())));
+        }
+        if context_data.contains("- File:")
+            && let Some(more_context) = iter.peek()
+            && more_context.contains("- Code-Line:")
+        {
+            let file = extract_backtick_value(context_data)?;
+
+            let line_number = extract_context_value(iter.next(), "- Code-Line:")?;
+            let line_number = extract_backtick_value(line_number)?.parse::<u32>()?;
+
+            parse_context_for_pattern(iter.next(), "- Code:")?;
+            parse_context_for_pattern(iter.next(), "```")?;
+
+            let mut code = Vec::new();
+            let mut line_opt = iter.next();
+            while let Some(code_line) = line_opt
+                && !code_line.contains("```")
+            {
+                code.push(code_line);
+                line_opt = iter.next();
+            }
+
+            parse_context_for_pattern(line_opt, "```")?;
+
+            let start_commit = extract_context_value(iter.next(), "- Start-Commit:")?;
+            let start_commit = extract_backtick_value(start_commit)?;
+
+            let end_commit = extract_context_value(iter.next(), "- End-Commit:")?;
+            let end_commit = extract_backtick_value(end_commit)?;
+
+            return Ok(Some(storage::NoteContext::FileAnchor {
+                file: PathBuf::from(file),
+                diff_range: DiffRangeStore {
+                    start: start_commit.to_string(),
+                    end: end_commit.to_string(),
+                },
+                codeline: code.join("\n"),
+                codeline_number: line_number,
+            }));
+        } else if context_data.contains("- File:") {
+            let file = extract_backtick_value(context_data)?;
+            return Ok(Some(storage::NoteContext::File(PathBuf::from(file))));
+        }
+    }
+    Ok(None)
+}
+
 fn load_notes(note_file: PathBuf) -> StorageResult<Vec<NoteStore>> {
     let to_note = |line: &str| -> Option<(bool, String)> {
         let pos = line.find("[")?;
@@ -289,47 +367,75 @@ fn load_notes(note_file: PathBuf) -> StorageResult<Vec<NoteStore>> {
         };
         Some((is_done, text))
     };
-    let to_file = |line: &str| -> Option<String> {
-        let start = line.find("'")? + 1;
-        let end = line.rfind("'")?;
-        Some(line.get(start..end)?.to_string())
-    };
     let buffer = fs::read_to_string(note_file)?;
     let mut notes = Vec::new();
-    let iter = buffer.lines();
-    let mut context = String::new();
+    let mut iter = buffer.lines().peekable();
 
-    for line in iter {
+    while let Some(line) = iter.next() {
         let line = line.trim();
-        if line.starts_with("#") {
-            context = to_file(line).ok_or_else(|| StorageError::Deserialize("Could not parse file context!".to_string()))?;
-        } else if line.starts_with("*") {
+        let mut store = NoteStore::default();
+        if line.starts_with("*") {
             let (is_done, text) = to_note(line).ok_or_else(|| StorageError::Deserialize("Could not parse list item!".to_string()))?;
-            notes.push(NoteStore {
-                text,
-                context: context.clone(),
-                is_done,
-            });
+            store.is_done = is_done;
+            store.text = text;
+        }
+        if let Some(next_line) = iter.peek()
+            && !next_line.starts_with("*")
+        {
+            if let Some(context) = parse_context(&mut iter)? {
+                store.context = context;
+            }
+            notes.push(store);
         }
     }
+
     Ok(notes)
 }
 
-fn save_notes(notes: &[&NoteStore], note_file: PathBuf) -> StorageResult<()> {
+fn save_notes(note_stores: &[&NoteStore], note_file: PathBuf) -> StorageResult<()> {
+    use crate::storage::NoteContext::*;
+
     let mut general_notes = Vec::<String>::new();
-    let mut file_notes = BTreeMap::<String, Vec<String>>::new();
+    let mut file_notes = Vec::<String>::new();
 
-    let note_item_to_string = |item: &NoteStore| -> String { format!("* [{}] {}", if item.is_done { "x" } else { "" }, item.text) };
+    let note_item_to_string = |item: &NoteStore| -> String {
+        let context_text = match &item.context {
+            General => None,
+            Text(text) => Some(format!("    - Context: `{}`", text)),
+            File(file) => Some(format!("    - File: `{}`", file.as_os_str().to_string_lossy())),
+            FileAnchor {
+                file,
+                diff_range,
+                codeline,
+                codeline_number,
+            } => {
+                let mut anchor_text_parts = vec![format!("    - File: `{}`\n", file.as_os_str().to_string_lossy())];
+                anchor_text_parts.push(format!("    - Code-Line: `{}`\n", codeline_number));
+                anchor_text_parts.push("    - Code:".to_string());
+                anchor_text_parts.push("```".to_string());
+                anchor_text_parts.push(codeline.to_owned());
+                anchor_text_parts.push("```".to_string());
+                anchor_text_parts.push(format!("    - Start-Commit: `{}`\n", diff_range.start));
+                anchor_text_parts.push(format!("    - End-Commit: `{}`", diff_range.end));
 
-    for item in notes {
-        let notes: &mut Vec<String> = if item.context.is_empty() {
-            &mut general_notes
-        } else {
-            file_notes.entry(item.context.to_string()).or_default()
+                Some(anchor_text_parts.join("\n"))
+            }
         };
-        notes.push(note_item_to_string(item));
+        let mut text_lines = vec![format!("* [{}] {}", if item.is_done { "x" } else { "" }, item.text)];
+        if let Some(ctx) = context_text {
+            text_lines.push(ctx);
+        }
+        text_lines.join("\n")
+    };
+
+    for note_store in note_stores {
+        let notes: &mut Vec<String> = if note_store.context == General { &mut general_notes } else { &mut file_notes };
+        notes.push(note_item_to_string(note_store));
     }
+
     let mut file = OpenOptions::new().create(true).truncate(true).write(true).open(note_file)?;
+
+    writeln!(file, "# Review Notes\n\n")?;
 
     for note in general_notes {
         writeln!(file, "{}", note)?;
@@ -337,12 +443,8 @@ fn save_notes(notes: &[&NoteStore], note_file: PathBuf) -> StorageResult<()> {
 
     writeln!(file)?;
 
-    for (file_name, notes) in file_notes {
-        writeln!(file, "# Notes of '{}'", file_name)?;
-        for note in notes {
-            writeln!(file, "{}", note)?;
-        }
-        writeln!(file)?;
+    for note in file_notes {
+        writeln!(file, "{}", note)?;
     }
 
     Ok(())
@@ -353,7 +455,7 @@ mod tests {
     use anyhow::Ok;
     use serial_test::serial;
 
-    use crate::storage::repository_storage::{DiffRangeStore, FileDiffStore, RepositoryStore, ReviewName};
+    use crate::storage::repository_storage::{DiffRangeStore, FileDiffStore, NoteContext, RepositoryStore, ReviewName};
 
     use super::*;
     use std::{
@@ -437,7 +539,7 @@ file_name = "foo.md"
         create_review(path.to_path_buf(), "review_helper", "cool_feature", cool_feature_contents, Vec::new())?;
 
         let notes = vec![NoteStore {
-            context: "foo/bar.cpp".to_string(),
+            context: NoteContext::File(PathBuf::from("foo/bar.cpp")),
             is_done: true,
             text: "fix bug".to_string(),
         }];
@@ -614,7 +716,7 @@ file_name = "foo.md"
         assert_eq!(
             review.notes[0],
             NoteStore {
-                context: "foo/bar.cpp".to_string(),
+                context: NoteContext::File(PathBuf::from("foo/bar.cpp")),
                 is_done: true,
                 text: "fix bug".to_string(),
             }
@@ -658,7 +760,7 @@ file_name = "foo.md"
                 is_reviewed: true,
             }],
             notes: vec![NoteStore {
-                context: "/foo/bar.txt".to_string(),
+                context: NoteContext::File(PathBuf::from("/foo/bar.txt")),
                 text: "Fix bug".to_string(),
                 is_done: true,
             }],
