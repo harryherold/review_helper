@@ -130,7 +130,7 @@ export component CommitPicker inherits PopupWindow {
                 private property <length> item_height: 16px + Style.size.padding * 2;
 
                 function scroll_to(item_index: int) {
-                    self.viewport-y = -(item_index * item_height - (self.height / 2) + (item_height / 2));
+                    self.content-y = -(item_index * item_height - (self.height / 2) + (item_height / 2));
                 }
 
                 for commit[index] in root.model: Rectangle {

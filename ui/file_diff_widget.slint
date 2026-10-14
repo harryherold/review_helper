@@ -149,8 +149,8 @@ component DiffLineView inherits VerticalLayout {
 
 component MiniMap inherits Rectangle {
     in property <[SlintMiniMapSegment]> mini-map-segments;
-    in property <length> viewport-y;
-    in property <length> viewport-height;
+    in property <length> flickable-content-y;
+    in property <length> flickable-content-height;
     in property <length> visible-height;
 
     callback set-scroll-fraction(fraction: float);
@@ -160,11 +160,11 @@ component MiniMap inherits Rectangle {
 
     // 0.0 up, 1.0 down
     pure function scroll-fraction() -> float {
-        if root.viewport-height <= root.visible-height {
+        if root.flickable-content-height <= root.visible-height {
             return 0.0;
         }
         return Math.clamp(
-            -root.viewport-y / (root.viewport-height - root.visible-height),
+            -root.flickable-content-y / (root.flickable-content-height - root.visible-height),
             0.0, 1.0);
     }
 
@@ -190,7 +190,7 @@ component MiniMap inherits Rectangle {
         z: 1000;
         y: root.scroll-fraction() * (root.height - self.height);
 
-        height: Math.max(min-rect-height, root.visible-height * (root.visible-height / Math.max(root.viewport-height, 1px)));
+        height: Math.max(min-rect-height, root.visible-height * (root.visible-height / Math.max(root.flickable-content-height, 1px)));
         width: parent.width;
         background: Palette.background;
         opacity: tar.has-hover || is_pressed ? 0.7 : 0.5;
@@ -321,11 +321,11 @@ export component FileDiffWidget inherits HorizontalLayout {
         running: false;
         triggered => {
             scroll_throttle_timer.running = false;
-            root.last_requested_y = flickable.viewport-y;
+            root.last_requested_y = flickable.content-y;
 
             root.visible-start-y = SlintFileDiffCallbacks.request_update_diff_model(
                 root.diff_lines.buffered-lines,
-                -flickable.viewport-y,
+                -flickable.content-y,
                 flickable.height);
         }
     }
@@ -335,11 +335,11 @@ export component FileDiffWidget inherits HorizontalLayout {
     }
 
     flickable := Flickable {
-        viewport-height: root.diff_lines.lines.length * Style.size.file-diff-line-height;
-        viewport-width: root.text_width + line-number-view.width;
+        content-height: root.diff_lines.lines.length * Style.size.file-diff-line-height;
+        content-width: root.text_width + line-number-view.width;
 
-        changed viewport-y => {
-            if Math.abs(self.viewport-y - root.last_requested_y) > 2px {
+        changed content-y => {
+            if Math.abs(self.content-y - root.last_requested_y) > 2px {
                 update_debounced();
             }
         }
@@ -371,30 +371,30 @@ export component FileDiffWidget inherits HorizontalLayout {
             line-number-view := LineNumberView {
                 diff_lines: root.diff_lines;
                 edited_index <=> root.edited_index;
-                x: -flickable.viewport-x; // NOTE fixed position
+                x: -flickable.content-x; // NOTE fixed position
             }
         }
     }
 
     MiniMap {
         mini-map-segments: root.diff_lines.mini-map-segments;
-        viewport-y: flickable.viewport-y;
-        viewport-height: flickable.viewport-height;
+        flickable-content-y: flickable.content-y;
+        flickable-content-height: flickable.content-height;
         visible-height: flickable.height;
         set-scroll-fraction(fraction) => {
             let f = Math.clamp(fraction, 0.0, 1.0);
-            if flickable.viewport-height <= flickable.height {
-                flickable.viewport-y = 0;
+            if flickable.content-height <= flickable.height {
+                flickable.content-y = 0;
             } else {
-                flickable.viewport-y = -f * (flickable.viewport-height - flickable.height);
+                flickable.content-y = -f * (flickable.content-height - flickable.height);
             }
         }
         scroll-by(delta) => {
-            if flickable.viewport-height <= flickable.height {
+            if flickable.content-height <= flickable.height {
                 return;
             }
-            let max_scroll = flickable.viewport-height - flickable.height;
-            flickable.viewport-y = Math.clamp(flickable.viewport-y + delta, -max_scroll, 0px);
+            let max_scroll = flickable.content-height - flickable.height;
+            flickable.content-y = Math.clamp(flickable.content-y + delta, -max_scroll, 0px);
         }
     }
 }

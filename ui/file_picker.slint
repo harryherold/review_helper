@@ -51,7 +51,7 @@ export component FilePicker inherits PopupWindow {
 
             list_view := ListView {
                 function scroll_to(item_index: int) {
-                    self.viewport-y = -(item_index * Style.size.control_height - (self.height / 2) + (Style.size.control_height / 2));
+                    self.content-y = -(item_index * Style.size.control_height - (self.height / 2) + (Style.size.control_height / 2));
                 }
 
                 preferred-height: Math.min(root.file_model.length * Style.size.image-width, Style.size.file_picker_width);

@@ -101,7 +101,7 @@ export component ReviewSelectionTab inherits TabViewItem {
         review-listView := ListView {
             function scroll_to(review_index: int) {
                 debug("scroll to \{review-index}");
-                self.viewport-y = -(review_index * Style.size.control_height - (self.height / 2) + (Style.size.control_height / 2));
+                self.content-y = -(review_index * Style.size.control_height - (self.height / 2) + (Style.size.control_height / 2));
             }
 
             visible: root.review_model.length > 0; // NOTE workaround to get ListView visible with their elements
