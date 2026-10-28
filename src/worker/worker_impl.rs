@@ -7,9 +7,10 @@ use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 use crate::git_diff_formatter::GitDiffFormatter;
 use crate::git_repo::GitRepo;
-use crate::storage::repository_storage::{DiffRangeStore, ReviewName};
+use crate::storage::repository_storage::{self, DiffRangeStore, ReviewName};
 use crate::storage::{RepositoryName, RepositoryStore, ReviewHelperStorage, create_storage};
 use crate::ui::{SlintContextType, SlintNote};
+use crate::worker::NoteContext::General;
 use crate::{git_utils, ui};
 
 use crate::repositories::{FileDiffId, NoteId, Repositories, RepositoryId, Review, ReviewId};
@@ -25,10 +26,16 @@ pub enum ReviewHelperError {
     NoGitDirectory(String),
 }
 
+pub enum NoteContext {
+    General,
+    File(String),
+    Text(String),
+}
+
 #[derive(Clone)]
 pub enum NoteChangeType {
     Text(String),
-    Context(String),
+    Context(NoteContext),
     IsDone(bool),
 }
 
@@ -98,7 +105,7 @@ pub enum WorkerMessage {
         repository_id: RepositoryId,
         review_id: ReviewId,
         text: String,
-        context: String,
+        context: NoteContext,
     },
 }
 
@@ -563,20 +570,28 @@ impl WorkerImpl {
             .get_mut(&note_id)
             .unwrap_or_else(|| panic!("[BUG] Could not find {} ({}, {})", note_id, review_id, repository_id));
 
-        let mut opt_context_type = None;
+        let mut opt_context_type = SlintContextType::General;
         match change_type.clone() {
             NoteChangeType::Text(new_text) => note.text = new_text,
             NoteChangeType::Context(new_context) => {
-                opt_context_type = if review.file_diffs.file_id_map.contains_key(&new_context) {
-                    Some(SlintContextType::File)
-                } else {
-                    Some(SlintContextType::Text)
-                };
-                let new_file_diff_id = review.file_diffs.file_id_map.get(&new_context);
-                let old_file_diff_id = review.file_diffs.file_id_map.get(&note.context);
-                update_note_references(&note_id, old_file_diff_id, new_file_diff_id);
+                match new_context {
+                    General => {}
+                    NoteContext::File(file) => review.file_diffs.file_id_map.get(&file),
+                    NoteContext::Text(text) => {}
+                }
 
-                note.context = new_context;
+                // let new_file_diff_id = review.file_diffs.file_id_map.get(&new_context);
+                // let old_file_diff_id = review.file_diffs.file_id_map.get(&note.context);
+
+                // update_note_references(&note_id, old_file_diff_id, new_file_diff_id);
+
+                if review.file_diffs.file_id_map.contains_key(&new_context) {
+                    note.context = repository_storage::NoteContextStore::File(PathBuf::from(new_context));
+                    opt_context_type = Some(SlintContextType::File);
+                } else {
+                    note.context = repository_storage::NoteContextStore::Text(new_context);
+                    opt_context_type = Some(SlintContextType::Text);
+                };
             }
             NoteChangeType::IsDone(new_is_done) => note.is_done = new_is_done,
         }

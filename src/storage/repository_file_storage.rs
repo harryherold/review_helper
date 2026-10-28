@@ -7,7 +7,7 @@ use std::str::Lines;
 use toml::{Table, Value};
 
 use crate::storage::repository_storage::{DiffRangeStore, FileDiffStore, NoteStore, ReviewName, ReviewStore, StorageError};
-use crate::storage::{self, NoteContext, RepositoryName, RepositoryStore, ReviewHelperStorage, StorageResult};
+use crate::storage::{self, NoteContextStore, RepositoryName, RepositoryStore, ReviewHelperStorage, StorageResult};
 
 const NOTE_FILE_NAME: &str = "notes.md";
 
@@ -303,11 +303,11 @@ fn extract_context_value<'a>(text: Option<&'a str>, pattern: &str) -> StorageRes
     }
 }
 
-fn parse_context(iter: &mut Peekable<Lines<'_>>) -> StorageResult<Option<NoteContext>> {
+fn parse_context(iter: &mut Peekable<Lines<'_>>) -> StorageResult<Option<NoteContextStore>> {
     while let Some(context_data) = iter.next() {
         if context_data.contains("- Context:") {
             let text = extract_backtick_value(context_data)?;
-            return Ok(Some(storage::NoteContext::Text(text.to_string())));
+            return Ok(Some(storage::NoteContextStore::Text(text.to_string())));
         }
         if context_data.contains("- File:")
             && let Some(more_context) = iter.peek()
@@ -338,7 +338,7 @@ fn parse_context(iter: &mut Peekable<Lines<'_>>) -> StorageResult<Option<NoteCon
             let end_commit = extract_context_value(iter.next(), "- End-Commit:")?;
             let end_commit = extract_backtick_value(end_commit)?;
 
-            return Ok(Some(storage::NoteContext::FileAnchor {
+            return Ok(Some(storage::NoteContextStore::FileAnchor {
                 file: PathBuf::from(file),
                 diff_range: DiffRangeStore {
                     start: start_commit.to_string(),
@@ -349,7 +349,7 @@ fn parse_context(iter: &mut Peekable<Lines<'_>>) -> StorageResult<Option<NoteCon
             }));
         } else if context_data.contains("- File:") {
             let file = extract_backtick_value(context_data)?;
-            return Ok(Some(storage::NoteContext::File(PathBuf::from(file))));
+            return Ok(Some(storage::NoteContextStore::File(PathBuf::from(file))));
         }
     }
     Ok(None)
@@ -393,7 +393,7 @@ fn load_notes(note_file: PathBuf) -> StorageResult<Vec<NoteStore>> {
 }
 
 fn save_notes(note_stores: &[&NoteStore], note_file: PathBuf) -> StorageResult<()> {
-    use crate::storage::NoteContext::*;
+    use crate::storage::NoteContextStore::*;
 
     let mut general_notes = Vec::<String>::new();
     let mut file_notes = Vec::<String>::new();
@@ -455,7 +455,7 @@ mod tests {
     use anyhow::Ok;
     use serial_test::serial;
 
-    use crate::storage::repository_storage::{DiffRangeStore, FileDiffStore, NoteContext, RepositoryStore, ReviewName};
+    use crate::storage::repository_storage::{DiffRangeStore, FileDiffStore, NoteContextStore, RepositoryStore, ReviewName};
 
     use super::*;
     use std::{
@@ -539,7 +539,7 @@ file_name = "foo.md"
         create_review(path.to_path_buf(), "review_helper", "cool_feature", cool_feature_contents, Vec::new())?;
 
         let notes = vec![NoteStore {
-            context: NoteContext::File(PathBuf::from("foo/bar.cpp")),
+            context: NoteContextStore::File(PathBuf::from("foo/bar.cpp")),
             is_done: true,
             text: "fix bug".to_string(),
         }];
@@ -716,7 +716,7 @@ file_name = "foo.md"
         assert_eq!(
             review.notes[0],
             NoteStore {
-                context: NoteContext::File(PathBuf::from("foo/bar.cpp")),
+                context: NoteContextStore::File(PathBuf::from("foo/bar.cpp")),
                 is_done: true,
                 text: "fix bug".to_string(),
             }
@@ -760,7 +760,7 @@ file_name = "foo.md"
                 is_reviewed: true,
             }],
             notes: vec![NoteStore {
-                context: NoteContext::File(PathBuf::from("/foo/bar.txt")),
+                context: NoteContextStore::File(PathBuf::from("/foo/bar.txt")),
                 text: "Fix bug".to_string(),
                 is_done: true,
             }],

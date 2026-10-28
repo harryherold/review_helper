@@ -64,7 +64,7 @@ pub struct FileDiffStore {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum NoteContext {
+pub enum NoteContextStore {
     General,
     Text(String),
     File(PathBuf),
@@ -76,16 +76,16 @@ pub enum NoteContext {
     },
 }
 
-impl Default for NoteContext {
+impl Default for NoteContextStore {
     fn default() -> Self {
-        NoteContext::General
+        NoteContextStore::General
     }
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct NoteStore {
     pub text: String,
-    pub context: NoteContext,
+    pub context: NoteContextStore,
     pub is_done: bool,
 }
 
