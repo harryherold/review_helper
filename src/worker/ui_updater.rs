@@ -380,14 +380,7 @@ impl UiUpdater {
             review_model.update(review_id, review);
         });
     }
-    pub fn update_note(
-        &self,
-        repository_id: usize,
-        review_id: usize,
-        note_id: usize,
-        note_change_type: NoteChangeType,
-        opt_context_type: Option<SlintContextType>,
-    ) {
+    pub fn update_note(&self, repository_id: usize, review_id: usize, note_id: usize, note_change_type: NoteChangeType) {
         self.execute_in_event_loop(move |app_window| {
             let review_model =
                 model_utils::get_review_model(&app_window, repository_id).unwrap_or_else(|| panic!("[BUG] RepositoryId {} not found", repository_id));

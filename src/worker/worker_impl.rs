@@ -7,10 +7,9 @@ use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 use crate::git_diff_formatter::GitDiffFormatter;
 use crate::git_repo::GitRepo;
-use crate::storage::repository_storage::{self, DiffRangeStore, ReviewName};
-use crate::storage::{RepositoryName, RepositoryStore, ReviewHelperStorage, create_storage};
+use crate::storage::repository_storage::{DiffRangeStore, ReviewName};
+use crate::storage::{NoteContextStore, RepositoryName, RepositoryStore, ReviewHelperStorage, create_storage};
 use crate::ui::{SlintContextType, SlintNote};
-use crate::worker::NoteContext::General;
 use crate::{git_utils, ui};
 
 use crate::repositories::{FileDiffId, NoteId, Repositories, RepositoryId, Review, ReviewId};
@@ -26,6 +25,7 @@ pub enum ReviewHelperError {
     NoGitDirectory(String),
 }
 
+#[derive(Clone)]
 pub enum NoteContext {
     General,
     File(String),
@@ -107,6 +107,16 @@ pub enum WorkerMessage {
         text: String,
         context: NoteContext,
     },
+}
+
+impl From<NoteContext> for NoteContextStore {
+    fn from(context: NoteContext) -> Self {
+        match context {
+            NoteContext::General => NoteContextStore::General,
+            NoteContext::File(file) => NoteContextStore::File(PathBuf::from(file)),
+            NoteContext::Text(text) => NoteContextStore::Text(text),
+        }
+    }
 }
 
 pub struct Worker {
@@ -463,15 +473,16 @@ impl WorkerImpl {
 
         let mut ui_notes = Vec::new();
         review.notes.iter().for_each(|id_store_tuple| {
-            let context_type = if review.file_diffs.file_id_map.contains_key(&id_store_tuple.1.context) {
-                SlintContextType::File
-            } else {
-                SlintContextType::Text
+            let (context, context_type) = match &id_store_tuple.1.context {
+                NoteContextStore::General => (SharedString::new(), SlintContextType::General),
+                NoteContextStore::File(file) => (SharedString::from(file.to_string_lossy().to_string()), SlintContextType::File),
+                NoteContextStore::Text(text) => (SharedString::from(text), SlintContextType::Text),
+                _ => todo!("file anchors are not implemented!"),
             };
 
             ui_notes.push(SlintNote {
                 id: id_store_tuple.0.as_i32(),
-                context: SharedString::from(&id_store_tuple.1.context),
+                context,
                 context_type,
                 is_fixed: id_store_tuple.1.is_done,
                 text: SharedString::from(&id_store_tuple.1.text),
@@ -570,28 +581,20 @@ impl WorkerImpl {
             .get_mut(&note_id)
             .unwrap_or_else(|| panic!("[BUG] Could not find {} ({}, {})", note_id, review_id, repository_id));
 
-        let mut opt_context_type = SlintContextType::General;
         match change_type.clone() {
             NoteChangeType::Text(new_text) => note.text = new_text,
             NoteChangeType::Context(new_context) => {
-                match new_context {
-                    General => {}
-                    NoteContext::File(file) => review.file_diffs.file_id_map.get(&file),
-                    NoteContext::Text(text) => {}
-                }
-
-                // let new_file_diff_id = review.file_diffs.file_id_map.get(&new_context);
-                // let old_file_diff_id = review.file_diffs.file_id_map.get(&note.context);
-
-                // update_note_references(&note_id, old_file_diff_id, new_file_diff_id);
-
-                if review.file_diffs.file_id_map.contains_key(&new_context) {
-                    note.context = repository_storage::NoteContextStore::File(PathBuf::from(new_context));
-                    opt_context_type = Some(SlintContextType::File);
-                } else {
-                    note.context = repository_storage::NoteContextStore::Text(new_context);
-                    opt_context_type = Some(SlintContextType::Text);
+                let old_file_diff_id = match &note.context {
+                    NoteContextStore::File(file) => review.file_diffs.file_id_map.get(&file.to_string_lossy().to_string()),
+                    _ => None,
                 };
+                let new_file_diff_id = match &new_context {
+                    NoteContext::File(file) => review.file_diffs.file_id_map.get(file),
+                    _ => None,
+                };
+                update_note_references(&note_id, old_file_diff_id, new_file_diff_id);
+
+                note.context = new_context.into();
             }
             NoteChangeType::IsDone(new_is_done) => note.is_done = new_is_done,
         }
@@ -599,13 +602,8 @@ impl WorkerImpl {
             self.ui_updater.report_error(ui::SlintResult::StoreFailed, &e.to_string());
             return;
         }
-        self.ui_updater.update_note(
-            repository_id.as_usize(),
-            review_id.as_usize(),
-            note_id.as_usize(),
-            change_type,
-            opt_context_type,
-        );
+        self.ui_updater
+            .update_note(repository_id.as_usize(), review_id.as_usize(), note_id.as_usize(), change_type);
     }
     fn change_review_file_diff(&mut self, repository_id: RepositoryId, review_id: ReviewId, file_diff_id: FileDiffId, is_reviewed: bool) {
         let repository = self
@@ -701,14 +699,19 @@ impl WorkerImpl {
             return;
         }
 
-        if let Some(file_diff_id) = review.file_diffs.file_id_map.get(&store.context) {
+        let opt_file_id = match store.context {
+            NoteContextStore::File(file) => review.file_diffs.file_id_map.get(&file.to_string_lossy().to_string()).map(|id| id),
+            _ => None,
+        };
+
+        if let Some(file_diff_id) = opt_file_id {
             self.ui_updater
                 .remove_note_reference(repository_id.as_usize(), review_id.as_usize(), note_id.as_usize(), file_diff_id.as_usize());
         }
 
         self.ui_updater.delete_note(repository_id.as_usize(), review_id.as_usize(), note_id.as_usize());
     }
-    fn add_note(&mut self, repository_id: RepositoryId, review_id: ReviewId, text: String, context: String) {
+    fn add_note(&mut self, repository_id: RepositoryId, review_id: ReviewId, text: String, context: NoteContext) {
         let repository = self
             .repositories
             .get_mut(&repository_id)
@@ -720,20 +723,24 @@ impl WorkerImpl {
             .unwrap_or_else(|| panic!("[BUG] Could not find {} ({})", review_id, repository_id));
 
         let ui_text = SharedString::from(text.as_str());
-        let ui_context = SharedString::from(context.as_str());
 
-        let opt_file_diff_id = review.file_diffs.file_id_map.get(&context).map(|id| id.as_usize());
-        let note_id = review.notes.add_note(text, context);
+        let opt_file_diff_id = match &context {
+            NoteContext::File(file) => review.file_diffs.file_id_map.get(file).map(|id| id.as_usize()),
+            _ => None,
+        };
+
+        let (ui_context, context_type) = match &context {
+            NoteContext::General => (SharedString::new(), SlintContextType::General),
+            NoteContext::File(file) => (SharedString::from(file), SlintContextType::File),
+            NoteContext::Text(text) => (SharedString::from(text), SlintContextType::Text),
+        };
+
+        let note_id = review.notes.add_note(text, context.into());
 
         if let Err(e) = self.storage.save_review_notes(&repository.name, review.name(), &review.notes.stores()) {
             self.ui_updater.report_error(ui::SlintResult::StoreFailed, &e.to_string());
             return;
         }
-        let context_type = if review.file_diffs.file_id_map.contains_key(ui_context.as_str()) {
-            SlintContextType::File
-        } else {
-            SlintContextType::Text
-        };
 
         let ui_note = SlintNote {
             id: note_id.as_i32(),
