@@ -1,5 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
+use crate::worker::NoteContext;
 use crate::{cast_model, unwrap_or_return};
 use crate::{
     controller::utils_controller::is_valid_name,
@@ -163,7 +164,7 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
             channel.send(message).expect("Worker channel broken!");
         }
     });
-    app_window.global::<ui::SlintReviewCallbacks>().on_change_note_context({
+    app_window.global::<ui::SlintReviewCallbacks>().on_set_file_note_context({
         let channel = worker_channel.clone();
         move |ids, new_context| {
             let repository_id = RepositoryId::from(ids.review_id_parameters.repository_id);
@@ -171,7 +172,30 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
             let note_id = NoteId::from(ids.note_id);
             let content_change = ReviewContent::Note {
                 note_id,
-                change_type: NoteChangeType::Context(String::from(&new_context)),
+                change_type: NoteChangeType::Context(NoteContext::File(String::from(&new_context))),
+            };
+            let message = WorkerMessage::ChangeReview {
+                repository_id,
+                review_id,
+                content_change,
+            };
+            channel.send(message).expect("Worker channel broken!");
+        }
+    });
+    app_window.global::<ui::SlintReviewCallbacks>().on_set_text_note_context({
+        let channel = worker_channel.clone();
+        move |ids, new_context| {
+            let repository_id = RepositoryId::from(ids.review_id_parameters.repository_id);
+            let review_id = ReviewId::from(ids.review_id_parameters.review_id);
+            let note_id = NoteId::from(ids.note_id);
+            let context = if new_context.is_empty() {
+                NoteContext::General
+            } else {
+                NoteContext::Text(String::from(&new_context))
+            };
+            let content_change = ReviewContent::Note {
+                note_id,
+                change_type: NoteChangeType::Context(context),
             };
             let message = WorkerMessage::ChangeReview {
                 repository_id,
@@ -239,12 +263,16 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
     });
     app_window.global::<ui::SlintReviewCallbacks>().on_add_note({
         let channel = worker_channel.clone();
-        move |ids, note_text, note_context| {
+        move |ids, note_text, note_context, context_type| {
             let message = WorkerMessage::AddNote {
                 repository_id: RepositoryId::from(ids.repository_id),
                 review_id: ReviewId::from(ids.review_id),
                 text: String::from(note_text.as_str()),
-                context: String::from(note_context.as_str()),
+                context: match context_type {
+                    ui::SlintContextType::General => NoteContext::General,
+                    ui::SlintContextType::Text => NoteContext::Text(String::from(&note_context)),
+                    ui::SlintContextType::File => NoteContext::File(String::from(&note_context)),
+                },
             };
             channel.send(message).expect("Worker channel broken!");
         }

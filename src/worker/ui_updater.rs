@@ -21,6 +21,7 @@ use crate::storage::repository_storage::FileDiffStore;
 use crate::ui::SlintChangeTypeOccurrence;
 use crate::ui::SlintContextType;
 use crate::ui::{self, SlintFileDiff, SlintNote, SlintReview};
+use crate::worker::NoteContext;
 use crate::worker::{NoteChangeType, ReviewHelperSettings};
 
 pub struct UiBasicRepository {
@@ -393,10 +394,13 @@ impl UiUpdater {
             match note_change_type {
                 NoteChangeType::Text(ref new_text) => note.text = SharedString::from(new_text),
                 NoteChangeType::Context(ref new_context) => {
-                    if let Some(new_context_type) = opt_context_type {
-                        note.context_type = new_context_type;
-                    }
-                    note.context = SharedString::from(new_context);
+                    let (new_ui_context, new_context_type) = match new_context {
+                        NoteContext::General => (SharedString::default(), SlintContextType::General),
+                        NoteContext::Text(text) => (SharedString::from(text), SlintContextType::Text),
+                        NoteContext::File(path) => (SharedString::from(path), SlintContextType::File),
+                    };
+                    note.context_type = new_context_type;
+                    note.context = new_ui_context;
                 }
                 NoteChangeType::IsDone(new_is_done) => note.is_fixed = new_is_done,
             }

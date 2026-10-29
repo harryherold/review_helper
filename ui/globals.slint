@@ -235,10 +235,11 @@ export global SlintReviewCallbacks {
         pure callback review_id_to_index(int, [SlintReview]) -> int;
         callback find_file_changes(SlintReviewIdParameters, SlintDiffRange);
         callback change_note_text(SlintNoteIdParamters, string);
-        callback change_note_context(SlintNoteIdParamters, string);
+        callback set_text_note_context(SlintNoteIdParamters, string);
+        callback set_file_note_context(SlintNoteIdParamters, string);
         callback change_note_is_done(SlintNoteIdParamters, bool);
         callback delete_note(SlintNoteIdParamters);
-        callback add_note(SlintReviewIdParameters, string, string);
+        callback add_note(SlintReviewIdParameters, string, string, SlintContextType);
         callback change_file_diff_is_reviewed(SlintFileDiffIdParamters, bool);
         callback show_file_differences(SlintFileDiffIdParamters);
         callback change_review_name(SlintReviewIdParameters, string);

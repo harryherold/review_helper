@@ -24,6 +24,7 @@ import {
     SlintFileDiffs,
     SlintChangeType,
     SlintFileDiffCallbacks,
+    SlintContextType,
 } from "globals.slint";
 import { FileNoteDelegate } from "file_note_delegate.slint";
 import { ToolButton } from "controls/tool_button.slint";
@@ -181,7 +182,7 @@ component FileDiffList inherits ListView {
                         height: Style.size.control_height;
                         placeholder-text: @tr("Add comment here...");
                         accepted(new_text) => {
-                            SlintReviewCallbacks.add_note(root.review_id_parameters, new_text, data.file_path);
+                            SlintReviewCallbacks.add_note(root.review_id_parameters, new_text, data.file_path, SlintContextType.File);
                             self.text = "";
                         }
                     }

@@ -20,6 +20,7 @@ import {
     SlintNoteIdParamters,
     SlintFilePickerAdapter,
     SlintNote,
+    SlintContextType,
 } from "globals.slint";
 import { FilePicker } from "file_picker.slint";
 import { ToolButton } from "controls/tool_button.slint";
@@ -97,7 +98,7 @@ export component NotesView inherits Rectangle {
         y: root.file_picker_y;
         accepted(new_context) => {
             if (root.selected_note_id > -1) {
-                SlintReviewCallbacks.change_note_context(current_note_id_parameters, new_context);
+                SlintReviewCallbacks.set_file_note_context(current_note_id_parameters, new_context);
             } else {
                 new-context-edit.text = new-context;
             }
@@ -129,7 +130,8 @@ export component NotesView inherits Rectangle {
                     property <string> new_note_text <=> new-note-edit.text;
                     property <string> new_context <=> new-context-edit.text;
                     function add_note() {
-                        SlintReviewCallbacks.add_note(root.review_id_parameters, new_note_text, new_context);
+                        let context_type = new_context.is-empty ? SlintContextType.General : SlintContextType.Text;
+                        SlintReviewCallbacks.add_note(root.review_id_parameters, new_note_text, new_context, context_type);
                         new_note_text = "";
                         new_context = "";
                     }
@@ -341,7 +343,7 @@ export component NotesView inherits Rectangle {
                                 return EventResult.reject;
                             }
                             accepted(new_context) => {
-                                SlintReviewCallbacks.change_note_context(note_id_parameter, new_context);
+                                SlintReviewCallbacks.set_text_note_context(note_id_parameter, new_context);
                             }
                         }
 
