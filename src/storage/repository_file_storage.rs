@@ -378,14 +378,15 @@ fn load_notes(note_file: PathBuf) -> StorageResult<Vec<NoteStore>> {
             let (is_done, text) = to_note(line).ok_or_else(|| StorageError::Deserialize("Could not parse list item!".to_string()))?;
             store.is_done = is_done;
             store.text = text;
-        }
-        if let Some(next_line) = iter.peek()
-            && !next_line.starts_with("*")
-        {
-            if let Some(context) = parse_context(&mut iter)? {
-                store.context = context;
+
+            if let Some(next_line) = iter.peek()
+                && next_line.contains("-")
+            {
+                if let Some(context) = parse_context(&mut iter)? {
+                    store.context = context;
+                }
+                notes.push(store);
             }
-            notes.push(store);
         }
     }
 
