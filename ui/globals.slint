@@ -80,13 +80,12 @@ export struct SlintDiffLine {
         source_line: string,
         styled_line: styled-text,
         status: SlintLineStatus,
-        note: string,
-        is_done: bool,
         old_line_no: int,
         new_line_no: int,
         max_chars_count: int,
         note_height: length,
         line_id: int,
+        note_id: int,
     }
 
 // TODO rename to SlintFileChanges
@@ -244,6 +243,12 @@ export global SlintReviewCallbacks {
         callback show_file_differences(SlintFileDiffIdParamters);
         callback change_review_name(SlintReviewIdParameters, string);
         pure callback is_valid_review_name(SlintReviewIdParameters, string) -> bool;
+    }
+
+export global SlintNoteCallbacks {
+        pure callback note_source_model(SlintReviewIdParameters) -> [SlintNote];
+        pure callback index_of_id(int, [SlintNote]) -> int;
+        callback add_code_line_note(SlintReviewIdParameters, string);
     }
 
 export global SlintFilePickerAdapter {

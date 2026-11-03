@@ -16,6 +16,10 @@ import {
     SlintFileDiffCallbacks,
     SlintFileDiffIdParamters,
     SlintReviewCallbacks,
+    SlintNote,
+    SlintNoteCallbacks,
+    SlintContextType,
+    SlintNoteIdParamters,
 } from "globals.slint";
 import { ToolButton } from "controls/tool_button.slint";
 import { DeleteButton } from "controls/delete_button.slint";
@@ -96,8 +100,16 @@ component CodeLine inherits Rectangle {
 component DiffLineView inherits VerticalLayout {
     in property <int> model_index;
     in property <length> visible-width;
+    in property <[SlintNote]> note_model;
     in-out property <[SlintDiffLine]> model;
     in-out property <int> edited_index;
+    private property <bool> has_note: model[root.model_index].note_id != -1;
+    private property <int> note_index: model[root.model_index].note_id != -1 ? SlintNoteCallbacks.index_of_id(model[root.model_index].note_id, root.note_model) : -1;
+
+    callback set_is_done(bool);
+    callback set_note_text(string);
+    callback delete_note();
+    callback add_note(string);
 
     padding-left: 2px;
     padding-right: 2px;
@@ -109,37 +121,39 @@ component DiffLineView inherits VerticalLayout {
         visible-width: root.visible-width;
     }
 
-    if root.edited_index == model[root.model_index].line_id || !model[root.model_index].note.is-empty: HorizontalLayout {
+    if root.edited_index == model[root.model_index].line_id || root.note_index != -1: HorizontalLayout {
         alignment: start;
 
         init => {
-            if model[root.model_index].note.is-empty {
+            if root.note_index == -1 {
                 note-edit.focus();
             }
         }
 
-        ToolButton {
-            enabled: model[root.model_index].note != "";
-            source: model[root.model_index].is_done ? @image-url("../assets/icons/checkbox_checked_circle.svg") : @image-url("../assets/icons/checkbox_blank_circle.svg");
+        if root.note_index != -1: ToolButton {
+            source: root.note_model[root.note_index].is_fixed ? @image-url("../assets/icons/checkbox_checked_circle.svg") : @image-url("../assets/icons/checkbox_blank_circle.svg");
             clicked => {
-                model[root.model_index].is-done = !model[root.model_index].is-done;
+                root.set_is_done(root.note_model[root.note_index].is_fixed);
             }
         }
 
-        DeleteButton {
-            enabled: model[root.model_index].note != "";
+        if root.note_index != -1: DeleteButton {
             request-delete => {
-                model[root.model_index].note = "";
+                root.delete_note();
                 note-edit.clear-focus();
             }
         }
 
         note-edit := LineEdit {
-            text: model[root.model_index].note;
+            text: root.note_index != -1 ? root.note_model[root.note_index].text : "";
             width: Math.min(600px, code-line.width);
             height: Style.size.file-diff-line-height;
             accepted(text) => {
-                model[root.model_index].note = text;
+                if root.note_index != -1 {
+                    root.set_note_text(text);
+                } else {
+                    root.add_note(text);
+                }
                 root.edited_index = -1;
                 self.clear-focus();
             }
@@ -240,6 +254,8 @@ component LineNumberView inherits Rectangle {
     in-out property <int> edited_index;
     private property <length> indicator_width: 16px;
 
+    callback add_note(int);
+
     background: Palette.background;
     width: line-number-layout.preferred-width + Style.size.spacing;
 
@@ -248,7 +264,7 @@ component LineNumberView inherits Rectangle {
         spacing: 0px;
 
         for line[row] in root.diff_lines.buffered-lines: VerticalLayout {
-            private property <bool> has_note: !line.note.is-empty;
+            private property <bool> has_note: line.note_id != -1;
 
             spacing: 0;
 
@@ -283,12 +299,13 @@ component LineNumberView inherits Rectangle {
                     touch := TouchArea {
                         clicked => {
                             root.edited_index = line.line_id;
+                            root.add_note(line.line-id);
                         }
                     }
                 }
             }
 
-            if !line.note.is-empty || line.line_id == root.edited_index: Rectangle {
+            if has_note || line.line_id == root.edited_index: Rectangle {
                 height: Style.size.file-diff-line-height;
             }
         }
@@ -306,6 +323,7 @@ export component FileDiffWidget inherits HorizontalLayout {
     private property <length> visible-start-y: 0;
     private property <int> edited_index: -1;
     private property <length> last_requested_y: -1px;
+    private property <[SlintNote]> note_model: SlintNoteCallbacks.note_source_model(root.file_diff_id_parameter.review_id_parameters);
 
     changed line_count => {
         if line_count > 0 {
@@ -358,12 +376,23 @@ export component FileDiffWidget inherits HorizontalLayout {
                 width: root.text_width;
 
                 for line[row] in root.diff_lines.buffered-lines: Rectangle {
+                    private property <SlintNoteIdParamters> note_id_parameters: {
+                        review_id_parameters: file_diff_id_parameter.review_id_parameters,
+                        note_id: line.note_id
+                    };
+
                     DiffLineView {
                         spacing: 0;
                         model_index: row;
                         model: root.diff_lines.buffered-lines;
                         edited_index <=> root.edited_index;
                         visible-width: flickable.width;
+                        note_model: root.note_model;
+
+                        set_is_done(is_done) => { SlintReviewCallbacks.change_note_is_done(note_id_parameters, is_done); }
+                        set_note_text(text) => { SlintReviewCallbacks.change_note_text(note_id_parameters, text); }
+                        delete_note => { SlintReviewCallbacks.delete_note(note_id_parameters); }
+                        add_note(text) => { SlintNoteCallbacks.add_code_line_note(file_diff_id_parameter.review_id_parameters, text); }
                     }
                 }
             }
