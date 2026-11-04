@@ -1,0 +1,18 @@
+[target.x86_64-pc-windows-msvc]
+linker = "rust-lld.exe"
+rustflags = [
+    "-C",
+    "link-arg=/incremental",
+    "-C",
+    "link-arg=/OPT:NOREF",   # Deaktiviert das teure Aufräumen im Debug-Modus
+    "-C",
+    "link-arg=/OPT:NOICF",   # Deaktiviert das Zusammenlegen gleicher Funktionen (spart noch mehr Zeit)
+    "-C",
+    "codegen-units=512",
+]
+
+[profile.dev]
+# Reduziert die Debug-Details minimal, beschleunigt das Linken aber drastisch
+debug = 1
+# Deaktiviert teures inkrementelles Aufräumen (hilft enorm bei UI-Frameworks)
+split-debuginfo = "unpacked"
