@@ -398,6 +398,11 @@ impl UiUpdater {
                         NoteContext::General => (SharedString::default(), SlintContextType::General),
                         NoteContext::Text(text) => (SharedString::from(text), SlintContextType::Text),
                         NoteContext::File(path) => (SharedString::from(path), SlintContextType::File),
+                        NoteContext::FileCodeLine {
+                            file: _,
+                            line_content: _,
+                            line_number: _,
+                        } => todo!("FileCodeLine not implemented for update_note!"),
                     };
                     note.context_type = new_context_type;
                     note.context = new_ui_context;
@@ -642,10 +647,28 @@ impl UiUpdater {
             let review_model = cast_model!(review_model, IdModel<ui::SlintReview>);
             let mut review = review_model.get(review_id).unwrap_or_else(|| panic!("[BUG] ReviewId {} not found", review_id));
 
+            review.note_progress.total_count += 1;
+
+            if let Some(file_diff_id) = opt_file_diff_id
+                && note.context_type == ui::SlintContextType::FileLineNumber
+                && note.file_line_context.line_number != -1
+            {
+                let diff_model = cast_model!(review.loaded_file_diffs, IdModel<ui::SlintDiffLines>);
+                let diff_lines = diff_model
+                    .get(file_diff_id)
+                    .unwrap_or_else(|| panic!("[BUG] Could not find diff lines of file {}", file_diff_id));
+
+                let lines_model = cast_model!(diff_lines.lines, VecModel<ui::SlintDiffLine>);
+                let mut diff_line = lines_model
+                    .row_data(note.file_line_context.line_number as usize)
+                    .unwrap_or_else(|| panic!("[BUG] Could not find diff line {}", note.file_line_context.line_number));
+
+                diff_line.note_id = note.id;
+                lines_model.set_row_data(note.file_line_context.line_number as usize, diff_line);
+            }
+
             let note_model = cast_model!(review.note_model, IdModel<ui::SlintNote>);
             note_model.add(note.id as usize, note);
-
-            review.note_progress.total_count += 1;
 
             if let Some(file_diff_id) = opt_file_diff_id {
                 let file_diff_model = cast_model!(review.file_diff_model, IdModel<ui::SlintFileDiff>);

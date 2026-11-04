@@ -272,6 +272,7 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
                     ui::SlintContextType::General => NoteContext::General,
                     ui::SlintContextType::Text => NoteContext::Text(String::from(&note_context)),
                     ui::SlintContextType::File => NoteContext::File(String::from(&note_context)),
+                    ui::SlintContextType::FileLineNumber => todo!("FileLineNumber not implemented for add_note!"),
                 },
             };
             channel.send(message).expect("Worker channel broken!");

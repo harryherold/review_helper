@@ -103,13 +103,23 @@ export enum SlintContextType {
         General,
         Text,
         File,
+        FileLineNumber,
+    }
+
+export struct SlintFileCodeLine {
+        file: string,
+        start_commit: string,
+        end_commit: string,
+        line_content: string,
+        line_number: int,
     }
 
 export struct SlintNote {
         id: int,
         text: string,
         is_fixed: bool,
-        context: string,
+        context: string, // TODO rename to text_context
+        file_line_context: SlintFileCodeLine,
         context_type: SlintContextType,
     }
 
@@ -248,12 +258,13 @@ export global SlintReviewCallbacks {
 export global SlintNoteCallbacks {
         pure callback note_source_model(SlintReviewIdParameters) -> [SlintNote];
         pure callback index_of_id(int, [SlintNote]) -> int;
-        callback add_code_line_note(SlintReviewIdParameters, string);
+        callback add_code_line_note(SlintFileDiffIdParamters, string, string, int);
     }
 
 export global SlintFilePickerAdapter {
         pure callback file_model(SlintReviewIdParameters) -> [string];
         pure callback contains_model_context(SlintReviewIdParameters, string) -> bool;
+        pure callback file_path(SlintFileDiffIdParamters) -> string;
         callback set_filter(SlintReviewIdParameters, string);
     }
 

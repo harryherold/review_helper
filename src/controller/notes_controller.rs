@@ -1,9 +1,11 @@
 use slint::{ComponentHandle, Model, ModelRc};
 
 use crate::model::{IdModel, model_utils};
+use crate::repositories::{FileDiffId, RepositoryId, ReviewId};
+use crate::worker::WorkerChannel;
 use crate::{cast_model, ui, unwrap_or_return};
 
-pub fn setup_notes_callbacks(app_window: &ui::AppWindow) {
+pub fn setup_notes_callbacks(app_window: &ui::AppWindow, worker_channel: WorkerChannel) {
     app_window.global::<ui::SlintNoteCallbacks>().on_note_source_model({
         let app_window_weak = app_window.as_weak();
         move |ids| -> ModelRc<ui::SlintNote> {
@@ -17,6 +19,22 @@ pub fn setup_notes_callbacks(app_window: &ui::AppWindow) {
         move |id, note_model| -> i32 {
             let note_model = cast_model!(note_model, IdModel<ui::SlintNote>);
             note_model.id_to_index(id as usize).map(|i| i as i32).unwrap_or(-1)
+        }
+    });
+    app_window.global::<ui::SlintNoteCallbacks>().on_add_code_line_note({
+        let channel = worker_channel.clone();
+        move |ids, note_text, line_content, line_number| {
+            let message = crate::worker::WorkerMessage::AddNote {
+                repository_id: RepositoryId::from(ids.review_id_parameters.repository_id),
+                review_id: ReviewId::from(ids.review_id_parameters.review_id),
+                text: String::from(&note_text),
+                context: crate::worker::NoteContext::FileCodeLine {
+                    file: FileDiffId::from(ids.file_diff_id),
+                    line_content: String::from(line_content),
+                    line_number: line_number as u32,
+                },
+            };
+            channel.send(message).expect("Worker channel broken!");
         }
     });
 }

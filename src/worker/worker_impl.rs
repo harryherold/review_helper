@@ -7,7 +7,7 @@ use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 use crate::git_diff_formatter::GitDiffFormatter;
 use crate::git_repo::GitRepo;
-use crate::storage::repository_storage::{DiffRangeStore, ReviewName};
+use crate::storage::repository_storage::{self, DiffRangeStore, ReviewName};
 use crate::storage::{NoteContextStore, RepositoryName, RepositoryStore, ReviewHelperStorage, create_storage};
 use crate::ui::{SlintContextType, SlintNote};
 use crate::{git_utils, ui};
@@ -28,7 +28,8 @@ pub enum ReviewHelperError {
 #[derive(Clone)]
 pub enum NoteContext {
     General,
-    File(String),
+    File(String), // TODO use File(FileDiffId), its more convenient
+    FileCodeLine { file: FileDiffId, line_content: String, line_number: u32 },
     Text(String),
 }
 
@@ -107,16 +108,6 @@ pub enum WorkerMessage {
         text: String,
         context: NoteContext,
     },
-}
-
-impl From<NoteContext> for NoteContextStore {
-    fn from(context: NoteContext) -> Self {
-        match context {
-            NoteContext::General => NoteContextStore::General,
-            NoteContext::File(file) => NoteContextStore::File(PathBuf::from(file)),
-            NoteContext::Text(text) => NoteContextStore::Text(text),
-        }
-    }
 }
 
 pub struct Worker {
@@ -484,6 +475,7 @@ impl WorkerImpl {
                 id: id_store_tuple.0.as_i32(),
                 context,
                 context_type,
+                file_line_context: ui::SlintFileCodeLine::default(),
                 is_fixed: id_store_tuple.1.is_done,
                 text: SharedString::from(&id_store_tuple.1.text),
             });
@@ -594,7 +586,16 @@ impl WorkerImpl {
                 };
                 update_note_references(&note_id, old_file_diff_id, new_file_diff_id);
 
-                note.context = new_context.into();
+                note.context = match new_context {
+                    NoteContext::General => repository_storage::NoteContextStore::General,
+                    NoteContext::File(file) => repository_storage::NoteContextStore::File(PathBuf::from(&file)),
+                    NoteContext::Text(text) => repository_storage::NoteContextStore::Text(text),
+                    NoteContext::FileCodeLine {
+                        file: _,
+                        line_content: _,
+                        line_number: _,
+                    } => todo!("FileCodeLine not implemented for change_review_notes!"),
+                };
             }
             NoteChangeType::IsDone(new_is_done) => note.is_done = new_is_done,
         }
@@ -722,20 +723,83 @@ impl WorkerImpl {
             .get_mut(&review_id)
             .unwrap_or_else(|| panic!("[BUG] Could not find {} ({})", review_id, repository_id));
 
+        // TODO update here further caches!
+
         let ui_text = SharedString::from(text.as_str());
 
         let opt_file_diff_id = match &context {
             NoteContext::File(file) => review.file_diffs.file_id_map.get(file).map(|id| id.as_usize()),
+            NoteContext::FileCodeLine {
+                file,
+                line_content: _,
+                line_number: _,
+            } => Some(file.as_usize()),
             _ => None,
         };
 
-        let (ui_context, context_type) = match &context {
-            NoteContext::General => (SharedString::new(), SlintContextType::General),
-            NoteContext::File(file) => (SharedString::from(file), SlintContextType::File),
-            NoteContext::Text(text) => (SharedString::from(text), SlintContextType::Text),
+        let (file_line_context, ui_context, context_type) = match &context {
+            NoteContext::General => (
+                ui::SlintFileCodeLine {
+                    line_number: -1,
+                    ..Default::default()
+                },
+                SharedString::new(),
+                SlintContextType::General,
+            ),
+            NoteContext::File(file) => (
+                ui::SlintFileCodeLine {
+                    line_number: -1,
+                    ..Default::default()
+                },
+                SharedString::from(file),
+                SlintContextType::File,
+            ),
+            NoteContext::Text(text) => (
+                ui::SlintFileCodeLine {
+                    line_number: -1,
+                    ..Default::default()
+                },
+                SharedString::from(text),
+                SlintContextType::Text,
+            ),
+            NoteContext::FileCodeLine {
+                file,
+                line_content,
+                line_number,
+            } => {
+                let diff_range = review.diff_range();
+                let file_store = review.file_diffs.get(file).unwrap_or_else(|| panic!("[BUG] Could not find file {}", file));
+                (
+                    ui::SlintFileCodeLine {
+                        file: SharedString::from(file_store.file_path.to_string_lossy().to_string()),
+                        line_content: SharedString::from(line_content),
+                        line_number: *line_number as i32,
+                        start_commit: SharedString::from(diff_range.start.clone()),
+                        end_commit: SharedString::from(diff_range.end.clone()),
+                    },
+                    SharedString::new(),
+                    SlintContextType::FileLineNumber,
+                )
+            }
         };
 
-        let note_id = review.notes.add_note(text, context.into());
+        let context_store = match &context {
+            NoteContext::General => repository_storage::NoteContextStore::General,
+            NoteContext::File(file) => repository_storage::NoteContextStore::File(PathBuf::from(file)),
+            NoteContext::Text(text) => repository_storage::NoteContextStore::Text(text.to_owned()),
+            NoteContext::FileCodeLine {
+                file: _,
+                line_content,
+                line_number,
+            } => repository_storage::NoteContextStore::FileAnchor {
+                file: PathBuf::from(&file_line_context.file),
+                diff_range: review.diff_range().to_owned(),
+                codeline: line_content.to_owned(),
+                codeline_number: *line_number,
+            },
+        };
+
+        let note_id = review.notes.add_note(text, context_store);
 
         if let Err(e) = self.storage.save_review_notes(&repository.name, review.name(), &review.notes.stores()) {
             self.ui_updater.report_error(ui::SlintResult::StoreFailed, &e.to_string());
@@ -746,6 +810,7 @@ impl WorkerImpl {
             id: note_id.as_i32(),
             text: ui_text,
             context: ui_context,
+            file_line_context,
             context_type,
             is_fixed: false,
         };

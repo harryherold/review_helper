@@ -66,16 +66,16 @@ impl GitDiffFormatter {
             config: HighLighterConfig::new(theme),
         }
     }
-    pub fn format_lines(&self, unformatted_lines: Vec<GitDiffLine>, file: &str) -> Vec<ui::SlintDiffLine> {
+    pub fn format_lines(&self, raw_lines: Vec<GitDiffLine>, file: &str) -> Vec<ui::SlintDiffLine> {
         let extension = extension_from_filename(file).unwrap_or_default();
         let syntax_opt = self.config.syntax_set.find_syntax_by_extension(extension);
-        let mut hightlight_lines_opt = syntax_opt.map(|syntax| HighlightLines::new(syntax, &self.config.theme_set.themes[&self.config.theme]));
-        let max_chars_per_line = unformatted_lines.iter().map(|line| line.line.len()).max().unwrap_or_default();
+        let mut highlight_lines_opt = syntax_opt.map(|syntax| HighlightLines::new(syntax, &self.config.theme_set.themes[&self.config.theme]));
+        let max_chars_per_line = raw_lines.iter().map(|line| line.line.len()).max().unwrap_or_default();
         let mut line_id_counter = 0;
-        unformatted_lines
+        raw_lines
             .iter()
             .map(|diff| {
-                let html_line = if let Some(hightlight_lines) = hightlight_lines_opt.as_mut() {
+                let html_line = if let Some(hightlight_lines) = highlight_lines_opt.as_mut() {
                     match hightlight_lines.highlight_line(&diff.line, &self.config.syntax_set) {
                         Ok(regions) => {
                             let mut result = String::with_capacity(diff.line.len() * 2);
@@ -143,7 +143,8 @@ impl GitDiffFormatter {
                     styled_line,
                     max_chars_count: max_chars_per_line as i32,
                     line_id: line_id_counter,
-                    ..Default::default()
+                    note_id: -1,
+                    note_height: 0.0,
                 }
             })
             .collect::<Vec<_>>()

@@ -101,10 +101,10 @@ component DiffLineView inherits VerticalLayout {
     in property <int> model_index;
     in property <length> visible-width;
     in property <[SlintNote]> note_model;
+    in property <int> note_id;
     in-out property <[SlintDiffLine]> model;
     in-out property <int> edited_index;
-    private property <bool> has_note: model[root.model_index].note_id != -1;
-    private property <int> note_index: model[root.model_index].note_id != -1 ? SlintNoteCallbacks.index_of_id(model[root.model_index].note_id, root.note_model) : -1;
+    private property <int> note_index: note_id != -1 ? SlintNoteCallbacks.index_of_id(note_id, root.note_model) : -1;
 
     callback set_is_done(bool);
     callback set_note_text(string);
@@ -133,7 +133,7 @@ component DiffLineView inherits VerticalLayout {
         if root.note_index != -1: ToolButton {
             source: root.note_model[root.note_index].is_fixed ? @image-url("../assets/icons/checkbox_checked_circle.svg") : @image-url("../assets/icons/checkbox_blank_circle.svg");
             clicked => {
-                root.set_is_done(root.note_model[root.note_index].is_fixed);
+                root.set_is_done(!root.note_model[root.note_index].is_fixed);
             }
         }
 
@@ -264,7 +264,9 @@ component LineNumberView inherits Rectangle {
         spacing: 0px;
 
         for line[row] in root.diff_lines.buffered-lines: VerticalLayout {
-            private property <bool> has_note: line.note_id != -1;
+            property <int> line_note_id: root.diff_lines.lines[line.line-id].note-id;
+
+            private property <bool> has_note: line_note_id != -1;
 
             spacing: 0;
 
@@ -376,9 +378,11 @@ export component FileDiffWidget inherits HorizontalLayout {
                 width: root.text_width;
 
                 for line[row] in root.diff_lines.buffered-lines: Rectangle {
+                    property <int> line_note_id: root.diff_lines.lines[line.line-id].note-id;
+
                     private property <SlintNoteIdParamters> note_id_parameters: {
                         review_id_parameters: file_diff_id_parameter.review_id_parameters,
-                        note_id: line.note_id
+                        note_id: line_note_id
                     };
 
                     DiffLineView {
@@ -388,11 +392,12 @@ export component FileDiffWidget inherits HorizontalLayout {
                         edited_index <=> root.edited_index;
                         visible-width: flickable.width;
                         note_model: root.note_model;
+                        note_id: root.diff_lines.lines[line.line_id].note_id;
 
                         set_is_done(is_done) => { SlintReviewCallbacks.change_note_is_done(note_id_parameters, is_done); }
                         set_note_text(text) => { SlintReviewCallbacks.change_note_text(note_id_parameters, text); }
                         delete_note => { SlintReviewCallbacks.delete_note(note_id_parameters); }
-                        add_note(text) => { SlintNoteCallbacks.add_code_line_note(file_diff_id_parameter.review_id_parameters, text); }
+                        add_note(text) => { SlintNoteCallbacks.add_code_line_note(file_diff_id_parameter, text, line.source-line, line.line_id); }
                     }
                 }
             }
