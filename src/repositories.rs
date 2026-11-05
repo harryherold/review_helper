@@ -102,9 +102,15 @@ impl Notes {
     }
 }
 
+#[derive(Clone)]
+pub struct FileDiff {
+    pub store: FileDiffStore,
+    pub line_note_map: HashMap<u32, NoteId>,
+}
+
 #[derive(Default, Clone)]
 pub struct FileDiffs {
-    id_store_map: HashMap<FileDiffId, FileDiffStore>,
+    id_store_map: HashMap<FileDiffId, FileDiff>,
     pub file_id_map: HashMap<String, FileDiffId>,
     last_file_diff_id: FileDiffId,
 }
@@ -115,25 +121,44 @@ impl FileDiffs {
         file_diff_list.into_iter().for_each(|store| {
             let id = file_diffs.allocate_file_diff_id();
             let path_string = store.file_path.to_string_lossy().as_ref().to_string();
-            file_diffs.id_store_map.insert(id.clone(), store);
+            file_diffs.id_store_map.insert(
+                id.clone(),
+                FileDiff {
+                    store,
+                    line_note_map: HashMap::new(),
+                },
+            );
             file_diffs.file_id_map.insert(path_string, id);
         });
         file_diffs
     }
-
-    pub fn iter(&self) -> hash_map::Iter<'_, FileDiffId, FileDiffStore> {
-        self.id_store_map.iter()
+    pub fn iter(&self) -> impl Iterator<Item = (&FileDiffId, &FileDiffStore)> {
+        self.id_store_map.iter().map(|(id, file_diff)| (id, &file_diff.store))
     }
     pub fn stores(&self) -> Vec<&FileDiffStore> {
-        self.id_store_map.values().collect::<Vec<_>>()
+        self.id_store_map.values().map(|v| &v.store).collect::<Vec<_>>()
     }
-    pub fn get(&self, file_diff_id: &FileDiffId) -> Option<&FileDiffStore> {
+    pub fn get(&self, file_diff_id: &FileDiffId) -> Option<&FileDiff> {
         self.id_store_map.get(file_diff_id)
     }
     pub fn set_is_reviewed(&mut self, file_diff_id: &FileDiffId, is_reviewed: bool) {
         if let Some(file_diff) = self.id_store_map.get_mut(file_diff_id) {
-            file_diff.is_reviewed = is_reviewed;
+            file_diff.store.is_reviewed = is_reviewed;
         }
+    }
+    pub fn remove_file_line_note(&mut self, file_diff_id: &FileDiffId, line_number: &u32) -> Option<NoteId> {
+        let file_diff = self
+            .id_store_map
+            .get_mut(file_diff_id)
+            .unwrap_or_else(|| panic!("Could not find file diff id {}!", file_diff_id));
+        file_diff.line_note_map.remove(line_number)
+    }
+    pub fn add_file_line_note(&mut self, file_diff_id: &FileDiffId, line_number: u32, note_id: NoteId) {
+        let file_diff = self
+            .id_store_map
+            .get_mut(file_diff_id)
+            .unwrap_or_else(|| panic!("Could not find file diff id {}!", file_diff_id));
+        file_diff.line_note_map.insert(line_number, note_id);
     }
     pub fn update_file_diffs(&mut self, new_file_keys: HashSet<String>) -> (Vec<FileDiffId>, Vec<String>) {
         let old_file_keys = self.file_id_map.keys().cloned().collect::<HashSet<_>>();
@@ -177,9 +202,12 @@ impl FileDiffs {
 
         self.id_store_map.insert(
             id.clone(),
-            FileDiffStore {
-                file_path: PathBuf::from(&file),
-                is_reviewed: false,
+            FileDiff {
+                store: FileDiffStore {
+                    file_path: PathBuf::from(&file),
+                    is_reviewed: false,
+                },
+                line_note_map: HashMap::new(),
             },
         );
 
@@ -208,6 +236,37 @@ impl Review {
         review.file_diffs = FileDiffs::new(store.file_diff_list);
 
         review.notes = Notes::new(store.notes);
+
+        review
+            .notes
+            .iter()
+            .filter(|(_, store)| match &store.context {
+                NoteContextStore::FileAnchor { .. } => true,
+                _ => false,
+            })
+            .for_each(|(note_id, store)| match &store.context {
+                NoteContextStore::FileAnchor {
+                    file,
+                    diff_range: _,
+                    codeline: _,
+                    codeline_number,
+                } => {
+                    let file_id = review
+                        .file_diffs
+                        .file_id_map
+                        .get(&file.to_string_lossy().to_string())
+                        .unwrap_or_else(|| panic!("Could not find {} of note in file diffs", file.to_string_lossy()));
+
+                    let file_diff = review
+                        .file_diffs
+                        .id_store_map
+                        .get_mut(file_id)
+                        .unwrap_or_else(|| panic!("Could not find file diff of id {}", file_id));
+
+                    file_diff.line_note_map.insert(*codeline_number, note_id.to_owned());
+                }
+                _ => {}
+            });
 
         review
     }

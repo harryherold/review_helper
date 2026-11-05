@@ -42,7 +42,7 @@ impl ReviewHelperStorage for ReviewHelperFileStorage {
             })
             .collect::<Vec<PathBuf>>();
 
-        let tomls = nested_directories
+        let toml_files = nested_directories
             .iter()
             .filter_map(|directory| {
                 fs::read_dir(directory).ok()?.find_map(|entry| {
@@ -52,7 +52,7 @@ impl ReviewHelperStorage for ReviewHelperFileStorage {
             })
             .collect::<Vec<_>>();
 
-        let repositories = tomls
+        let repositories = toml_files
             .into_iter()
             .filter_map(|toml| {
                 let contents = fs::read_to_string(&toml).ok()?;
@@ -410,13 +410,13 @@ fn save_notes(note_stores: &[&NoteStore], note_file: PathBuf) -> StorageResult<(
                 codeline,
                 codeline_number,
             } => {
-                let mut anchor_text_parts = vec![format!("    - File: `{}`\n", file.as_os_str().to_string_lossy())];
-                anchor_text_parts.push(format!("    - Code-Line: `{}`\n", codeline_number));
+                let mut anchor_text_parts = vec![format!("    - File: `{}`", file.as_os_str().to_string_lossy())];
+                anchor_text_parts.push(format!("    - Code-Line: `{}`", codeline_number));
                 anchor_text_parts.push("    - Code:".to_string());
                 anchor_text_parts.push("```".to_string());
                 anchor_text_parts.push(codeline.to_owned());
                 anchor_text_parts.push("```".to_string());
-                anchor_text_parts.push(format!("    - Start-Commit: `{}`\n", diff_range.start));
+                anchor_text_parts.push(format!("    - Start-Commit: `{}`", diff_range.start));
                 anchor_text_parts.push(format!("    - End-Commit: `{}`", diff_range.end));
 
                 Some(anchor_text_parts.join("\n"))

@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::{ffi::OsStr, path::Path};
 
 use slint::SharedString;
@@ -6,6 +7,7 @@ use syntect::highlighting::FontStyle;
 use syntect::{easy::HighlightLines, highlighting::ThemeSet, parsing::SyntaxSet};
 
 use crate::git_repo::{GitDiffLine, LineType};
+use crate::repositories::NoteId;
 use crate::ui::{self, SlintLineStatus};
 
 struct HighLighterConfig {
@@ -66,15 +68,15 @@ impl GitDiffFormatter {
             config: HighLighterConfig::new(theme),
         }
     }
-    pub fn format_lines(&self, raw_lines: Vec<GitDiffLine>, file: &str) -> Vec<ui::SlintDiffLine> {
+    pub fn format_lines(&self, raw_lines: Vec<GitDiffLine>, file: &str, line_note_map: &HashMap<u32, NoteId>) -> Vec<ui::SlintDiffLine> {
         let extension = extension_from_filename(file).unwrap_or_default();
         let syntax_opt = self.config.syntax_set.find_syntax_by_extension(extension);
         let mut highlight_lines_opt = syntax_opt.map(|syntax| HighlightLines::new(syntax, &self.config.theme_set.themes[&self.config.theme]));
         let max_chars_per_line = raw_lines.iter().map(|line| line.line.len()).max().unwrap_or_default();
-        let mut line_id_counter = 0;
         raw_lines
             .iter()
-            .map(|diff| {
+            .enumerate()
+            .map(|(line_id, diff)| {
                 let html_line = if let Some(hightlight_lines) = highlight_lines_opt.as_mut() {
                     match hightlight_lines.highlight_line(&diff.line, &self.config.syntax_set) {
                         Ok(regions) => {
@@ -90,7 +92,6 @@ impl GitDiffFormatter {
 
                                 result.push_str(&format!("<font color=\"{}\">", color));
 
-                                // Optional: Bold / Italic / Underline mitnehmen
                                 let bold = style.font_style.contains(FontStyle::BOLD);
                                 let italic = style.font_style.contains(FontStyle::ITALIC);
                                 let underline = style.font_style.contains(FontStyle::UNDERLINE);
@@ -133,7 +134,7 @@ impl GitDiffFormatter {
                     slint::StyledText::from_markdown(&html_line).unwrap_or_else(|_| slint::StyledText::from_plain_text(&diff.line))
                 };
 
-                line_id_counter += 1;
+                let note_id = line_note_map.get(&(line_id as u32)).map(|id| id.as_i32()).unwrap_or(-1);
 
                 ui::SlintDiffLine {
                     new_line_no: diff.new_line_no,
@@ -142,8 +143,8 @@ impl GitDiffFormatter {
                     status: SlintLineStatus::from(&diff.status),
                     styled_line,
                     max_chars_count: max_chars_per_line as i32,
-                    line_id: line_id_counter,
-                    note_id: -1,
+                    line_id: line_id as i32,
+                    note_id,
                     note_height: 0.0,
                 }
             })

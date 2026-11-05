@@ -254,8 +254,6 @@ component LineNumberView inherits Rectangle {
     in-out property <int> edited_index;
     private property <length> indicator_width: 16px;
 
-    callback add_note(int);
-
     background: Palette.background;
     width: line-number-layout.preferred-width + Style.size.spacing;
 
@@ -301,7 +299,6 @@ component LineNumberView inherits Rectangle {
                     touch := TouchArea {
                         clicked => {
                             root.edited_index = line.line_id;
-                            root.add_note(line.line-id);
                         }
                     }
                 }

@@ -252,7 +252,7 @@ impl WorkerImpl {
 
         let start_commit = review.diff_range().start.as_str();
         let end_commit = review.diff_range().end.as_str();
-        let file = &file_diff.file_path.to_string_lossy();
+        let file = &file_diff.store.file_path.to_string_lossy();
         let file = file.as_ref();
         let diff_tool = self.settings.diff_tool.as_str();
 
@@ -464,18 +464,36 @@ impl WorkerImpl {
 
         let mut ui_notes = Vec::new();
         review.notes.iter().for_each(|id_store_tuple| {
-            let (context, context_type) = match &id_store_tuple.1.context {
-                NoteContextStore::General => (SharedString::new(), SlintContextType::General),
-                NoteContextStore::File(file) => (SharedString::from(file.to_string_lossy().to_string()), SlintContextType::File),
-                NoteContextStore::Text(text) => (SharedString::from(text), SlintContextType::Text),
-                _ => todo!("file anchors are not implemented!"),
+            let (text_context, file_line_context, context_type) = match &id_store_tuple.1.context {
+                NoteContextStore::General => (SharedString::new(), ui::SlintFileCodeLine::default(), SlintContextType::General),
+                NoteContextStore::File(file) => (
+                    SharedString::from(file.to_string_lossy().to_string()),
+                    ui::SlintFileCodeLine::default(),
+                    SlintContextType::File,
+                ),
+                NoteContextStore::Text(text) => (SharedString::from(text), ui::SlintFileCodeLine::default(), SlintContextType::Text),
+                NoteContextStore::FileAnchor {
+                    file,
+                    diff_range,
+                    codeline,
+                    codeline_number,
+                } => {
+                    let context = ui::SlintFileCodeLine {
+                        file: SharedString::from(file.to_string_lossy().to_string()),
+                        line_number: *codeline_number as i32,
+                        line_content: SharedString::from(codeline),
+                        start_commit: SharedString::from(&diff_range.start),
+                        end_commit: SharedString::from(&diff_range.end),
+                    };
+                    (SharedString::new(), context, SlintContextType::FileLineNumber)
+                }
             };
 
             ui_notes.push(SlintNote {
                 id: id_store_tuple.0.as_i32(),
-                context,
+                context: text_context,
                 context_type,
-                file_line_context: ui::SlintFileCodeLine::default(),
+                file_line_context,
                 is_fixed: id_store_tuple.1.is_done,
                 text: SharedString::from(&id_store_tuple.1.text),
             });
@@ -720,7 +738,18 @@ impl WorkerImpl {
                     .file_diffs
                     .file_id_map
                     .get(&file.to_string_lossy().to_string())
+                    .cloned()
                     .unwrap_or_else(|| panic!("[BUG] Could not find fileId of {}!", &file.to_string_lossy()));
+
+                match review.file_diffs.remove_file_line_note(&file_diff_id, &codeline_number) {
+                    Some(removed_note_id) => {
+                        if removed_note_id != note_id {
+                            panic!("[BUG] Removed wrong note {} (!= {}) from file {}", removed_note_id, note_id, file_diff_id);
+                        }
+                    }
+                    None => panic!("[BUG] File anchor referenced no guilty file or code line!"),
+                };
+
                 self.ui_updater
                     .remove_note_reference(repository_id.as_usize(), review_id.as_usize(), note_id.as_usize(), file_diff_id.as_usize());
                 self.ui_updater.remove_note_line_reference(
@@ -745,8 +774,6 @@ impl WorkerImpl {
             .reviews
             .get_mut(&review_id)
             .unwrap_or_else(|| panic!("[BUG] Could not find {} ({})", review_id, repository_id));
-
-        // TODO update here further caches!
 
         let ui_text = SharedString::from(text.as_str());
 
@@ -791,10 +818,10 @@ impl WorkerImpl {
                 line_number,
             } => {
                 let diff_range = review.diff_range();
-                let file_store = review.file_diffs.get(file).unwrap_or_else(|| panic!("[BUG] Could not find file {}", file));
+                let file_diff = review.file_diffs.get(file).unwrap_or_else(|| panic!("[BUG] Could not find file {}", file));
                 (
                     ui::SlintFileCodeLine {
-                        file: SharedString::from(file_store.file_path.to_string_lossy().to_string()),
+                        file: SharedString::from(file_diff.store.file_path.to_string_lossy().to_string()),
                         line_content: SharedString::from(line_content),
                         line_number: *line_number as i32,
                         start_commit: SharedString::from(diff_range.start.clone()),
@@ -823,6 +850,15 @@ impl WorkerImpl {
         };
 
         let note_id = review.notes.add_note(text, context_store);
+
+        if let NoteContext::FileCodeLine {
+            file,
+            line_content: _,
+            line_number,
+        } = &context
+        {
+            review.file_diffs.add_file_line_note(file, *line_number, note_id.clone());
+        }
 
         if let Err(e) = self.storage.save_review_notes(&repository.name, review.name(), &review.notes.stores()) {
             self.ui_updater.report_error(ui::SlintResult::StoreFailed, &e.to_string());
@@ -860,12 +896,12 @@ impl WorkerImpl {
 
         let DiffRangeStore { start, end } = review.diff_range();
 
-        let file = review
+        let file_diff = review
             .file_diffs
             .get(&file_diff_id)
             .unwrap_or_else(|| panic!("[BUG] Could not find file {}", file_diff_id));
 
-        let file_path = &file.file_path.to_string_lossy();
+        let file_path = &file_diff.store.file_path.to_string_lossy();
 
         let result = git_repo.diff(start, (!end.is_empty()).then_some(end.as_str()), file_path);
 
@@ -875,7 +911,7 @@ impl WorkerImpl {
         }
         if let Ok(lines) = result {
             let minimap_segments = generate_minimap_segments(&lines);
-            let formatted_lines = self.diff_formatter.format_lines(lines, file_path);
+            let formatted_lines = self.diff_formatter.format_lines(lines, file_path, &file_diff.line_note_map);
             self.ui_updater.add_git_diff_lines(
                 repository_id.as_usize(),
                 review_id.as_usize(),

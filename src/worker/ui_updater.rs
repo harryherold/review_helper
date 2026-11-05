@@ -242,11 +242,20 @@ impl UiUpdater {
 
             let notes_model = cast_model!(review.note_model, IdModel<ui::SlintNote>);
             ui_notes.into_iter().enumerate().for_each(|(index, ui_note)| {
-                if ui_note.context_type == SlintContextType::File {
-                    file_notes_map
-                        .entry(ui_note.context.to_string())
-                        .and_modify(|e| e.push(index as i32))
-                        .or_insert(Rc::new(VecModel::from(vec![index as i32])));
+                match ui_note.context_type {
+                    SlintContextType::File => {
+                        file_notes_map
+                            .entry(ui_note.context.to_string())
+                            .and_modify(|e| e.push(index as i32))
+                            .or_insert(Rc::new(VecModel::from(vec![index as i32])));
+                    }
+                    SlintContextType::FileLineNumber => {
+                        file_notes_map
+                            .entry(ui_note.file_line_context.file.to_string())
+                            .and_modify(|e| e.push(index as i32))
+                            .or_insert(Rc::new(VecModel::from(vec![index as i32])));
+                    }
+                    _ => {}
                 }
                 if ui_note.is_fixed {
                     review.note_progress.completed_count += 1;
