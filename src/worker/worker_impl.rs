@@ -700,15 +700,38 @@ impl WorkerImpl {
             return;
         }
 
-        let opt_file_id = match store.context {
-            NoteContextStore::File(file) => review.file_diffs.file_id_map.get(&file.to_string_lossy().to_string()).map(|id| id),
-            _ => None,
+        match store.context {
+            NoteContextStore::File(file) => {
+                let file_diff_id = review
+                    .file_diffs
+                    .file_id_map
+                    .get(&file.to_string_lossy().to_string())
+                    .unwrap_or_else(|| panic!("[BUG] Could not find fileId of {}!", &file.to_string_lossy()));
+                self.ui_updater
+                    .remove_note_reference(repository_id.as_usize(), review_id.as_usize(), note_id.as_usize(), file_diff_id.as_usize());
+            }
+            NoteContextStore::FileAnchor {
+                file,
+                diff_range: _,
+                codeline: _,
+                codeline_number,
+            } => {
+                let file_diff_id = review
+                    .file_diffs
+                    .file_id_map
+                    .get(&file.to_string_lossy().to_string())
+                    .unwrap_or_else(|| panic!("[BUG] Could not find fileId of {}!", &file.to_string_lossy()));
+                self.ui_updater
+                    .remove_note_reference(repository_id.as_usize(), review_id.as_usize(), note_id.as_usize(), file_diff_id.as_usize());
+                self.ui_updater.remove_note_line_reference(
+                    repository_id.as_usize(),
+                    review_id.as_usize(),
+                    file_diff_id.as_usize(),
+                    codeline_number as usize,
+                );
+            }
+            _ => {}
         };
-
-        if let Some(file_diff_id) = opt_file_id {
-            self.ui_updater
-                .remove_note_reference(repository_id.as_usize(), review_id.as_usize(), note_id.as_usize(), file_diff_id.as_usize());
-        }
 
         self.ui_updater.delete_note(repository_id.as_usize(), review_id.as_usize(), note_id.as_usize());
     }

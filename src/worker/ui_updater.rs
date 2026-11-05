@@ -91,6 +91,11 @@ pub fn generate_minimap_segments(lines: &Vec<GitDiffLine>) -> Vec<ui::SlintMiniM
     segments
 }
 
+enum NoteRef {
+    Id(usize),
+    Index(usize),
+}
+
 pub struct UiUpdater {
     ui_weak: slint::Weak<ui::AppWindow>,
 }
@@ -482,14 +487,22 @@ impl UiUpdater {
         });
     }
 
+    fn add_note_reference_impl(app_window: &ui::AppWindow, repository_id: usize, review_id: usize, note_ref: NoteRef, file_diff_id: usize) {
+        let review = model_utils::get_slint_review(&app_window, repository_id, review_id)
+            .unwrap_or_else(|| panic!("[BUG] RepositoryId {} ReviewId {} not found", repository_id, review_id));
+
+        let note_index = match note_ref {
+            NoteRef::Id(note_id) => Self::note_id_to_index(&review, note_id).unwrap_or_else(|| panic!("[BUG] Could not map NoteId {} to index", note_id)),
+            NoteRef::Index(index) => index,
+        };
+
+        let referenced_notes_model = Self::get_note_references(&review, file_diff_id);
+        let referenced_notes_model = cast_model!(referenced_notes_model, VecModel<i32>);
+        referenced_notes_model.push(note_index as i32);
+    }
     pub fn add_note_reference(&self, repository_id: usize, review_id: usize, note_id: usize, file_diff_id: usize) {
         self.execute_in_event_loop(move |app_window| {
-            let review = model_utils::get_slint_review(&app_window, repository_id, review_id)
-                .unwrap_or_else(|| panic!("[BUG] RepositoryId {} ReviewId {} not found", repository_id, review_id));
-            let note_index = Self::note_id_to_index(&review, note_id).unwrap_or_else(|| panic!("[BUG] Could not map NoteId {} to index", note_id));
-            let referenced_notes_model = Self::get_note_references(&review, file_diff_id);
-            let referenced_notes_model = cast_model!(referenced_notes_model, VecModel<i32>);
-            referenced_notes_model.push(note_index as i32);
+            Self::add_note_reference_impl(&app_window, repository_id, review_id, NoteRef::Id(note_id), file_diff_id);
         });
     }
     pub fn remove_note_reference(&self, repository_id: usize, review_id: usize, note_id: usize, file_diff_id: usize) {
@@ -501,9 +514,25 @@ impl UiUpdater {
             let referenced_notes_model = cast_model!(referenced_notes_model, VecModel<i32>);
             let remove_index = referenced_notes_model
                 .iter()
-                .position(|i| i == note_index as i32)
+                .position(|i: i32| i == note_index as i32)
                 .unwrap_or_else(|| panic!("[BUG] Referenced note index {} not found ({}, {})", note_index, review_id, repository_id));
             referenced_notes_model.remove(remove_index);
+        });
+    }
+    pub fn remove_note_line_reference(&self, repository_id: usize, review_id: usize, file_diff_id: usize, line_number: usize) {
+        self.execute_in_event_loop(move |app_window| {
+            let review = model_utils::get_slint_review(&app_window, repository_id, review_id)
+                .unwrap_or_else(|| panic!("[BUG] RepositoryId {} ReviewId {} not found", repository_id, review_id));
+            let loaded_diffs = cast_model!(review.loaded_file_diffs, IdModel<ui::SlintDiffLines>);
+            let diff = loaded_diffs
+                .get(file_diff_id)
+                .unwrap_or_else(|| panic!("[BUG] FileId {} not found in loaded file diffs!", file_diff_id));
+            let lines = cast_model!(diff.lines, VecModel<ui::SlintDiffLine>);
+            let mut line_data = lines
+                .row_data(line_number)
+                .unwrap_or_else(|| panic!("[BUG] Line {} not found in lines!", line_number));
+            line_data.note_id = -1;
+            lines.set_row_data(line_number, line_data);
         });
     }
 
@@ -671,13 +700,7 @@ impl UiUpdater {
             note_model.add(note.id as usize, note);
 
             if let Some(file_diff_id) = opt_file_diff_id {
-                let file_diff_model = cast_model!(review.file_diff_model, IdModel<ui::SlintFileDiff>);
-                let file_diff = file_diff_model
-                    .get(file_diff_id)
-                    .unwrap_or_else(|| panic!("[BUG] FileDiffId {} not found", file_diff_id));
-                let referenced_notes_model = cast_model!(file_diff.referenced_notes, VecModel<i32>);
-                let note_index = note_model.row_count() - 1;
-                referenced_notes_model.push(note_index as i32);
+                Self::add_note_reference_impl(&app_window, repository_id, review_id, NoteRef::Index(note_model.row_count() - 1), file_diff_id);
             }
 
             review_model.update(review_id, review);
