@@ -586,6 +586,7 @@ impl WorkerImpl {
                     .add_note_reference(repository_id.as_usize(), review_id.as_usize(), note_id.as_usize(), new_file_diff_id.as_usize());
             }
         };
+        let update_file_line_note_references = |note_id: &NoteId, opt_old_context: &NoteContextStore, new_old_context: &NoteContext| todo!("Not implemented!");
         let note = review
             .notes
             .get_mut(&note_id)
@@ -596,23 +597,44 @@ impl WorkerImpl {
             NoteChangeType::Context(new_context) => {
                 let old_file_diff_id = match &note.context {
                     NoteContextStore::File(file) => review.file_diffs.file_id_map.get(&file.to_string_lossy().to_string()),
+                    NoteContextStore::FileAnchor {
+                        file,
+                        diff_range: _,
+                        codeline: _,
+                        codeline_number: _,
+                    } => review.file_diffs.file_id_map.get(&file.to_string_lossy().to_string()),
                     _ => None,
                 };
                 let new_file_diff_id = match &new_context {
                     NoteContext::File(file) => review.file_diffs.file_id_map.get(file),
+                    NoteContext::FileCodeLine {
+                        file,
+                        line_content: _,
+                        line_number: _,
+                    } => Some(file),
                     _ => None,
                 };
                 update_note_references(&note_id, old_file_diff_id, new_file_diff_id);
+                update_file_line_note_references(&note_id, &note.context, &new_context);
 
                 note.context = match new_context {
                     NoteContext::General => repository_storage::NoteContextStore::General,
                     NoteContext::File(file) => repository_storage::NoteContextStore::File(PathBuf::from(&file)),
                     NoteContext::Text(text) => repository_storage::NoteContextStore::Text(text),
                     NoteContext::FileCodeLine {
-                        file: _,
-                        line_content: _,
-                        line_number: _,
-                    } => todo!("FileCodeLine not implemented for change_review_notes!"),
+                        file,
+                        line_content,
+                        line_number,
+                    } => repository_storage::NoteContextStore::FileAnchor {
+                        file: review
+                            .file_diffs
+                            .get(&file)
+                            .map(|file_diff| file_diff.store.file_path.clone())
+                            .unwrap_or_else(|| panic!("[BUG] Could not find file with id {} !", file)),
+                        diff_range: review.diff_range().to_owned(),
+                        codeline: line_content,
+                        codeline_number: line_number,
+                    },
                 };
             }
             NoteChangeType::IsDone(new_is_done) => note.is_done = new_is_done,
