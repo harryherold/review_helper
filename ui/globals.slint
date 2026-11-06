@@ -76,6 +76,11 @@ export enum SlintLineStatus {
         Unchanged,
     }
 
+export global Dapi {
+        pure callback make-data(line_no: int) -> data-transfer;
+        pure callback can-drop(event: DropEvent, target-line-no: int) -> DragAction;
+    }
+
 export struct SlintDiffLine {
         source_line: string,
         styled_line: styled-text,
@@ -246,6 +251,7 @@ export global SlintReviewCallbacks {
         callback change_note_text(SlintNoteIdParamters, string);
         callback set_text_note_context(SlintNoteIdParamters, string);
         callback set_file_note_context(SlintNoteIdParamters, string);
+        callback set_file_line_note_context(SlintNoteIdParamters, parameter);
         callback change_note_is_done(SlintNoteIdParamters, bool);
         callback delete_note(SlintNoteIdParamters);
         callback add_note(SlintReviewIdParameters, string, string, SlintContextType);

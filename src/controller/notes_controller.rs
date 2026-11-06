@@ -1,11 +1,34 @@
-use slint::{ComponentHandle, Model, ModelRc};
+use std::rc::Rc;
+
+use slint::language::{DragAction, DropEvent};
+use slint::{ComponentHandle, DataTransfer, Model, ModelRc};
 
 use crate::model::{IdModel, model_utils};
 use crate::repositories::{FileDiffId, RepositoryId, ReviewId};
 use crate::worker::WorkerChannel;
 use crate::{cast_model, ui, unwrap_or_return};
 
+#[derive(Clone)]
+struct DragPayload {
+    line_no: i32,
+}
+
 pub fn setup_notes_callbacks(app_window: &ui::AppWindow, worker_channel: WorkerChannel) {
+    app_window.global::<ui::Dapi>().on_make_data({
+        move |line_no| {
+            let mut transfer = DataTransfer::default();
+            transfer.set_user_data(Rc::new(DragPayload { line_no }));
+            transfer
+        }
+    });
+    app_window.global::<ui::Dapi>().on_can_drop({
+        move |event: DropEvent, target_line_no: i32| -> DragAction {
+            if event.data.user_data().and_then(|rc| rc.downcast::<DragPayload>().ok()).is_some() {
+                return event.proposed_action;
+            }
+            DragAction::None
+        }
+    });
     app_window.global::<ui::SlintNoteCallbacks>().on_note_source_model({
         let app_window_weak = app_window.as_weak();
         move |ids| -> ModelRc<ui::SlintNote> {

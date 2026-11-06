@@ -20,6 +20,7 @@ import {
     SlintNoteCallbacks,
     SlintContextType,
     SlintNoteIdParamters,
+    Dapi,
 } from "globals.slint";
 import { ToolButton } from "controls/tool_button.slint";
 import { DeleteButton } from "controls/delete_button.slint";
@@ -280,6 +281,7 @@ component LineNumberView inherits Rectangle {
                 }
 
                 note-indicator := Rectangle {
+                    property <bool> is_move_mode_enabled: false;
                     height: Style.size.file-diff-line-height;
                     width: root.indicator_width;
                     Image {
@@ -291,14 +293,40 @@ component LineNumberView inherits Rectangle {
                             if touch.has-hover || root.edited_index == line.line_id {
                                 return @image-url("../assets/icons/note-add.svg");
                             }
+                            if drop.has-drag {
+                                return @image-url("../assets/icons/note-add.svg");
+                            }
                             return @image-url("");
                         }
-                        colorize: Palette.foreground;
+                        colorize: drop.has-drag ? green : Palette.foreground;
+                    }
+
+                    drag := DragArea {
+                        enabled: has_note;
+                        drag-image: @image-url("../assets/icons/notes.svg");
+                        drag-image-offset-x: 40;
+                        drag-image-offset-y: 28;
+                        data: Dapi.make-data(line.line-id);
+                        allow-copy: true;
+                        allow-move: true;
+                        opacity: self.dragging ? 0.4 : 1.0;
                     }
 
                     touch := TouchArea {
+                        enabled: !has_note && !drag.dragging;
                         clicked => {
                             root.edited_index = line.line_id;
+                        }
+                    }
+
+                    drop := DropArea {
+                        enabled: !has_note;
+                        can-drop(event) => {
+                            return Dapi.can-drop(event, line.line-id);
+                        }
+                        dropped(event) => {
+                            debug("dropped!");
+                            return event.proposed-action;
                         }
                     }
                 }
@@ -354,6 +382,7 @@ export component FileDiffWidget inherits HorizontalLayout {
     flickable := Flickable {
         content-height: root.diff_lines.lines.length * Style.size.file-diff-line-height;
         content-width: root.text_width + line-number-view.width;
+        mouse-drag-pan-enabled: false;
 
         changed content-y => {
             if Math.abs(self.content-y - root.last_requested_y) > 2px {

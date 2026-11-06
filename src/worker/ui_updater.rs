@@ -399,7 +399,7 @@ impl UiUpdater {
         self.execute_in_event_loop(move |app_window| {
             let review_model =
                 model_utils::get_review_model(&app_window, repository_id).unwrap_or_else(|| panic!("[BUG] RepositoryId {} not found", repository_id));
-            let review_model = cast_model!(review_model, IdModel<ui::SlintReview>);
+            let review_model: &IdModel<SlintReview> = cast_model!(review_model, IdModel<ui::SlintReview>);
             let mut review = review_model.get(review_id).unwrap_or_else(|| panic!("[BUG] ReviewId {} not found", review_id));
 
             let note_model = cast_model!(review.note_model, IdModel<ui::SlintNote>);
@@ -408,18 +408,34 @@ impl UiUpdater {
             match note_change_type {
                 NoteChangeType::Text(ref new_text) => note.text = SharedString::from(new_text),
                 NoteChangeType::Context(ref new_context) => {
-                    let (new_ui_context, new_context_type) = match new_context {
-                        NoteContext::General => (SharedString::default(), SlintContextType::General),
-                        NoteContext::Text(text) => (SharedString::from(text), SlintContextType::Text),
-                        NoteContext::File(path) => (SharedString::from(path), SlintContextType::File),
+                    let (new_ui_context, new_context_type, file_line_context) = match new_context {
+                        NoteContext::General => (SharedString::default(), SlintContextType::General, ui::SlintFileCodeLine::default()),
+                        NoteContext::Text(text) => (SharedString::from(text), SlintContextType::Text, ui::SlintFileCodeLine::default()),
+                        NoteContext::File(path) => (SharedString::from(path), SlintContextType::File, ui::SlintFileCodeLine::default()),
                         NoteContext::FileCodeLine {
-                            file: _,
-                            line_content: _,
-                            line_number: _,
-                        } => todo!("FileCodeLine not implemented for update_note!"),
+                            file: file_id,
+                            line_content,
+                            line_number,
+                        } => {
+                            let file_diff_model = cast_model!(review.file_diff_model, IdModel<ui::SlintFileDiff>);
+                            let file = file_diff_model.get(file_id.as_usize()).unwrap_or_else(|| panic!("[BUG]")).file_path;
+
+                            (
+                                SharedString::new(),
+                                SlintContextType::FileLineNumber,
+                                ui::SlintFileCodeLine {
+                                    line_content: SharedString::from(line_content),
+                                    line_number: *line_number as i32,
+                                    file,
+                                    start_commit: review.start_diff.clone(),
+                                    end_commit: review.end_diff.clone(),
+                                },
+                            )
+                        }
                     };
                     note.context_type = new_context_type;
                     note.context = new_ui_context;
+                    note.file_line_context = file_line_context;
                 }
                 NoteChangeType::IsDone(new_is_done) => note.is_fixed = new_is_done,
             }
@@ -526,6 +542,22 @@ impl UiUpdater {
                 .position(|i: i32| i == note_index as i32)
                 .unwrap_or_else(|| panic!("[BUG] Referenced note index {} not found ({}, {})", note_index, review_id, repository_id));
             referenced_notes_model.remove(remove_index);
+        });
+    }
+    pub fn add_note_line_reference(&self, repository_id: usize, review_id: usize, file_diff_id: usize, line_number: usize, note_id: usize) {
+        self.execute_in_event_loop(move |app_window| {
+            let review = model_utils::get_slint_review(&app_window, repository_id, review_id)
+                .unwrap_or_else(|| panic!("[BUG] RepositoryId {} ReviewId {} not found", repository_id, review_id));
+            let loaded_diffs = cast_model!(review.loaded_file_diffs, IdModel<ui::SlintDiffLines>);
+            let diff = loaded_diffs
+                .get(file_diff_id)
+                .unwrap_or_else(|| panic!("[BUG] FileId {} not found in loaded file diffs!", file_diff_id));
+            let lines = cast_model!(diff.lines, VecModel<ui::SlintDiffLine>);
+            let mut line_data = lines
+                .row_data(line_number)
+                .unwrap_or_else(|| panic!("[BUG] Line {} not found in lines!", line_number));
+            line_data.note_id = note_id as i32;
+            lines.set_row_data(line_number, line_data);
         });
     }
     pub fn remove_note_line_reference(&self, repository_id: usize, review_id: usize, file_diff_id: usize, line_number: usize) {

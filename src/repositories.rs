@@ -141,6 +141,9 @@ impl FileDiffs {
     pub fn get(&self, file_diff_id: &FileDiffId) -> Option<&FileDiff> {
         self.id_store_map.get(file_diff_id)
     }
+    pub fn get_mut(&mut self, file_diff_id: &FileDiffId) -> Option<&mut FileDiff> {
+        self.id_store_map.get_mut(&file_diff_id)
+    }
     pub fn set_is_reviewed(&mut self, file_diff_id: &FileDiffId, is_reviewed: bool) {
         if let Some(file_diff) = self.id_store_map.get_mut(file_diff_id) {
             file_diff.store.is_reviewed = is_reviewed;

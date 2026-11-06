@@ -565,6 +565,46 @@ impl WorkerImpl {
         self.ui_updater
             .rename_review(repository_id.as_usize(), review_id.as_usize(), SharedString::from(new_review_name.as_str()));
     }
+
+    fn update_file_line_cache(review: &mut Review, note_id: &NoteId, old_context: &NoteContextStore, new_context: &NoteContext) {
+        if let NoteContextStore::FileAnchor {
+            file: old_file,
+            diff_range: _,
+            codeline: _,
+            codeline_number: old_line,
+        } = old_context
+        {
+            let old_file_id = review
+                .file_diffs
+                .file_id_map
+                .get(&old_file.to_string_lossy().to_string())
+                .unwrap_or_else(|| panic!("[BUG] Could not find file id of file {}!", old_file.to_string_lossy()))
+                .clone();
+            let file_diff = review
+                .file_diffs
+                .get_mut(&old_file_id)
+                .unwrap_or_else(|| panic!("[BUG] Could not find file diff of id {}!", old_file_id));
+            let old_note_id = file_diff
+                .line_note_map
+                .remove(old_line)
+                .unwrap_or_else(|| panic!("[BUG] Line note {} was not cached!", old_line));
+
+            assert_eq!(&old_note_id, note_id);
+        }
+        if let NoteContext::FileCodeLine {
+            file: new_file_id,
+            line_content: _,
+            line_number: new_line,
+        } = new_context
+        {
+            let new_file_diff = review
+                .file_diffs
+                .get_mut(new_file_id)
+                .unwrap_or_else(|| panic!("[BUG] Could not find file diff of id {}!", new_file_id));
+            new_file_diff.line_note_map.insert(*new_line, note_id.clone());
+        }
+    }
+
     fn change_review_notes(&mut self, repository_id: RepositoryId, review_id: ReviewId, note_id: NoteId, change_type: NoteChangeType) {
         let repository = self
             .repositories
@@ -576,7 +616,7 @@ impl WorkerImpl {
             .get_mut(&review_id)
             .unwrap_or_else(|| panic!("[BUG] Could not find {} ({})", review_id, repository_id));
 
-        let update_note_references = |note_id: &NoteId, opt_old_file_diff_id: Option<&FileDiffId>, opt_new_file_diff_id: Option<&FileDiffId>| {
+        let update_ui_note_references = |note_id: &NoteId, opt_old_file_diff_id: Option<&FileDiffId>, opt_new_file_diff_id: Option<&FileDiffId>| {
             if let Some(old_file_diff_id) = opt_old_file_diff_id {
                 self.ui_updater
                     .remove_note_reference(repository_id.as_usize(), review_id.as_usize(), note_id.as_usize(), old_file_diff_id.as_usize());
@@ -586,36 +626,114 @@ impl WorkerImpl {
                     .add_note_reference(repository_id.as_usize(), review_id.as_usize(), note_id.as_usize(), new_file_diff_id.as_usize());
             }
         };
-        let note = review
-            .notes
-            .get_mut(&note_id)
-            .unwrap_or_else(|| panic!("[BUG] Could not find {} ({}, {})", note_id, review_id, repository_id));
+        let update_ui_note_line_references = |note_id: &NoteId, old_context: &NoteContextStore, new_context: &NoteContext| {
+            if let NoteContextStore::FileAnchor {
+                file: old_file,
+                codeline_number: old_line,
+                ..
+            } = old_context
+            {
+                let old_file_id = review
+                    .file_diffs
+                    .file_id_map
+                    .get(&old_file.to_string_lossy().to_string())
+                    .map(|id| id.as_usize())
+                    .unwrap_or_else(|| panic!("[BUG] Could not find file id of file {}!", old_file.to_string_lossy()));
+
+                self.ui_updater
+                    .remove_note_line_reference(repository_id.as_usize(), review_id.as_usize(), old_file_id, *old_line as usize);
+            }
+            if let NoteContext::FileCodeLine {
+                file: new_file_id,
+                line_number: new_line,
+                ..
+            } = new_context
+            {
+                self.ui_updater.add_note_line_reference(
+                    repository_id.as_usize(),
+                    review_id.as_usize(),
+                    new_file_id.as_usize(),
+                    *new_line as usize,
+                    note_id.as_usize(),
+                );
+            }
+        };
+
+        let diff_range = review.diff_range().to_owned();
+        let old_context = {
+            let note = review
+                .notes
+                .get_mut(&note_id)
+                .unwrap_or_else(|| panic!("[BUG] Could not find {} ({}, {})", note_id, review_id, repository_id));
+            note.context.clone()
+        };
 
         match change_type.clone() {
-            NoteChangeType::Text(new_text) => note.text = new_text,
+            NoteChangeType::Text(new_text) => {
+                let note = review
+                    .notes
+                    .get_mut(&note_id)
+                    .unwrap_or_else(|| panic!("[BUG] Could not find {} ({}, {})", note_id, review_id, repository_id));
+                note.text = new_text;
+            }
             NoteChangeType::Context(new_context) => {
-                let old_file_diff_id = match &note.context {
+                let old_file_diff_id = match &old_context {
                     NoteContextStore::File(file) => review.file_diffs.file_id_map.get(&file.to_string_lossy().to_string()),
+                    NoteContextStore::FileAnchor {
+                        file,
+                        diff_range: _,
+                        codeline: _,
+                        codeline_number: _,
+                    } => review.file_diffs.file_id_map.get(&file.to_string_lossy().to_string()),
                     _ => None,
                 };
                 let new_file_diff_id = match &new_context {
                     NoteContext::File(file) => review.file_diffs.file_id_map.get(file),
+                    NoteContext::FileCodeLine {
+                        file,
+                        line_content: _,
+                        line_number: _,
+                    } => Some(file),
                     _ => None,
                 };
-                update_note_references(&note_id, old_file_diff_id, new_file_diff_id);
+                update_ui_note_references(&note_id, old_file_diff_id, new_file_diff_id);
+                update_ui_note_line_references(&note_id, &old_context, &new_context);
+                Self::update_file_line_cache(review, &note_id, &old_context, &new_context);
 
-                note.context = match new_context {
+                let resolved_file_path = match &new_context {
+                    NoteContext::FileCodeLine { file, .. } => review
+                        .file_diffs
+                        .get(file)
+                        .map(|file_diff| file_diff.store.file_path.clone())
+                        .unwrap_or_else(|| panic!("[BUG] Could not find file with id {} !", file)),
+                    _ => PathBuf::new(),
+                };
+
+                let new_store_context = match new_context {
                     NoteContext::General => repository_storage::NoteContextStore::General,
                     NoteContext::File(file) => repository_storage::NoteContextStore::File(PathBuf::from(&file)),
                     NoteContext::Text(text) => repository_storage::NoteContextStore::Text(text),
-                    NoteContext::FileCodeLine {
-                        file: _,
-                        line_content: _,
-                        line_number: _,
-                    } => todo!("FileCodeLine not implemented for change_review_notes!"),
+                    NoteContext::FileCodeLine { line_content, line_number, .. } => repository_storage::NoteContextStore::FileAnchor {
+                        file: resolved_file_path,
+                        diff_range,
+                        codeline: line_content,
+                        codeline_number: line_number,
+                    },
                 };
+
+                let note = review
+                    .notes
+                    .get_mut(&note_id)
+                    .unwrap_or_else(|| panic!("[BUG] Could not find {} ({}, {})", note_id, review_id, repository_id));
+                note.context = new_store_context;
             }
-            NoteChangeType::IsDone(new_is_done) => note.is_done = new_is_done,
+            NoteChangeType::IsDone(new_is_done) => {
+                let note = review
+                    .notes
+                    .get_mut(&note_id)
+                    .unwrap_or_else(|| panic!("[BUG] Could not find {} ({}, {})", note_id, review_id, repository_id));
+                note.is_done = new_is_done;
+            }
         }
         if let Err(e) = self.storage.save_review_notes(&repository.name, review.name(), &review.notes.stores()) {
             self.ui_updater.report_error(ui::SlintResult::StoreFailed, &e.to_string());
