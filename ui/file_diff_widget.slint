@@ -20,7 +20,7 @@ import {
     SlintNoteCallbacks,
     SlintContextType,
     SlintNoteIdParamters,
-    Dapi,
+    DragFileLineNote,
 } from "globals.slint";
 import { ToolButton } from "controls/tool_button.slint";
 import { DeleteButton } from "controls/delete_button.slint";
@@ -255,6 +255,9 @@ component LineNumberView inherits Rectangle {
     in-out property <int> edited_index;
     private property <length> indicator_width: 16px;
 
+    callback change_note_line_number(note_id: int, line: int, content: string);
+    callback copy_note(note_id: int, target_line: int);
+
     background: Palette.background;
     width: line-number-layout.preferred-width + Style.size.spacing;
 
@@ -303,10 +306,10 @@ component LineNumberView inherits Rectangle {
 
                     drag := DragArea {
                         enabled: has_note;
-                        drag-image: @image-url("../assets/icons/notes.svg");
-                        drag-image-offset-x: 40;
-                        drag-image-offset-y: 28;
-                        data: Dapi.make-data(line.line-id);
+                        drag-image: Palette.color-scheme == dark ? @image-url("../assets/icons/notes_drag_dark.svg") : @image-url("../assets/icons/notes_drag_light.svg");
+                        drag-image-offset-x: -20;
+                        drag-image-offset-y: 20;
+                        data: DragFileLineNote.make-data(line.line-id, line_note_id);
                         allow-copy: true;
                         allow-move: true;
                         opacity: self.dragging ? 0.4 : 1.0;
@@ -322,10 +325,18 @@ component LineNumberView inherits Rectangle {
                     drop := DropArea {
                         enabled: !has_note;
                         can-drop(event) => {
-                            return Dapi.can-drop(event, line.line-id);
+                            return DragFileLineNote.can-drop(event, line.line-id);
                         }
                         dropped(event) => {
-                            debug("dropped!");
+                            let note_id = DragFileLineNote.dragged-note-id(event);
+                            if note_id != -1 {
+                                if event.proposed-action == DragAction.move {
+                                    root.change_note_line_number(note-id, line.line-id, line.source-line);
+                                }
+                                else if event.proposed-action == DragAction.copy {
+                                    root.copy_note(note_id, line.line-id);
+                                }
+                            }
                             return event.proposed-action;
                         }
                     }
@@ -432,6 +443,21 @@ export component FileDiffWidget inherits HorizontalLayout {
                 diff_lines: root.diff_lines;
                 edited_index <=> root.edited_index;
                 x: -flickable.content-x; // NOTE fixed position
+
+                change_note_line_number(note-id, line, content) => {
+                    let ids = {
+                        review_id_parameters: root.file_diff_id_parameter.review-id-parameters,
+                        note_id: note-id,
+                    };
+                    SlintNoteCallbacks.set_file_line_note_context(ids, root.file_diff_id_parameter.file-diff-id, line, content);
+                }
+                copy_note(id, target-line) => {
+                    let ids = {
+                        review_id_parameters: root.file_diff_id_parameter.review-id-parameters,
+                        note_id: id,
+                    };
+                    SlintNoteCallbacks.copy_file_line_note(ids, root.file_diff_id_parameter.file-diff-id, target-line);
+                }
             }
         }
     }

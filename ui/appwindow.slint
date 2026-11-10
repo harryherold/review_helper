@@ -38,7 +38,7 @@ import {
     SlintDiffLines,
     SlintFileDiffCallbacks,
     SlintNoteCallbacks,
-    Dapi,
+    DragFileLineNote,
 } from "globals.slint";
 export {
     SlintReviewCallbacks,
@@ -70,7 +70,7 @@ export {
     Style,
     SlintFileDiffCallbacks,
     SlintNoteCallbacks,
-    Dapi,
+    DragFileLineNote,
 }
 export component AppWindow inherits Window {
     private property <int> selected_repository_index <=> tab-view.current-index;

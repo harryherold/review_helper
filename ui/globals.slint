@@ -76,9 +76,10 @@ export enum SlintLineStatus {
         Unchanged,
     }
 
-export global Dapi {
-        pure callback make-data(line_no: int) -> data-transfer;
+export global DragFileLineNote {
+        pure callback make-data(line_no: int, note_id: int) -> data-transfer;
         pure callback can-drop(event: DropEvent, target-line-no: int) -> DragAction;
+        pure callback dragged-note-id(event: DropEvent) -> int;
     }
 
 export struct SlintDiffLine {
@@ -251,7 +252,6 @@ export global SlintReviewCallbacks {
         callback change_note_text(SlintNoteIdParamters, string);
         callback set_text_note_context(SlintNoteIdParamters, string);
         callback set_file_note_context(SlintNoteIdParamters, string);
-        callback set_file_line_note_context(SlintNoteIdParamters, parameter);
         callback change_note_is_done(SlintNoteIdParamters, bool);
         callback delete_note(SlintNoteIdParamters);
         callback add_note(SlintReviewIdParameters, string, string, SlintContextType);
@@ -262,9 +262,11 @@ export global SlintReviewCallbacks {
     }
 
 export global SlintNoteCallbacks {
+        callback set_file_line_note_context(SlintNoteIdParamters, file_id: int, line: int, content: string);
         pure callback note_source_model(SlintReviewIdParameters) -> [SlintNote];
-        pure callback index_of_id(int, [SlintNote]) -> int;
-        callback add_code_line_note(SlintFileDiffIdParamters, string, string, int);
+        pure callback index_of_id(int, model: [SlintNote]) -> int;
+        callback add_code_line_note(SlintFileDiffIdParamters, text: string, line_content: string, line: int);
+        callback copy_file_line_note(SlintNoteIdParamters, file_diff_id: int, target_line: int);
     }
 
 export global SlintFilePickerAdapter {
