@@ -25,6 +25,7 @@ import {
     SlintChangeType,
     SlintFileDiffCallbacks,
     SlintContextType,
+    SlintNoteCallbacks,
 } from "globals.slint";
 import { FileNoteDelegate } from "file_note_delegate.slint";
 import { ToolButton } from "controls/tool_button.slint";
@@ -187,7 +188,9 @@ component FileDiffList inherits ListView {
                         }
                     }
 
-                    for note_index in data.referenced_notes: FileNoteDelegate {
+                    for note_id in data.referenced_notes: FileNoteDelegate {
+                        private property <int> note_index: SlintNoteCallbacks.index_of_id(note_id, root.notes_model);
+
                         review_id_parameters: root.review_id_parameters;
                         note: root.notes_model[note_index];
                     }

@@ -993,7 +993,12 @@ impl WorkerImpl {
         };
 
         self.ui_updater
-            .add_note(repository_id.as_usize(), review_id.as_usize(), ui_note, opt_file_diff_id);
+            .add_note(repository_id.as_usize(), review_id.as_usize(), ui_note, opt_file_diff_id.clone());
+
+        if let Some(file_diff_id) = opt_file_diff_id {
+            self.ui_updater
+                .add_note_reference(repository_id.as_usize(), review_id.as_usize(), note_id.as_usize(), file_diff_id);
+        }
     }
 
     fn load_file_line_differences(&self, repository_id: RepositoryId, review_id: ReviewId, file_diff_id: FileDiffId) {
