@@ -7,7 +7,9 @@ use crate::ui;
 use crate::worker::WorkerChannel;
 
 pub fn setup_review_helper(app_window: &ui::AppWindow, worker_channel: WorkerChannel) {
-    app_window.global::<ui::SlintReviewHelper>().on_new_repository({
+    let review_helper = app_window.global::<ui::SlintReviewHelper>();
+
+    review_helper.on_new_repository({
         let channel = worker_channel.clone();
         move || {
             if let Some(repository_path) = FileDialog::new()
@@ -21,11 +23,12 @@ pub fn setup_review_helper(app_window: &ui::AppWindow, worker_channel: WorkerCha
             }
         }
     });
-    app_window.global::<ui::SlintReviewHelper>().on_delete_repository({
+    review_helper.on_delete_repository({
         let channel = worker_channel.clone();
         move |repository_id| {
             let message = crate::worker::WorkerMessage::DeleteRepository(RepositoryId::from(repository_id));
             channel.send(message).expect("Worker channel broken!");
         }
     });
+    review_helper.set_active_file_diff_id(-1);
 }

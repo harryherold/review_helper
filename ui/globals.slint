@@ -313,6 +313,8 @@ export global SlintCommitPickerAdapter {
 export global SlintReviewHelper {
         in property <[SlintRepository]> repositories;
         in property <[string]> repository_names;
+        in-out property <int> active_file_diff_id;
+
         callback new_repository();
         callback delete_repository(int);
     }

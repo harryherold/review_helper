@@ -228,6 +228,7 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
         move |ids, diff_range| {
             let repository_id = RepositoryId::from(ids.repository_id);
             let review_id = ReviewId::from(ids.review_id);
+            // TODO get active_file_diff_id
             let message = WorkerMessage::FindFileDifferences {
                 repository_id,
                 review_id,

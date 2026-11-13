@@ -163,7 +163,7 @@ impl FileDiffs {
             .unwrap_or_else(|| panic!("Could not find file diff id {}!", file_diff_id));
         file_diff.line_note_map.insert(line_number, note_id);
     }
-    pub fn update_file_diffs(&mut self, new_file_keys: HashSet<String>) -> (Vec<FileDiffId>, Vec<String>) {
+    pub fn update_file_diffs(&mut self, new_file_keys: HashSet<String>, active_file_diff_id: &FileDiffId) -> (Vec<FileDiffId>, Vec<String>) {
         let old_file_keys = self.file_id_map.keys().cloned().collect::<HashSet<_>>();
 
         if old_file_keys == new_file_keys {
@@ -189,6 +189,25 @@ impl FileDiffs {
             let new_subset: HashSet<_> = new_file_keys.difference(&old_file_keys).collect();
             let files_added = Vec::from_iter(new_subset.iter().map(|s| String::from(s.as_str())));
             new_subset.into_iter().cloned().for_each(|file| self.add_new_file_diff(file));
+
+            let updated_files: HashSet<_> = new_file_keys.union(&old_file_keys).collect();
+            updated_files
+                .iter()
+                .filter_map(|file| -> Option<&FileDiffId> {
+                    let file_id = self
+                        .file_id_map
+                        .get(*file)
+                        .unwrap_or_else(|| panic!("[BUG] Could not find updated file {} in map!", file));
+                    if file_id == active_file_diff_id { None } else { Some(file_id) }
+                })
+                .for_each(|file_id| {
+                    let file_diff = self
+                        .id_store_map
+                        .get_mut(file_id)
+                        .unwrap_or_else(|| panic!("[BUG] Could not find file diff with id {}!", file_id));
+                    file_diff.line_note_map.clear();
+                });
+
             (deleted_file_diff_ids, files_added)
         }
     }

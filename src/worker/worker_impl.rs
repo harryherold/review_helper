@@ -85,6 +85,7 @@ pub enum WorkerMessage {
     FindFileDifferences {
         repository_id: RepositoryId,
         review_id: ReviewId,
+        active_file_diff_id: FileDiffId,
         diff_range: DiffRangeStore,
     },
     LoadFileLineDifferences {
@@ -308,8 +309,9 @@ impl WorkerImpl {
                 WorkerMessage::FindFileDifferences {
                     repository_id,
                     review_id,
+                    active_file_diff_id,
                     diff_range,
-                } => self.find_file_difference(repository_id, review_id, diff_range),
+                } => self.find_file_difference(repository_id, review_id, active_file_diff_id, diff_range),
                 WorkerMessage::LoadFileLineDifferences {
                     repository_id,
                     review_id,
@@ -764,7 +766,7 @@ impl WorkerImpl {
         self.ui_updater
             .set_file_diff_is_reviewed(repository_id.as_usize(), review_id.as_usize(), file_diff_id.as_usize(), is_reviewed);
     }
-    fn find_file_difference(&mut self, repository_id: RepositoryId, review_id: ReviewId, diff_range: DiffRangeStore) {
+    fn find_file_difference(&mut self, repository_id: RepositoryId, review_id: ReviewId, active_file_diff_id: FileDiffId, diff_range: DiffRangeStore) {
         let repository = self
             .repositories
             .get_mut(&repository_id)
@@ -782,7 +784,7 @@ impl WorkerImpl {
             .get_mut(&review_id)
             .unwrap_or_else(|| panic!("[BUG] Could not find {} ({})", review_id, repository_id));
 
-        let (deleted_file_diff_ids, added_files) = review.file_diffs.update_file_diffs(new_files);
+        let (deleted_file_diff_ids, added_files) = review.file_diffs.update_file_diffs(new_files, &active_file_diff_id);
         review.set_diff_range(diff_range);
 
         let ui_file_diffs = review
@@ -795,16 +797,20 @@ impl WorkerImpl {
             })
             .collect::<Vec<_>>();
 
-        self.ui_updater.migrate_file_diff_notes_to_text_context(
-            repository_id.as_usize(),
-            review_id.as_usize(),
-            deleted_file_diff_ids.into_iter().map(|id| id.as_usize()),
-        );
-        self.ui_updater.migrate_file_diff_notes_to_file_context(
-            repository_id.as_usize(),
-            review_id.as_usize(),
-            added_files.into_iter().map(SharedString::from),
-        );
+        if !deleted_file_diff_ids.is_empty() {
+            self.ui_updater.migrate_file_diff_notes_to_text_context(
+                repository_id.as_usize(),
+                review_id.as_usize(),
+                deleted_file_diff_ids.into_iter().map(|id| id.as_usize()),
+            );
+        }
+        if !added_files.is_empty() {
+            self.ui_updater.migrate_file_diff_notes_to_file_context(
+                repository_id.as_usize(),
+                review_id.as_usize(),
+                added_files.into_iter().map(SharedString::from),
+            );
+        }
 
         self.ui_updater.set_file_diffs(repository_id.as_usize(), review_id.as_usize(), ui_file_diffs);
 

@@ -26,6 +26,7 @@ import {
     SlintFileDiffCallbacks,
     SlintContextType,
     SlintNoteCallbacks,
+    SlintReviewHelper,
 } from "globals.slint";
 import { FileNoteDelegate } from "file_note_delegate.slint";
 import { ToolButton } from "controls/tool_button.slint";
@@ -265,6 +266,9 @@ export component FileDiffView inherits VerticalLayout {
 
     id_reload_gate := IdReloadGate {
         id: root.selected_id;
+        changed active-id => {
+            SlintReviewHelper.active_file_diff_id = self.active-id;
+        }
     }
 
     HorizontalLayout {
