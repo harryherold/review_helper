@@ -1,0 +1,30 @@
+when:
+  - event: tag
+    evaluate: 'CI_COMMIT_TAG matches "^v[0-9]+[.][0-9]+$"'
+
+labels:
+  platform: windows/amd64
+  backend: local
+
+depends_on:
+  - release-linux
+
+steps:
+  - name: build-and-package
+    image: bash
+    environment:
+      SLINT_BACKEND: winit-skia
+      CARGO_PROFILE_RELEASE_STRIP: symbols
+    commands:
+      - cargo +1.96.1 build --locked --release --target x86_64-pc-windows-msvc
+      - python .woodpecker/package-release.py x86_64-pc-windows-msvc
+
+  - name: publish
+    image: plugin-release
+    settings:
+      api_key:
+        from_secret: codeberg_release_token
+      files:
+        - dist/review-helper-Windows-msvc-x86_64.zip
+        - dist/review-helper-Windows-msvc-x86_64.zip.sha256
+      file_exists: overwrite

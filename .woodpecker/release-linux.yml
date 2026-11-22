@@ -1,0 +1,28 @@
+when:
+  - event: tag
+    evaluate: 'CI_COMMIT_TAG matches "^v[0-9]+[.][0-9]+$"'
+
+labels:
+  platform: linux/amd64
+
+steps:
+  - name: build-and-package
+    image: rust:1.96.1-bookworm
+    environment:
+      SLINT_BACKEND: winit-skia
+      CARGO_PROFILE_RELEASE_STRIP: symbols
+    commands:
+      - sh .woodpecker/install-linux-deps.sh
+      - cargo build --locked --release --target x86_64-unknown-linux-gnu
+      - python3 .woodpecker/package-release.py x86_64-unknown-linux-gnu
+
+  - name: publish
+    image: woodpeckerci/plugin-release:0.3.3
+    settings:
+      api_key:
+        from_secret: codeberg_release_token
+      files:
+        - dist/review-helper-Linux-gnu-x86_64.tar.gz
+        - dist/review-helper-Linux-gnu-x86_64.tar.gz.sha256
+      note: dist/release-notes.md
+      file_exists: overwrite

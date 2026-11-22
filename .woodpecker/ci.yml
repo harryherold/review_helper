@@ -1,0 +1,15 @@
+when:
+  - event: [push, tag]
+
+labels:
+  platform: linux/amd64
+
+steps:
+  - name: build-and-test
+    image: rust:1.96.1-bookworm
+    environment:
+      CARGO_TERM_COLOR: always
+    commands:
+      - sh .woodpecker/install-linux-deps.sh
+      - cargo build --locked --verbose
+      - cargo test --locked --verbose
