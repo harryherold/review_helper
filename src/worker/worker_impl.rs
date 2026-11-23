@@ -787,6 +787,10 @@ impl WorkerImpl {
         let (deleted_file_diff_ids, added_files) = review.file_diffs.update_file_diffs(new_files, &active_file_diff_id);
         review.set_diff_range(diff_range);
 
+        if review.file_diffs.get(&active_file_diff_id).is_none() {
+            self.ui_updater.clear_active_file_diff_id(repository_id.as_usize(), review_id.as_usize());
+        }
+
         let ui_file_diffs = review
             .file_diffs
             .iter()
@@ -1028,7 +1032,7 @@ impl WorkerImpl {
         let file_diff = review
             .file_diffs
             .get(&file_diff_id)
-            .unwrap_or_else(|| panic!("[BUG] Could not find file {}", file_diff_id));
+            .unwrap_or_else(|| panic!("[BUG] Could not find file {}", file_diff_id.as_i32()));
 
         let file_path = &file_diff.store.file_path.to_string_lossy();
 

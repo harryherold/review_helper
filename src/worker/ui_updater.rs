@@ -310,6 +310,7 @@ impl UiUpdater {
                             change_type_model: Rc::new(VecModel::default()).into(),
                         },
                         loaded_file_diffs: Rc::new(IdModel::default()).into(),
+                        active_file_diff_id: -1,
                         ..Default::default()
                     },
                 );
@@ -338,6 +339,7 @@ impl UiUpdater {
                         change_type_model: Rc::new(VecModel::default()).into(),
                     },
                     loaded_file_diffs: Rc::new(IdModel::default()).into(),
+                    active_file_diff_id: -1,
                     ..Default::default()
                 },
             );
@@ -686,6 +688,16 @@ impl UiUpdater {
                 review.review_progress.completed_count - 1
             };
 
+            review_model.update(review_id, review);
+        });
+    }
+    pub fn clear_active_file_diff_id(&self, repository_id: usize, review_id: usize) {
+        self.execute_in_event_loop(move |app_window| {
+            let review_model =
+                model_utils::get_review_model(&app_window, repository_id).unwrap_or_else(|| panic!("[BUG] RepositoryId {} not found", repository_id));
+            let review_model = cast_model!(review_model, IdModel<ui::SlintReview>);
+            let mut review = review_model.get(review_id).unwrap_or_else(|| panic!("[BUG] ReviewId {} not found", review_id));
+            review.active_file_diff_id = -1;
             review_model.update(review_id, review);
         });
     }

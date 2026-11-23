@@ -224,14 +224,25 @@ pub fn setup_review_callbacks(app_window: &ui::AppWindow, worker_channel: Worker
         }
     });
     app_window.global::<ui::SlintReviewCallbacks>().on_find_file_changes({
+        let app_window_weak = app_window.as_weak();
         let channel = worker_channel.clone();
         move |ids, diff_range| {
+            let app_window = unwrap_or_return!(app_window_weak.upgrade(), "Upgrade to AppWindow failed!");
             let repository_id = RepositoryId::from(ids.repository_id);
             let review_id = ReviewId::from(ids.review_id);
-            // TODO get active_file_diff_id
+
+            let review_model = model_utils::get_review_model(&app_window, repository_id.as_usize())
+                .unwrap_or_else(|| panic!("[BUG] RepositoryId {} not found", repository_id));
+            let review_model = cast_model!(review_model, IdModel<ui::SlintReview>);
+            let active_file_diff_id = review_model
+                .get(review_id.as_usize())
+                .unwrap_or_else(|| panic!("[BUG] ReviewId {} not found", review_id))
+                .active_file_diff_id;
+
             let message = WorkerMessage::FindFileDifferences {
                 repository_id,
                 review_id,
+                active_file_diff_id: FileDiffId::from(active_file_diff_id),
                 diff_range: DiffRangeStore {
                     start: String::from(diff_range.start.as_str()),
                     end: String::from(diff_range.end.as_str()),

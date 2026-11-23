@@ -28,7 +28,7 @@ import { NotesView } from "notes_view.slint";
 
 export component ReviewView inherits Rectangle {
     in property <SlintReviewIdParameters> review_id_parameters;
-    in property <[SlintReview]> review_model;
+    in-out property <[SlintReview]> review_model;
     private property <int> review_index: SlintReviewCallbacks.review_id_to_index(root.review_id_parameters.review_id, root.review_model);
 
     if root.review_index != -1 && root.review_model[root.review_index].is_loaded: CenterTabView {
@@ -58,6 +58,10 @@ export component ReviewView inherits Rectangle {
                 FileDiffView {
                     review_id_parameters: root.review_id_parameters;
                     notes_model: root.review_model[root.review_index].note_model;
+                    active_file_diff_id: root.review_model[root.review_index].active_file_diff_id;
+                    set_active_file_diff_id(id) => {
+                        root.review_model[root.review_index].active_file_diff_id = id;
+                    }
                 }
             }
         }

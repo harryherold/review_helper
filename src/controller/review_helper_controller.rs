@@ -30,5 +30,4 @@ pub fn setup_review_helper(app_window: &ui::AppWindow, worker_channel: WorkerCha
             channel.send(message).expect("Worker channel broken!");
         }
     });
-    review_helper.set_active_file_diff_id(-1);
 }

@@ -190,7 +190,7 @@ impl FileDiffs {
             let files_added = Vec::from_iter(new_subset.iter().map(|s| String::from(s.as_str())));
             new_subset.into_iter().cloned().for_each(|file| self.add_new_file_diff(file));
 
-            let updated_files: HashSet<_> = new_file_keys.union(&old_file_keys).collect();
+            let updated_files: HashSet<_> = new_file_keys.intersection(&old_file_keys).collect();
             updated_files
                 .iter()
                 .filter_map(|file| -> Option<&FileDiffId> {
