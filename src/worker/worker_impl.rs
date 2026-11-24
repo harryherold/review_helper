@@ -784,7 +784,7 @@ impl WorkerImpl {
             .get_mut(&review_id)
             .unwrap_or_else(|| panic!("[BUG] Could not find {} ({})", review_id, repository_id));
 
-        let (deleted_file_diff_ids, added_files) = review.file_diffs.update_file_diffs(new_files, &active_file_diff_id);
+        let update_result = review.file_diffs.update_file_diffs(new_files, &active_file_diff_id);
         review.set_diff_range(diff_range);
 
         if review.file_diffs.get(&active_file_diff_id).is_none() {
@@ -801,19 +801,27 @@ impl WorkerImpl {
             })
             .collect::<Vec<_>>();
 
-        if !deleted_file_diff_ids.is_empty() {
+        if !update_result.deleted_file_diff_ids.is_empty() {
+            self.ui_updater
+                .clear_loaded_file_diffs(&update_result.deleted_file_diff_ids, &active_file_diff_id);
             self.ui_updater.migrate_file_diff_notes_to_text_context(
                 repository_id.as_usize(),
                 review_id.as_usize(),
-                deleted_file_diff_ids.into_iter().map(|id| id.as_usize()),
+                update_result.deleted_file_diff_ids.into_iter().map(|id| id.as_usize()),
             );
         }
-        if !added_files.is_empty() {
+
+        if !update_result.added_files.is_empty() {
             self.ui_updater.migrate_file_diff_notes_to_file_context(
                 repository_id.as_usize(),
                 review_id.as_usize(),
-                added_files.into_iter().map(SharedString::from),
+                update_result.added_files.into_iter().map(SharedString::from),
             );
+        }
+
+        if !update_result.orphan_note_ids.is_empty() {
+            self.ui_updater
+                .update_notes_with_deleted_file_context(repository_id.as_usize(), review_id.as_usize(), update_result.orphan_note_ids);
         }
 
         self.ui_updater.set_file_diffs(repository_id.as_usize(), review_id.as_usize(), ui_file_diffs);
@@ -862,6 +870,7 @@ impl WorkerImpl {
                 codeline: _,
                 codeline_number,
             } => {
+                // TODO could be an SlintContextType::DeletedFile!
                 let file_diff_id = review
                     .file_diffs
                     .file_id_map

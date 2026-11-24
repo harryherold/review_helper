@@ -115,6 +115,13 @@ pub struct FileDiffs {
     last_file_diff_id: FileDiffId,
 }
 
+#[derive(Default, Clone)]
+pub struct UpdateResult {
+    pub deleted_file_diff_ids: Vec<FileDiffId>,
+    pub added_files: Vec<String>,
+    pub orphan_note_ids: HashSet<NoteId>,
+}
+
 impl FileDiffs {
     pub fn new(file_diff_list: Vec<FileDiffStore>) -> Self {
         let mut file_diffs = FileDiffs::default();
@@ -163,31 +170,58 @@ impl FileDiffs {
             .unwrap_or_else(|| panic!("Could not find file diff id {}!", file_diff_id));
         file_diff.line_note_map.insert(line_number, note_id);
     }
-    pub fn update_file_diffs(&mut self, new_file_keys: HashSet<String>, active_file_diff_id: &FileDiffId) -> (Vec<FileDiffId>, Vec<String>) {
+    pub fn update_file_diffs(&mut self, new_file_keys: HashSet<String>, active_file_diff_id: &FileDiffId) -> UpdateResult {
         let old_file_keys = self.file_id_map.keys().cloned().collect::<HashSet<_>>();
 
         if old_file_keys == new_file_keys {
-            return (Vec::new(), Vec::new());
+            return UpdateResult::default();
         }
 
+        let mut orphan_note_ids: HashSet<NoteId> = HashSet::new();
         if new_file_keys.is_disjoint(&old_file_keys) {
             let deleted_file_diff_ids = self.id_store_map.keys().cloned().collect::<Vec<_>>();
             let added_files = Vec::from_iter(new_file_keys.iter().cloned());
+
+            orphan_note_ids.extend(
+                self.id_store_map
+                    .values()
+                    .into_iter()
+                    .filter(|file_diff| !file_diff.line_note_map.is_empty())
+                    .flat_map(|file_diff| file_diff.line_note_map.values())
+                    .cloned()
+                    .collect::<Vec<_>>(),
+            );
+
             self.id_store_map.clear();
             self.file_id_map.clear();
             new_file_keys.into_iter().for_each(|file| self.add_new_file_diff(file));
-            (deleted_file_diff_ids, added_files)
+
+            UpdateResult {
+                deleted_file_diff_ids,
+                added_files,
+                orphan_note_ids,
+            }
         } else {
             let mut deleted_file_diff_ids = Vec::new();
             let deleted_files = old_file_keys.difference(&new_file_keys).collect::<HashSet<_>>();
             deleted_files.into_iter().for_each(|deleted_file| {
+                let file_diff_id = self
+                    .file_id_map
+                    .get(deleted_file)
+                    .unwrap_or_else(|| panic!("Could not find file {}!", deleted_file));
+                let file_diff = self
+                    .id_store_map
+                    .get(file_diff_id)
+                    .unwrap_or_else(|| panic!("[BUG] Could not find file diff with id {}!", file_diff_id));
+                orphan_note_ids.extend(file_diff.line_note_map.values().cloned());
+
                 if let Some(deleted_file_diff_id) = self.remove_file_diff(deleted_file) {
                     deleted_file_diff_ids.push(deleted_file_diff_id);
                 }
             });
 
             let new_subset: HashSet<_> = new_file_keys.difference(&old_file_keys).collect();
-            let files_added = Vec::from_iter(new_subset.iter().map(|s| String::from(s.as_str())));
+            let added_files = Vec::from_iter(new_subset.iter().map(|s| String::from(s.as_str())));
             new_subset.into_iter().cloned().for_each(|file| self.add_new_file_diff(file));
 
             let updated_files: HashSet<_> = new_file_keys.intersection(&old_file_keys).collect();
@@ -205,10 +239,15 @@ impl FileDiffs {
                         .id_store_map
                         .get_mut(file_id)
                         .unwrap_or_else(|| panic!("[BUG] Could not find file diff with id {}!", file_id));
+                    orphan_note_ids.extend(file_diff.line_note_map.values().cloned());
                     file_diff.line_note_map.clear();
                 });
 
-            (deleted_file_diff_ids, files_added)
+            UpdateResult {
+                deleted_file_diff_ids,
+                added_files,
+                orphan_note_ids,
+            }
         }
     }
     fn allocate_file_diff_id(&mut self) -> FileDiffId {

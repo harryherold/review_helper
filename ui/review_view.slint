@@ -10,6 +10,7 @@ import {
     SlintChangeTypeUtils,
     SlintNoteIdParamters,
     SlintContextType,
+    SlintNote,
 } from "globals.slint";
 import { CenterTabView, TabViewItem } from "controls/tabview.slint";
 import { OverallStatistics } from "overall_statistics.slint";
@@ -25,17 +26,30 @@ import { FileDiffSetupView } from "file_diff_setup_view.slint";
 import { FileDiffView } from "file_diff_view.slint";
 import { NotesView } from "notes_view.slint";
 
+component NotesDeletedFileContextPopup inherits PopupWindow {
+    in property <[SlintNote]> notes_deleted_context_model;
+}
+
 
 export component ReviewView inherits Rectangle {
     in property <SlintReviewIdParameters> review_id_parameters;
     in-out property <[SlintReview]> review_model;
     private property <int> review_index: SlintReviewCallbacks.review_id_to_index(root.review_id_parameters.review_id, root.review_model);
+    private property <[SlintNote]> notes_deleted_context_model: {
+        if !root.review_model[root.review_index].is_loaded {
+            return [];
+        }
+        else {
+            return SlintReviewCallbacks.notes_deleted_context_model(root.review_id_parameters);
+        }
+    }
 
     if root.review_index != -1 && root.review_model[root.review_index].is_loaded: CenterTabView {
         image_model: [
             @image-url("../assets/icons/differences.svg"),
             @image-url("../assets/icons/notes.svg"),
         ];
+        has_warnings_model: [false, root.notes_deleted_context_model.length > 0];
         spacing: Style.size.big-spacing;
         TabViewItem {
             index: 0;

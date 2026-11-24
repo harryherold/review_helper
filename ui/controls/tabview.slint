@@ -71,6 +71,7 @@ export component TabCreateButton inherits Rectangle {
 export component TabImageButton inherits Rectangle {
     in property <image> image_source;
     in property <bool> is-selected: false;
+    in property <bool> has_warnings: false;
     callback clicked <=> ta.clicked;
     background: is-selected ? Style.palette.background.brighter(0.1) : Style.palette.background.darker(0.1);
     border-width: Style.size.border-width;
@@ -91,6 +92,15 @@ export component TabImageButton inherits Rectangle {
             width: Style.size.image_width;
             source: root.image_source;
             colorize: Palette.foreground;
+        }
+
+        if root.has_warnings: Image {
+            x: parent.width - 16px;
+            y: 4px;
+            width: 12px;
+            height: 12px;
+            source: @image-url("../../assets/icons/warning.svg");
+            colorize: Palette.color-scheme == dark ? #FFD166 : #8A5A00;
         }
     }
 
@@ -163,7 +173,7 @@ export component TabView inherits Rectangle {
                                 root.current-index = idx;
                             }
                         }
-                        if (root.create_button_enabled): TabCreateButton {
+                        if root.create_button_enabled: TabCreateButton {
                             width: Style.size.control-small-width;
                             clicked => {
                                 root.request-create();
@@ -172,7 +182,7 @@ export component TabView inherits Rectangle {
                     }
                 }
 
-                if (root.settings_button_enabled): TabSettingsButton {
+                if root.settings_button_enabled: TabSettingsButton {
                     clicked => {
                         root.request-open-settings();
                     }
@@ -210,9 +220,8 @@ export component CenterTabView inherits Rectangle {
     in property <[image]> image_model;
     in property <length> layout_padding: 5px;
     in property <length> spacing: 0px;
+    in property <[bool]> has_warnings_model: [false, false];
     out property <int> current-index;
-    callback request-create();
-    callback request-open-settings();
     public function set_current_index(index: int) {
         root.current-index = index;
     }
@@ -231,11 +240,13 @@ export component CenterTabView inherits Rectangle {
                     HorizontalLayout {
                         alignment: center;
                         spacing: root.spacing;
+
                         for image[idx] in root.image_model: TabImageButton {
                             height: Style.size.control-height;
-                            width: Style.size.control-small-width;
+                            width: Style.size.control-small-width + 10px;
                             image_source: image;
                             is-selected: current-index == idx;
+                            has_warnings: root.has_warnings_model[idx];
                             clicked => {
                                 root.current-index = idx;
                             }

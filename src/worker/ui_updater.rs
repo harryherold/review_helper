@@ -16,6 +16,7 @@ use crate::git_utils::DiffStatus;
 use crate::model::IdModel;
 use crate::model::model_utils;
 use crate::repositories::FileDiffId;
+use crate::repositories::NoteId;
 use crate::storage::RepositoryStore;
 use crate::storage::repository_storage::FileDiffStore;
 use crate::ui::SlintChangeTypeOccurrence;
@@ -502,6 +503,10 @@ impl UiUpdater {
         });
     }
 
+    pub fn clear_loaded_file_diffs(&self, deleted_file_diff_ids: &Vec<FileDiffId>, active_file_diff_id: &FileDiffId) {
+        todo!("Not implemented!")
+    }
+
     pub fn add_note_reference(&self, repository_id: usize, review_id: usize, note_id: usize, file_diff_id: usize) {
         self.execute_in_event_loop(move |app_window| {
             let review = model_utils::get_slint_review(&app_window, repository_id, review_id)
@@ -555,6 +560,19 @@ impl UiUpdater {
                 .unwrap_or_else(|| panic!("[BUG] Line {} not found in lines!", line_number));
             line_data.note_id = -1;
             lines.set_row_data(line_number, line_data);
+        });
+    }
+    pub fn update_notes_with_deleted_file_context(&self, repository_id: usize, review_id: usize, note_ids: HashSet<NoteId>) {
+        self.execute_in_event_loop(move |app_window| {
+            let note_model = model_utils::get_note_model(&app_window, repository_id, review_id).unwrap_or_else(|| panic!("[BUG] Could not get note model!"));
+            let note_model = cast_model!(note_model, IdModel<ui::SlintNote>);
+            note_ids.iter().for_each(|note_id| {
+                let mut note = note_model
+                    .get(note_id.as_usize())
+                    .unwrap_or_else(|| panic!("[BUG] Could get note for id {}!", note_id.as_usize()));
+                note.context_type = ui::SlintContextType::DeletedFile;
+                note_model.update(note_id.as_usize(), note);
+            });
         });
     }
 

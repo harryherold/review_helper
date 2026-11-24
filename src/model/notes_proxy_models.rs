@@ -40,6 +40,7 @@ pub struct NotesProxyModels {
     notes_filter_model: NotesFilterModel,
     note_filter: Rc<RefCell<NoteFilter>>,
     notes_sort_model: NotesSortModel,
+    notes_deleted_context_model: NotesFilterModel,
     note_sort_parameter: Rc<RefCell<NoteSortParameter>>,
 }
 
@@ -62,7 +63,7 @@ impl NotesProxyModels {
             }
         });
 
-        let filter_model: NotesFilterModel = Rc::new(FilterModel::new(source_model, filter_callback));
+        let filter_model: NotesFilterModel = Rc::new(FilterModel::new(source_model.clone(), filter_callback));
 
         let sort_parameter = Rc::new(RefCell::new(NoteSortParameter::new()));
 
@@ -85,10 +86,14 @@ impl NotesProxyModels {
 
         let sort_model: NotesSortModel = Rc::new(SortModel::new(filter_model.clone(), sort_callback));
 
+        let filter_callback: Box<dyn Fn(&SlintNote) -> bool> = Box::new(|note: &ui::SlintNote| note.context_type == ui::SlintContextType::DeletedFile);
+        let deleted_context_model = Rc::new(FilterModel::new(source_model.clone(), filter_callback));
+
         Self {
             notes_filter_model: filter_model,
             note_filter: filter,
             notes_sort_model: sort_model,
+            notes_deleted_context_model: deleted_context_model,
             note_sort_parameter: sort_parameter,
         }
     }
@@ -108,5 +113,8 @@ impl NotesProxyModels {
         sort_parameter.criteria = criteria;
         sort_parameter.order = order;
         self.notes_sort_model.reset();
+    }
+    pub fn ui_notes_deleted_context_model(&self) -> ModelRc<ui::SlintNote> {
+        self.notes_deleted_context_model.clone().into()
     }
 }
