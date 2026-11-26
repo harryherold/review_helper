@@ -169,7 +169,7 @@ impl FileDiffs {
             .unwrap_or_else(|| panic!("Could not find file diff id {}!", file_diff_id));
         file_diff.line_note_map.insert(line_number, note_id);
     }
-    pub fn update_file_diffs(&mut self, new_file_keys: HashSet<String>, active_file_diff_id: &FileDiffId) -> UpdateResult {
+    pub fn update_file_diffs(&mut self, new_file_keys: HashSet<String>) -> UpdateResult {
         let old_file_keys = self.file_id_map.keys().cloned().collect::<HashSet<_>>();
 
         if old_file_keys == new_file_keys {
@@ -178,12 +178,7 @@ impl FileDiffs {
 
         let mut orphan_note_ids: HashSet<usize> = HashSet::new();
         if new_file_keys.is_disjoint(&old_file_keys) {
-            let deleted_file_diff_ids = self
-                .id_store_map
-                .keys()
-                .filter(|id| id != &active_file_diff_id)
-                .map(|id| id.as_usize())
-                .collect::<Vec<_>>();
+            let deleted_file_diff_ids = self.id_store_map.keys().map(|id| id.as_usize()).collect::<Vec<_>>();
 
             orphan_note_ids.extend(
                 self.id_store_map
@@ -216,9 +211,7 @@ impl FileDiffs {
                     .unwrap_or_else(|| panic!("[BUG] Could not find file diff with id {}!", file_diff_id));
                 orphan_note_ids.extend(file_diff.line_note_map.values().map(|id| id.as_usize()));
 
-                if let Some(deleted_file_diff_id) = self.remove_file_diff(deleted_file)
-                    && &deleted_file_diff_id != active_file_diff_id
-                {
+                if let Some(deleted_file_diff_id) = self.remove_file_diff(deleted_file) {
                     deleted_file_diff_ids.push(deleted_file_diff_id.as_usize());
                 }
             });
@@ -229,12 +222,12 @@ impl FileDiffs {
             let updated_files: HashSet<_> = new_file_keys.intersection(&old_file_keys).collect();
             updated_files
                 .iter()
-                .filter_map(|file| -> Option<&FileDiffId> {
+                .map(|file| -> &FileDiffId {
                     let file_id = self
                         .file_id_map
                         .get(*file)
                         .unwrap_or_else(|| panic!("[BUG] Could not find updated file {} in map!", file));
-                    if file_id == active_file_diff_id { None } else { Some(file_id) }
+                    file_id
                 })
                 .for_each(|file_id| {
                     let file_diff = self
@@ -298,36 +291,24 @@ impl Review {
         review.file_diffs = FileDiffs::new(store.file_diff_list);
 
         review.notes = Notes::new(store.notes);
-
         review
             .notes
             .iter()
-            .filter(|(_, store)| match &store.context {
-                NoteContextStore::FileAnchor { .. } => true,
-                _ => false,
-            })
-            .for_each(|(note_id, store)| match &store.context {
-                NoteContextStore::FileAnchor {
-                    file,
-                    diff_range: _,
-                    codeline: _,
-                    codeline_number,
-                } => {
-                    let file_id = review
-                        .file_diffs
-                        .file_id_map
-                        .get(&file.to_string_lossy().to_string())
-                        .unwrap_or_else(|| panic!("Could not find {} of note in file diffs", file.to_string_lossy()));
-
-                    let file_diff = review
-                        .file_diffs
-                        .id_store_map
-                        .get_mut(file_id)
-                        .unwrap_or_else(|| panic!("Could not find file diff of id {}", file_id));
-
-                    file_diff.line_note_map.insert(*codeline_number, note_id.to_owned());
+            .filter_map(|(note_id, store)| match &store.context {
+                NoteContextStore::FileAnchor { file, codeline_number, .. } => {
+                    let file_id = review.file_diffs.file_id_map.get(&file.to_string_lossy().to_string())?;
+                    Some((note_id.to_owned(), file_id, codeline_number.to_owned()))
                 }
-                _ => {}
+                _ => None,
+            })
+            .for_each(|(note_id, file_id, codeline_number)| {
+                let file_diff = review
+                    .file_diffs
+                    .id_store_map
+                    .get_mut(file_id)
+                    .unwrap_or_else(|| panic!("Could not find file diff of id {}", file_id));
+
+                file_diff.line_note_map.insert(codeline_number, note_id);
             });
 
         review

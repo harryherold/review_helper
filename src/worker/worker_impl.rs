@@ -468,11 +468,15 @@ impl WorkerImpl {
         review.notes.iter().for_each(|id_store_tuple| {
             let (text_context, file_line_context, context_type) = match &id_store_tuple.1.context {
                 NoteContextStore::General => (SharedString::new(), ui::SlintFileCodeLine::default(), SlintContextType::General),
-                NoteContextStore::File(file) => (
-                    SharedString::from(file.to_string_lossy().to_string()),
-                    ui::SlintFileCodeLine::default(),
-                    SlintContextType::File,
-                ),
+                NoteContextStore::File(file) => {
+                    let file = file.to_string_lossy().to_string();
+                    let context_type = if review.file_diffs.file_id_map.contains_key(&file) {
+                        SlintContextType::File
+                    } else {
+                        SlintContextType::DeletedFile
+                    };
+                    (SharedString::from(file), ui::SlintFileCodeLine::default(), context_type)
+                }
                 NoteContextStore::Text(text) => (SharedString::from(text), ui::SlintFileCodeLine::default(), SlintContextType::Text),
                 NoteContextStore::FileAnchor {
                     file,
@@ -480,14 +484,20 @@ impl WorkerImpl {
                     codeline,
                     codeline_number,
                 } => {
+                    let file = file.to_string_lossy().to_string();
+                    let context_type = if review.file_diffs.file_id_map.contains_key(&file) {
+                        SlintContextType::FileLineNumber
+                    } else {
+                        SlintContextType::DeletedFile
+                    };
                     let context = ui::SlintFileCodeLine {
-                        file: SharedString::from(file.to_string_lossy().to_string()),
+                        file: SharedString::from(file),
                         line_number: *codeline_number as i32,
                         line_content: SharedString::from(codeline),
                         start_commit: SharedString::from(&diff_range.start),
                         end_commit: SharedString::from(&diff_range.end),
                     };
-                    (SharedString::new(), context, SlintContextType::FileLineNumber)
+                    (SharedString::new(), context, context_type)
                 }
             };
 
@@ -576,22 +586,19 @@ impl WorkerImpl {
             codeline_number: old_line,
         } = old_context
         {
-            let old_file_id = review
-                .file_diffs
-                .file_id_map
-                .get(&old_file.to_string_lossy().to_string())
-                .unwrap_or_else(|| panic!("[BUG] Could not find file id of file {}!", old_file.to_string_lossy()))
-                .clone();
-            let file_diff = review
-                .file_diffs
-                .get_mut(&old_file_id)
-                .unwrap_or_else(|| panic!("[BUG] Could not find file diff of id {}!", old_file_id));
-            let old_note_id = file_diff
-                .line_note_map
-                .remove(old_line)
-                .unwrap_or_else(|| panic!("[BUG] Line note {} was not cached!", old_line));
+            let old_file_id = review.file_diffs.file_id_map.get(&old_file.to_string_lossy().to_string()).cloned();
+            if let Some(old_file_id) = old_file_id {
+                let file_diff = review
+                    .file_diffs
+                    .get_mut(&old_file_id)
+                    .unwrap_or_else(|| panic!("[BUG] Could not find file diff of id {}!", old_file_id));
+                let old_note_id = file_diff
+                    .line_note_map
+                    .remove(old_line)
+                    .unwrap_or_else(|| panic!("[BUG] Line note {} was not cached!", old_line));
 
-            assert_eq!(&old_note_id, note_id);
+                assert_eq!(&old_note_id, note_id);
+            }
         }
         if let NoteContext::FileCodeLine {
             file: new_file_id,
@@ -635,15 +642,15 @@ impl WorkerImpl {
                 ..
             } = old_context
             {
-                let old_file_id = review
+                if let Some(old_file_id) = review
                     .file_diffs
                     .file_id_map
                     .get(&old_file.to_string_lossy().to_string())
                     .map(|id| id.as_usize())
-                    .unwrap_or_else(|| panic!("[BUG] Could not find file id of file {}!", old_file.to_string_lossy()));
-
-                self.ui_updater
-                    .remove_note_line_reference(repository_id.as_usize(), review_id.as_usize(), old_file_id, *old_line as usize);
+                {
+                    self.ui_updater
+                        .remove_note_line_reference(repository_id.as_usize(), review_id.as_usize(), old_file_id, *old_line as usize);
+                }
             }
             if let NoteContext::FileCodeLine {
                 file: new_file_id,
@@ -784,12 +791,10 @@ impl WorkerImpl {
             .get_mut(&review_id)
             .unwrap_or_else(|| panic!("[BUG] Could not find {} ({})", review_id, repository_id));
 
-        let mut update_result = review.file_diffs.update_file_diffs(new_files, &active_file_diff_id);
+        let update_result = review.file_diffs.update_file_diffs(new_files);
         review.set_diff_range(diff_range);
 
-        if review.file_diffs.get(&active_file_diff_id).is_none() {
-            self.ui_updater.clear_active_file_diff_id(repository_id.as_usize(), review_id.as_usize());
-        }
+        let should_clear_active_file_diff_id = review.file_diffs.get(&active_file_diff_id).is_none();
 
         let ui_file_diffs = review
             .file_diffs
@@ -801,17 +806,18 @@ impl WorkerImpl {
             })
             .collect::<Vec<_>>();
 
-        if !update_result.deleted_file_diff_ids.is_empty() {
-            self.ui_updater
-                .clear_loaded_file_diffs(repository_id.as_usize(), review_id.as_usize(), update_result.deleted_file_diff_ids);
-        }
-
         if !update_result.orphan_note_ids.is_empty() {
             self.ui_updater
                 .update_notes_with_deleted_file_context(repository_id.as_usize(), review_id.as_usize(), update_result.orphan_note_ids);
         }
 
-        self.ui_updater.set_file_diffs(repository_id.as_usize(), review_id.as_usize(), ui_file_diffs);
+        self.ui_updater.update_file_diffs(
+            repository_id.as_usize(),
+            review_id.as_usize(),
+            ui_file_diffs,
+            update_result.deleted_file_diff_ids,
+            should_clear_active_file_diff_id,
+        );
 
         if let Err(e) = self
             .storage
@@ -843,13 +849,10 @@ impl WorkerImpl {
 
         match store.context {
             NoteContextStore::File(file) => {
-                let file_diff_id = review
-                    .file_diffs
-                    .file_id_map
-                    .get(&file.to_string_lossy().to_string())
-                    .unwrap_or_else(|| panic!("[BUG] Could not find fileId of {}!", &file.to_string_lossy()));
-                self.ui_updater
-                    .remove_note_reference(repository_id.as_usize(), review_id.as_usize(), note_id.as_usize(), file_diff_id.as_usize());
+                if let Some(file_diff_id) = review.file_diffs.file_id_map.get(&file.to_string_lossy().to_string()) {
+                    self.ui_updater
+                        .remove_note_reference(repository_id.as_usize(), review_id.as_usize(), note_id.as_usize(), file_diff_id.as_usize());
+                }
             }
             NoteContextStore::FileAnchor {
                 file,
@@ -857,31 +860,25 @@ impl WorkerImpl {
                 codeline: _,
                 codeline_number,
             } => {
-                // TODO could be an SlintContextType::DeletedFile!
-                let file_diff_id = review
-                    .file_diffs
-                    .file_id_map
-                    .get(&file.to_string_lossy().to_string())
-                    .cloned()
-                    .unwrap_or_else(|| panic!("[BUG] Could not find fileId of {}!", &file.to_string_lossy()));
-
-                match review.file_diffs.remove_file_line_note(&file_diff_id, &codeline_number) {
-                    Some(removed_note_id) => {
-                        if removed_note_id != note_id {
-                            panic!("[BUG] Removed wrong note {} (!= {}) from file {}", removed_note_id, note_id, file_diff_id);
+                if let Some(file_diff_id) = review.file_diffs.file_id_map.get(&file.to_string_lossy().to_string()).cloned() {
+                    match review.file_diffs.remove_file_line_note(&file_diff_id, &codeline_number) {
+                        Some(removed_note_id) => {
+                            if removed_note_id != note_id {
+                                panic!("[BUG] Removed wrong note {} (!= {}) from file {}", removed_note_id, note_id, file_diff_id);
+                            }
                         }
-                    }
-                    None => panic!("[BUG] File anchor referenced no guilty file or code line!"),
-                };
+                        None => panic!("[BUG] File anchor referenced no guilty file or code line!"),
+                    };
 
-                self.ui_updater
-                    .remove_note_reference(repository_id.as_usize(), review_id.as_usize(), note_id.as_usize(), file_diff_id.as_usize());
-                self.ui_updater.remove_note_line_reference(
-                    repository_id.as_usize(),
-                    review_id.as_usize(),
-                    file_diff_id.as_usize(),
-                    codeline_number as usize,
-                );
+                    self.ui_updater
+                        .remove_note_reference(repository_id.as_usize(), review_id.as_usize(), note_id.as_usize(), file_diff_id.as_usize());
+                    self.ui_updater.remove_note_line_reference(
+                        repository_id.as_usize(),
+                        review_id.as_usize(),
+                        file_diff_id.as_usize(),
+                        codeline_number as usize,
+                    );
+                }
             }
             _ => {}
         };

@@ -16,7 +16,6 @@ use crate::git_utils::DiffStatus;
 use crate::model::IdModel;
 use crate::model::model_utils;
 use crate::repositories::FileDiffId;
-use crate::repositories::NoteId;
 use crate::storage::RepositoryStore;
 use crate::storage::repository_storage::FileDiffStore;
 use crate::ui::SlintChangeTypeOccurrence;
@@ -458,66 +457,34 @@ impl UiUpdater {
         file_diff.referenced_notes
     }
 
-    pub fn migrate_file_diff_notes_to_file_context<I>(&self, repository_id: usize, review_id: usize, added_files: I)
-    where
-        I: IntoIterator<Item = SharedString> + Send + 'static,
-        I::IntoIter: Send,
-    {
-        self.execute_in_event_loop(move |app_window| {
-            let note_model = model_utils::get_note_model(&app_window, repository_id, review_id)
-                .unwrap_or_else(|| panic!("[BUG] RepositoryId {} ReviewId {} not found", repository_id, review_id));
-            let note_model = cast_model!(note_model, IdModel<ui::SlintNote>);
-            added_files.into_iter().for_each(|file| {
-                note_model.iter().for_each(|mut note| {
-                    if note.context_type == ui::SlintContextType::Text && note.context == file {
-                        note.context_type = ui::SlintContextType::File;
-                        note_model.update(note.id as usize, note);
-                    }
-                });
+    fn clear_diff_lines(loaded_diffs: ModelRc<ui::SlintDiffLines>, deleted_file_diff_ids: &Vec<usize>) {
+        let loaded_diffs = cast_model!(loaded_diffs, IdModel<ui::SlintDiffLines>);
+        deleted_file_diff_ids
+            .iter()
+            .filter_map(|deleted_file_diff_id| {
+                let diff_line = loaded_diffs.get(*deleted_file_diff_id)?;
+                Some(diff_line.lines)
+            })
+            .for_each(|lines| {
+                let lines_model = cast_model!(lines, VecModel<ui::SlintDiffLine>);
+                lines_model.clear();
             });
-        });
     }
 
-    pub fn migrate_file_diff_notes_to_text_context<I>(&self, repository_id: usize, review_id: usize, deleted_file_ids: I)
-    where
-        I: IntoIterator<Item = usize> + Send + 'static,
-        I::IntoIter: Send,
-    {
-        self.execute_in_event_loop(move |app_window| {
-            let review = model_utils::get_slint_review(&app_window, repository_id, review_id)
-                .unwrap_or_else(|| panic!("[BUG] RepositoryId {} ReviewId {} not found", repository_id, review_id));
-            let file_diff_model = cast_model!(review.file_diff_model, IdModel<ui::SlintFileDiff>);
-            let note_ids: Vec<_> = deleted_file_ids
-                .into_iter()
-                .flat_map(|id| {
-                    let file_diff = file_diff_model.get(id).unwrap_or_else(|| panic!("[BUG] FileDiffId {} not found", id));
-                    file_diff.referenced_notes.iter().map(|i| i as usize).collect::<Vec<_>>()
-                })
-                .collect();
-            let notes_model = cast_model!(review.note_model, IdModel<ui::SlintNote>);
-            note_ids.into_iter().for_each(|note_id| {
-                let mut note = notes_model.get(note_id).unwrap_or_else(|| panic!("[BUG] NoteId {} not found", note_id));
-                note.context_type = ui::SlintContextType::Text;
-                notes_model.update(note_id, note);
-            });
+    pub fn delete_note_context(review: &SlintReview, deleted_file_diff_ids: &Vec<usize>) {
+        let mut note_ids: HashSet<i32> = HashSet::new();
+        deleted_file_diff_ids.iter().for_each(|deleted_file_diff_id| {
+            let referenced_model = Self::get_note_references(review, *deleted_file_diff_id);
+            let referenced_notes_model = cast_model!(referenced_model, VecModel<i32>);
+            note_ids.extend(referenced_notes_model.iter().collect::<Vec<_>>());
         });
-    }
-
-    pub fn clear_loaded_file_diffs(&self, repository_id: usize, review_id: usize, deleted_file_diff_ids: Vec<usize>) {
-        self.execute_in_event_loop(move |app_window| {
-            let review = model_utils::get_slint_review(&app_window, repository_id, review_id)
-                .unwrap_or_else(|| panic!("[BUG] RepositoryId {} ReviewId {} not found", repository_id, review_id));
-            let loaded_diffs = cast_model!(review.loaded_file_diffs, IdModel<ui::SlintDiffLines>);
-            deleted_file_diff_ids
-                .into_iter()
-                .filter_map(|deleted_id| {
-                    let diff_line = loaded_diffs.get(deleted_id)?;
-                    Some(diff_line.lines)
-                })
-                .for_each(|lines_model| {
-                    let lines_model = cast_model!(lines_model, VecModel<ui::SlintDiffLine>);
-                    lines_model.clear();
-                });
+        let notes_model = cast_model!(review.note_model, IdModel<ui::SlintNote>);
+        note_ids.into_iter().for_each(|note_id| {
+            let mut note = notes_model
+                .get(note_id as usize)
+                .unwrap_or_else(|| panic!("[BUG] Could not find referenced note with id {}", note_id));
+            note.context_type = ui::SlintContextType::DeletedFile;
+            notes_model.update(note_id as usize, note);
         });
     }
 
@@ -623,12 +590,26 @@ impl UiUpdater {
             review_model.update(review_id, review);
         });
     }
-    pub fn set_file_diffs(&self, repository_id: usize, review_id: usize, ui_file_diffs: Vec<(i32, FileDiffStore, DiffStatus)>) {
+    pub fn update_file_diffs(
+        &self,
+        repository_id: usize,
+        review_id: usize,
+        ui_file_diffs: Vec<(i32, FileDiffStore, DiffStatus)>,
+        deleted_file_diff_ids: Vec<usize>,
+        should_clear_active_file_id: bool,
+    ) {
         self.execute_in_event_loop(move |app_window| {
             let review_model =
                 model_utils::get_review_model(&app_window, repository_id).unwrap_or_else(|| panic!("[BUG] RepositoryId {} not found", repository_id));
             let review_model = cast_model!(review_model, IdModel<ui::SlintReview>);
             let mut review = review_model.get(review_id).unwrap_or_else(|| panic!("[BUG] ReviewId {} not found", review_id));
+
+            Self::clear_diff_lines(review.loaded_file_diffs.clone(), &deleted_file_diff_ids);
+            Self::delete_note_context(&review, &deleted_file_diff_ids);
+
+            if should_clear_active_file_id {
+                review.active_file_diff_id = -1;
+            }
 
             let file_diff_model = cast_model!(review.file_diff_model, IdModel<ui::SlintFileDiff>);
             file_diff_model.clear();
@@ -718,16 +699,6 @@ impl UiUpdater {
                 review.review_progress.completed_count - 1
             };
 
-            review_model.update(review_id, review);
-        });
-    }
-    pub fn clear_active_file_diff_id(&self, repository_id: usize, review_id: usize) {
-        self.execute_in_event_loop(move |app_window| {
-            let review_model =
-                model_utils::get_review_model(&app_window, repository_id).unwrap_or_else(|| panic!("[BUG] RepositoryId {} not found", repository_id));
-            let review_model = cast_model!(review_model, IdModel<ui::SlintReview>);
-            let mut review = review_model.get(review_id).unwrap_or_else(|| panic!("[BUG] ReviewId {} not found", review_id));
-            review.active_file_diff_id = -1;
             review_model.update(review_id, review);
         });
     }
