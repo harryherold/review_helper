@@ -503,8 +503,22 @@ impl UiUpdater {
         });
     }
 
-    pub fn clear_loaded_file_diffs(&self, deleted_file_diff_ids: &Vec<FileDiffId>, active_file_diff_id: &FileDiffId) {
-        todo!("Not implemented!")
+    pub fn clear_loaded_file_diffs(&self, repository_id: usize, review_id: usize, deleted_file_diff_ids: Vec<usize>) {
+        self.execute_in_event_loop(move |app_window| {
+            let review = model_utils::get_slint_review(&app_window, repository_id, review_id)
+                .unwrap_or_else(|| panic!("[BUG] RepositoryId {} ReviewId {} not found", repository_id, review_id));
+            let loaded_diffs = cast_model!(review.loaded_file_diffs, IdModel<ui::SlintDiffLines>);
+            deleted_file_diff_ids
+                .into_iter()
+                .filter_map(|deleted_id| {
+                    let diff_line = loaded_diffs.get(deleted_id)?;
+                    Some(diff_line.lines)
+                })
+                .for_each(|lines_model| {
+                    let lines_model = cast_model!(lines_model, VecModel<ui::SlintDiffLine>);
+                    lines_model.clear();
+                });
+        });
     }
 
     pub fn add_note_reference(&self, repository_id: usize, review_id: usize, note_id: usize, file_diff_id: usize) {
@@ -562,16 +576,14 @@ impl UiUpdater {
             lines.set_row_data(line_number, line_data);
         });
     }
-    pub fn update_notes_with_deleted_file_context(&self, repository_id: usize, review_id: usize, note_ids: HashSet<NoteId>) {
+    pub fn update_notes_with_deleted_file_context(&self, repository_id: usize, review_id: usize, note_ids: HashSet<usize>) {
         self.execute_in_event_loop(move |app_window| {
             let note_model = model_utils::get_note_model(&app_window, repository_id, review_id).unwrap_or_else(|| panic!("[BUG] Could not get note model!"));
             let note_model = cast_model!(note_model, IdModel<ui::SlintNote>);
-            note_ids.iter().for_each(|note_id| {
-                let mut note = note_model
-                    .get(note_id.as_usize())
-                    .unwrap_or_else(|| panic!("[BUG] Could get note for id {}!", note_id.as_usize()));
+            note_ids.into_iter().for_each(|note_id| {
+                let mut note = note_model.get(note_id).unwrap_or_else(|| panic!("[BUG] Could get note for id {}!", note_id));
                 note.context_type = ui::SlintContextType::DeletedFile;
-                note_model.update(note_id.as_usize(), note);
+                note_model.update(note_id, note);
             });
         });
     }

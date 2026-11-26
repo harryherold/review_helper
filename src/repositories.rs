@@ -117,9 +117,8 @@ pub struct FileDiffs {
 
 #[derive(Default, Clone)]
 pub struct UpdateResult {
-    pub deleted_file_diff_ids: Vec<FileDiffId>,
-    pub added_files: Vec<String>,
-    pub orphan_note_ids: HashSet<NoteId>,
+    pub deleted_file_diff_ids: Vec<usize>,
+    pub orphan_note_ids: HashSet<usize>,
 }
 
 impl FileDiffs {
@@ -177,18 +176,21 @@ impl FileDiffs {
             return UpdateResult::default();
         }
 
-        let mut orphan_note_ids: HashSet<NoteId> = HashSet::new();
+        let mut orphan_note_ids: HashSet<usize> = HashSet::new();
         if new_file_keys.is_disjoint(&old_file_keys) {
-            let deleted_file_diff_ids = self.id_store_map.keys().cloned().collect::<Vec<_>>();
-            let added_files = Vec::from_iter(new_file_keys.iter().cloned());
+            let deleted_file_diff_ids = self
+                .id_store_map
+                .keys()
+                .filter(|id| id != &active_file_diff_id)
+                .map(|id| id.as_usize())
+                .collect::<Vec<_>>();
 
             orphan_note_ids.extend(
                 self.id_store_map
                     .values()
                     .into_iter()
                     .filter(|file_diff| !file_diff.line_note_map.is_empty())
-                    .flat_map(|file_diff| file_diff.line_note_map.values())
-                    .cloned()
+                    .flat_map(|file_diff| file_diff.line_note_map.values().map(|id| id.as_usize()))
                     .collect::<Vec<_>>(),
             );
 
@@ -198,7 +200,6 @@ impl FileDiffs {
 
             UpdateResult {
                 deleted_file_diff_ids,
-                added_files,
                 orphan_note_ids,
             }
         } else {
@@ -213,15 +214,16 @@ impl FileDiffs {
                     .id_store_map
                     .get(file_diff_id)
                     .unwrap_or_else(|| panic!("[BUG] Could not find file diff with id {}!", file_diff_id));
-                orphan_note_ids.extend(file_diff.line_note_map.values().cloned());
+                orphan_note_ids.extend(file_diff.line_note_map.values().map(|id| id.as_usize()));
 
-                if let Some(deleted_file_diff_id) = self.remove_file_diff(deleted_file) {
-                    deleted_file_diff_ids.push(deleted_file_diff_id);
+                if let Some(deleted_file_diff_id) = self.remove_file_diff(deleted_file)
+                    && &deleted_file_diff_id != active_file_diff_id
+                {
+                    deleted_file_diff_ids.push(deleted_file_diff_id.as_usize());
                 }
             });
 
             let new_subset: HashSet<_> = new_file_keys.difference(&old_file_keys).collect();
-            let added_files = Vec::from_iter(new_subset.iter().map(|s| String::from(s.as_str())));
             new_subset.into_iter().cloned().for_each(|file| self.add_new_file_diff(file));
 
             let updated_files: HashSet<_> = new_file_keys.intersection(&old_file_keys).collect();
@@ -239,13 +241,12 @@ impl FileDiffs {
                         .id_store_map
                         .get_mut(file_id)
                         .unwrap_or_else(|| panic!("[BUG] Could not find file diff with id {}!", file_id));
-                    orphan_note_ids.extend(file_diff.line_note_map.values().cloned());
+                    orphan_note_ids.extend(file_diff.line_note_map.values().map(|id| id.as_usize()));
                     file_diff.line_note_map.clear();
                 });
 
             UpdateResult {
                 deleted_file_diff_ids,
-                added_files,
                 orphan_note_ids,
             }
         }

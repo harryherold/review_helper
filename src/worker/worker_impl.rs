@@ -784,7 +784,7 @@ impl WorkerImpl {
             .get_mut(&review_id)
             .unwrap_or_else(|| panic!("[BUG] Could not find {} ({})", review_id, repository_id));
 
-        let update_result = review.file_diffs.update_file_diffs(new_files, &active_file_diff_id);
+        let mut update_result = review.file_diffs.update_file_diffs(new_files, &active_file_diff_id);
         review.set_diff_range(diff_range);
 
         if review.file_diffs.get(&active_file_diff_id).is_none() {
@@ -803,20 +803,7 @@ impl WorkerImpl {
 
         if !update_result.deleted_file_diff_ids.is_empty() {
             self.ui_updater
-                .clear_loaded_file_diffs(&update_result.deleted_file_diff_ids, &active_file_diff_id);
-            self.ui_updater.migrate_file_diff_notes_to_text_context(
-                repository_id.as_usize(),
-                review_id.as_usize(),
-                update_result.deleted_file_diff_ids.into_iter().map(|id| id.as_usize()),
-            );
-        }
-
-        if !update_result.added_files.is_empty() {
-            self.ui_updater.migrate_file_diff_notes_to_file_context(
-                repository_id.as_usize(),
-                review_id.as_usize(),
-                update_result.added_files.into_iter().map(SharedString::from),
-            );
+                .clear_loaded_file_diffs(repository_id.as_usize(), review_id.as_usize(), update_result.deleted_file_diff_ids);
         }
 
         if !update_result.orphan_note_ids.is_empty() {
