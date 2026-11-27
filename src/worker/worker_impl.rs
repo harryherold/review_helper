@@ -796,6 +796,8 @@ impl WorkerImpl {
 
         let should_clear_active_file_diff_id = review.file_diffs.get(&active_file_diff_id).is_none();
 
+        if !should_clear_active_file_diff_id {}
+
         let ui_file_diffs = review
             .file_diffs
             .iter()
